@@ -68,7 +68,9 @@ jobs:
         run: |
           echo "=== FRONTEND GUARD 1: All ESLint rules must be ERROR ==="
 
-          if grep -E "'warn'|\"warn\"" frontend/eslint.config.js 2>/dev/null; then
+          # Check for 'warn' as a rule severity (not inside allow arrays)
+          # Pattern: : 'warn' or : "warn" or ['warn', or ["warn",
+          if grep -E ":\s*'warn'|:\s*\"warn\"|\\['warn',|\\[\"warn\"," frontend/eslint.config.js 2>/dev/null; then
             echo "❌ BLOCKED: Found 'warn' severity in ESLint config!"
             echo ""
             echo "🚨 VIOLATION TYPE: Frontend Rule Weakening"
