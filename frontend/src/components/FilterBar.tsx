@@ -17,7 +17,7 @@ interface FilterSelectProps {
   onChange: (value: string) => void
 }
 
-function FilterSelect({ value, placeholder, options, onChange }: FilterSelectProps): JSX.Element {
+function FilterSelect({ value, placeholder, options, onChange }: FilterSelectProps): React.ReactElement {
   return (
     <select
       className="rounded border border-gray-300 px-3 py-1.5 text-sm"
@@ -42,7 +42,7 @@ function StockLevelSelect({
 }: {
   value: string
   onChange: (v: string) => void
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <select
       className="rounded border border-gray-300 px-3 py-1.5 text-sm"
@@ -67,7 +67,7 @@ interface ActiveFilterBadgeProps {
   onClear: () => void
 }
 
-function ActiveFilterBadge({ filterKey, value, onClear }: ActiveFilterBadgeProps): JSX.Element {
+function ActiveFilterBadge({ filterKey, value, onClear }: ActiveFilterBadgeProps): React.ReactElement {
   return (
     <span className="inline-flex items-center gap-1 rounded bg-burgundy px-2 py-1 text-xs text-white">
       {filterKey}: {value}
@@ -84,7 +84,7 @@ function ActiveFiltersDisplay({
 }: {
   filters: ProductFilters
   onClearFilter: (key: string) => void
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {Object.entries(filters).map(([key, value]) => {
@@ -118,7 +118,7 @@ function FilterControls({
   channels: string[]
   collections: string[]
   onFilterChange: (key: string, value: string) => void
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <>
       <StockLevelSelect
@@ -171,7 +171,7 @@ function FilterControls({
   )
 }
 
-export function FilterBar(): JSX.Element {
+export function FilterBar(): React.ReactElement {
   const { filters, updateFilter, clearFilters } = useAppStore()
   const { tags, channels, collections } = useFilters()
 

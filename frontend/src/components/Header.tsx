@@ -10,7 +10,7 @@ import type { ViewMode } from '../constants'
 import { useProducts, useReloadData } from '../hooks/useProducts'
 import { useAppStore } from '../stores/useAppStore'
 
-function SearchIcon(): JSX.Element {
+function SearchIcon(): React.ReactElement {
   return (
     <svg
       className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
@@ -28,7 +28,7 @@ function SearchIcon(): JSX.Element {
   )
 }
 
-function GridIcon(): JSX.Element {
+function GridIcon(): React.ReactElement {
   return (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
@@ -41,7 +41,7 @@ function GridIcon(): JSX.Element {
   )
 }
 
-function ListIcon(): JSX.Element {
+function ListIcon(): React.ReactElement {
   return (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
@@ -54,7 +54,7 @@ function ListIcon(): JSX.Element {
   )
 }
 
-function RefreshIcon(): JSX.Element {
+function RefreshIcon(): React.ReactElement {
   return (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
@@ -73,7 +73,7 @@ function ViewToggle({
 }: {
   viewMode: ViewMode
   onViewChange: (mode: ViewMode) => void
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <div className="view-toggle flex overflow-hidden rounded border border-burgundy">
       <button
@@ -106,7 +106,7 @@ function ReloadButton({
 }: {
   isReloading: boolean
   onReload: () => void
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <button
       className="flex items-center gap-2 rounded border border-burgundy px-3 py-1.5 text-sm text-burgundy transition-colors hover:bg-burgundy hover:text-white disabled:opacity-50"
@@ -129,7 +129,7 @@ function ReloadButton({
   )
 }
 
-export function Header(): JSX.Element {
+export function Header(): React.ReactElement {
   const { viewMode, setViewMode, updateFilter, isLoading } = useAppStore()
   const { total, totalProducts } = useProducts()
   const { reload, isReloading } = useReloadData()

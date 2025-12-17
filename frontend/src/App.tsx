@@ -22,7 +22,7 @@ const queryClient = new QueryClient({
   },
 })
 
-function ProductsPage(): JSX.Element {
+function ProductsPage(): React.ReactElement {
   const { viewMode } = useAppStore()
 
   return (
@@ -30,7 +30,7 @@ function ProductsPage(): JSX.Element {
   )
 }
 
-function AnalyticsPage(): JSX.Element {
+function AnalyticsPage(): React.ReactElement {
   const { totalProducts, totalVariants, tags, channels } = useFilters()
 
   return (
@@ -58,7 +58,7 @@ function AnalyticsPage(): JSX.Element {
   )
 }
 
-function SettingsPage(): JSX.Element {
+function SettingsPage(): React.ReactElement {
   return (
     <div className="p-4">
       <h2 className="mb-4 font-serif text-2xl text-burgundy">Configuration</h2>
@@ -86,7 +86,7 @@ function SettingsPage(): JSX.Element {
   )
 }
 
-function MainContent(): JSX.Element {
+function MainContent(): React.ReactElement {
   const { currentPage } = useAppStore()
 
   return (
@@ -105,7 +105,7 @@ function MainContent(): JSX.Element {
   )
 }
 
-export default function App(): JSX.Element {
+export default function App(): React.ReactElement {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-cream font-sans">

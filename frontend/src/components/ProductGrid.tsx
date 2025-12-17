@@ -22,7 +22,7 @@ function formatCurrency(value: number | null | undefined): string {
   return CURRENCY_FORMATTER.format(value)
 }
 
-function StockBadge({ stock, level }: { stock: number; level: StockLevel }): JSX.Element {
+function StockBadge({ stock, level }: { stock: number; level: StockLevel }): React.ReactElement {
   const colors = STOCK_LEVEL_COLORS[level]
   return (
     <span
@@ -33,7 +33,7 @@ function StockBadge({ stock, level }: { stock: number; level: StockLevel }): JSX
   )
 }
 
-function ProductCard({ product }: { product: Product }): JSX.Element {
+function ProductCard({ product }: { product: Product }): React.ReactElement {
   const { setSelectedProductId } = useAppStore()
 
   const handleClick = useCallback((): void => {
@@ -97,7 +97,7 @@ function ProductCard({ product }: { product: Product }): JSX.Element {
   )
 }
 
-function SkeletonCard(): JSX.Element {
+function SkeletonCard(): React.ReactElement {
   return (
     <div className="border border-burgundy bg-white">
       <div className="skeleton aspect-square" />
@@ -115,7 +115,7 @@ function SkeletonCard(): JSX.Element {
 
 const SKELETON_CARD_COUNT = 10
 
-export function ProductGrid(): JSX.Element {
+export function ProductGrid(): React.ReactElement {
   const { products, isLoading } = useProducts()
 
   return (

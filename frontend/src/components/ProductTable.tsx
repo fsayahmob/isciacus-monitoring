@@ -42,7 +42,7 @@ function getSortIcon(isActive: boolean, sortDirection: 'asc' | 'desc'): string {
   return sortDirection === 'asc' ? '↑' : '↓'
 }
 
-function StockBadge({ stock, level }: { stock: number; level: StockLevel }): JSX.Element {
+function StockBadge({ stock, level }: { stock: number; level: StockLevel }): React.ReactElement {
   const colors = STOCK_LEVEL_COLORS[level]
   return (
     <span
@@ -59,7 +59,7 @@ interface SortableHeaderProps {
   align?: 'left' | 'center' | 'right'
 }
 
-function SortableHeader({ field, children, align = 'left' }: SortableHeaderProps): JSX.Element {
+function SortableHeader({ field, children, align = 'left' }: SortableHeaderProps): React.ReactElement {
   const { sortField, sortDirection, setSorting } = useAppStore()
   const isActive = sortField === field
 
@@ -88,7 +88,7 @@ function SortableHeader({ field, children, align = 'left' }: SortableHeaderProps
   )
 }
 
-function ProductRow({ product }: { product: Product }): JSX.Element {
+function ProductRow({ product }: { product: Product }): React.ReactElement {
   const { setSelectedProductId } = useAppStore()
 
   const marginValue = parseFloat(product.marge_pct)
@@ -150,7 +150,7 @@ function ProductRow({ product }: { product: Product }): JSX.Element {
   )
 }
 
-function SkeletonRow(): JSX.Element {
+function SkeletonRow(): React.ReactElement {
   return (
     <tr className="border-b border-gray-200">
       <td className="p-2">
@@ -189,7 +189,7 @@ function SkeletonRow(): JSX.Element {
 
 const SKELETON_ROW_COUNT = 5
 
-export function ProductTable(): JSX.Element {
+export function ProductTable(): React.ReactElement {
   const { products, isLoading } = useProducts()
 
   return (

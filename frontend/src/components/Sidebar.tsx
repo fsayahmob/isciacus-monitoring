@@ -8,7 +8,7 @@ import type { PageKey } from '../constants'
 import { useFilters } from '../hooks/useProducts'
 import { useAppStore } from '../stores/useAppStore'
 
-const NAV_ITEMS: { page: PageKey; label: string; icon: JSX.Element }[] = [
+const NAV_ITEMS: { page: PageKey; label: string; icon: React.ReactElement }[] = [
   {
     page: PAGES.PRODUCTS,
     label: 'Produits',
@@ -59,7 +59,7 @@ const NAV_ITEMS: { page: PageKey; label: string; icon: JSX.Element }[] = [
   },
 ]
 
-export function Sidebar(): JSX.Element {
+export function Sidebar(): React.ReactElement {
   const { currentPage, setCurrentPage } = useAppStore()
   const { totalProducts, totalVariants } = useFilters()
 
