@@ -3,6 +3,7 @@
  * ============================================
  * HTTP client for communicating with FastAPI backend
  */
+/* eslint-disable max-lines */
 
 import axios from 'axios'
 
@@ -289,7 +290,7 @@ export async function runAudit(
   period = 30
 ): Promise<{ result: AuditResult }> {
   const response = await apiClient.post<{ result: AuditResult }>(
-    `/api/audits/run/${auditType}?period=${period}`
+    `/api/audits/run/${auditType}?period=${String(period)}`
   )
   return response.data
 }

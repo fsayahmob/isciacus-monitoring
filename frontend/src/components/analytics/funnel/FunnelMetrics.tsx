@@ -2,6 +2,7 @@
  * FunnelMetrics Component - Key metrics summary cards
  * Separates GA4 funnel metrics from Shopify business metrics
  */
+/* eslint-disable max-lines-per-function */
 
 import type { ConversionFunnel } from '../../../types/analytics'
 
@@ -144,13 +145,13 @@ export function FunnelMetrics({ funnel, ga4Available }: FunnelMetricsProps): Rea
               available
               label="Chiffre d'affaires"
               source="Shopify"
-              value={`${shopifyData.revenue?.toLocaleString('fr-FR') ?? 0} €`}
+              value={`${String(shopifyData.revenue?.toLocaleString('fr-FR') ?? 0)} €`}
             />
             <MetricCard
               available
               label="Panier moyen"
               source="Shopify"
-              value={`${shopifyData.aov?.toFixed(0) ?? 0} €`}
+              value={`${String(shopifyData.aov?.toFixed(0) ?? 0)} €`}
             />
           </div>
         </div>

@@ -8,6 +8,13 @@
 # - Zero tolerance for code quality violations
 # =====================================================
 
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["services", "models", "config", "jobs"]
+
 [project]
 name = "isciacus-monitoring-backend"
 version = "1.0.0"

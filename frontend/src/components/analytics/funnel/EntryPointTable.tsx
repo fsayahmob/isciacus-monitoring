@@ -9,7 +9,7 @@ interface EntryPointTableProps {
 }
 
 export function EntryPointTable({ entries }: EntryPointTableProps): React.ReactElement | null {
-  if (entries == null || entries.length === 0) {
+  if (entries.length === 0) {
     return null
   }
 
