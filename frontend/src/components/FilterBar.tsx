@@ -143,94 +143,45 @@ function ActiveFiltersDisplay({
   )
 }
 
-function FilterControls({
-  filters,
-  tags,
-  channels,
-  collections,
-  onFilterChange,
-}: {
-  filters: ProductFilters
-  tags: string[]
-  channels: string[]
-  collections: string[]
-  onFilterChange: (key: string, value: string) => void
-}): React.ReactElement {
+const PUBLICATION_OPTIONS = ['true', 'false']
+const STATUS_OPTIONS = ['ACTIVE', 'DRAFT', 'ARCHIVED']
+
+function StatusFilters({ filters, onFilterChange }: { filters: ProductFilters; onFilterChange: (key: string, value: string) => void }): React.ReactElement {
   return (
     <>
-      <StockLevelSelect
-        value={filters.stock_level ?? ''}
-        onChange={(v) => {
-          onFilterChange('stock_level', v)
-        }}
-      />
-      <FilterSelect
-        options={['true', 'false']}
-        placeholder="Publication (tous)"
-        value={filters.publie ?? ''}
-        onChange={(v) => {
-          onFilterChange('publie', v)
-        }}
-      />
-      <FilterSelect
-        options={['ACTIVE', 'DRAFT', 'ARCHIVED']}
-        placeholder="Statut (tous)"
-        value={filters.statut ?? ''}
-        onChange={(v) => {
-          onFilterChange('statut', v)
-        }}
-      />
-      <FilterSelect
-        options={channels}
-        placeholder="Canal de vente (tous)"
-        value={filters.channel ?? ''}
-        onChange={(v) => {
-          onFilterChange('channel', v)
-        }}
-      />
-      <FilterSelect
-        options={collections}
-        placeholder="Collection (toutes)"
-        value={filters.collection ?? ''}
-        onChange={(v) => {
-          onFilterChange('collection', v)
-        }}
-      />
-      <FilterSelect
-        options={tags}
-        placeholder="Tags (tous)"
-        value={filters.tag ?? ''}
-        onChange={(v) => {
-          onFilterChange('tag', v)
-        }}
-      />
-      <BooleanFilterSelect
-        placeholder="Image (tous)"
-        value={filters.has_image ?? ''}
-        withLabel="Avec image"
-        withoutLabel="Sans image"
-        onChange={(v) => {
-          onFilterChange('has_image', v)
-        }}
-      />
-      <BooleanFilterSelect
-        placeholder="Prix (tous)"
-        value={filters.has_price ?? ''}
-        withLabel="Avec prix"
-        withoutLabel="Sans prix"
-        onChange={(v) => {
-          onFilterChange('has_price', v)
-        }}
-      />
-      <BooleanFilterSelect
-        placeholder="Description (tous)"
-        value={filters.has_description ?? ''}
-        withLabel="Avec description"
-        withoutLabel="Sans description"
-        onChange={(v) => {
-          onFilterChange('has_description', v)
-        }}
-      />
+      <StockLevelSelect value={filters.stock_level ?? ''} onChange={(v) => { onFilterChange('stock_level', v) }} />
+      <FilterSelect options={PUBLICATION_OPTIONS} placeholder="Publication (tous)" value={filters.publie ?? ''} onChange={(v) => { onFilterChange('publie', v) }} />
+      <FilterSelect options={STATUS_OPTIONS} placeholder="Statut (tous)" value={filters.statut ?? ''} onChange={(v) => { onFilterChange('statut', v) }} />
+    </>
+  )
+}
+
+function CategoryFilters({ filters, tags, channels, collections, onFilterChange }: { filters: ProductFilters; tags: string[]; channels: string[]; collections: string[]; onFilterChange: (key: string, value: string) => void }): React.ReactElement {
+  return (
+    <>
+      <FilterSelect options={channels} placeholder="Canal de vente (tous)" value={filters.channel ?? ''} onChange={(v) => { onFilterChange('channel', v) }} />
+      <FilterSelect options={collections} placeholder="Collection (toutes)" value={filters.collection ?? ''} onChange={(v) => { onFilterChange('collection', v) }} />
+      <FilterSelect options={tags} placeholder="Tags (tous)" value={filters.tag ?? ''} onChange={(v) => { onFilterChange('tag', v) }} />
+    </>
+  )
+}
+
+function ContentFilters({ filters, onFilterChange }: { filters: ProductFilters; onFilterChange: (key: string, value: string) => void }): React.ReactElement {
+  return (
+    <>
+      <BooleanFilterSelect placeholder="Image (tous)" value={filters.has_image ?? ''} withLabel="Avec image" withoutLabel="Sans image" onChange={(v) => { onFilterChange('has_image', v) }} />
+      <BooleanFilterSelect placeholder="Prix (tous)" value={filters.has_price ?? ''} withLabel="Avec prix" withoutLabel="Sans prix" onChange={(v) => { onFilterChange('has_price', v) }} />
+      <BooleanFilterSelect placeholder="Description (tous)" value={filters.has_description ?? ''} withLabel="Avec description" withoutLabel="Sans description" onChange={(v) => { onFilterChange('has_description', v) }} />
+    </>
+  )
+}
+
+function FilterControls({ filters, tags, channels, collections, onFilterChange }: { filters: ProductFilters; tags: string[]; channels: string[]; collections: string[]; onFilterChange: (key: string, value: string) => void }): React.ReactElement {
+  return (
+    <>
+      <StatusFilters filters={filters} onFilterChange={onFilterChange} />
+      <CategoryFilters filters={filters} tags={tags} channels={channels} collections={collections} onFilterChange={onFilterChange} />
+      <ContentFilters filters={filters} onFilterChange={onFilterChange} />
     </>
   )
 }

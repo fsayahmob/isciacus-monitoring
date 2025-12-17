@@ -9,21 +9,47 @@ import { LoadingSpinner } from './StatusIcons'
 import { DETAILS_LIMIT } from './utils'
 
 function IssueDetails({ details }: { details: string[] }): React.ReactElement {
-  const visibleDetails = details.slice(0, DETAILS_LIMIT)
+  const [expanded, setExpanded] = React.useState(false)
+  const visibleDetails = expanded ? details : details.slice(0, DETAILS_LIMIT)
   const remainingCount = details.length - DETAILS_LIMIT
+  const hasMore = remainingCount > 0
 
   return (
-    <ul className="mt-2 space-y-1">
-      {visibleDetails.map((detail, i) => (
-        <li key={i} className="flex items-start gap-1 text-xs text-gray-500">
-          <span className="mt-1.5 h-1 w-1 rounded-full bg-gray-400" />
-          {detail}
-        </li>
-      ))}
-      {remainingCount > 0 && (
-        <li className="text-xs text-gray-400">+{String(remainingCount)} autres...</li>
+    <div className="mt-2">
+      <ul className="space-y-1">
+        {visibleDetails.map((detail, i) => (
+          <li key={i} className="flex items-start gap-1 text-xs text-gray-500">
+            <span className="mt-1.5 h-1 w-1 rounded-full bg-gray-400" />
+            {detail}
+          </li>
+        ))}
+      </ul>
+      {hasMore && (
+        <button
+          className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+          type="button"
+          onClick={() => {
+            setExpanded(!expanded)
+          }}
+        >
+          {expanded ? (
+            <>
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+              Voir moins
+            </>
+          ) : (
+            <>
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              Voir {String(remainingCount)} de plus
+            </>
+          )}
+        </button>
       )}
-    </ul>
+    </div>
   )
 }
 

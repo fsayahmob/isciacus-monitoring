@@ -196,32 +196,4 @@ export default tseslint.config(
       }],
     },
   },
-  // ===========================================
-  // FILE-SPECIFIC OVERRIDES
-  // Complex legacy components that exceed limits
-  // ===========================================
-  {
-    files: [
-      '**/components/audit/AuditResults.tsx',
-      '**/services/api.ts',
-    ],
-    rules: {
-      'max-lines': 'off',
-      'max-lines-per-function': 'off',
-      'complexity': 'off',
-      'no-magic-numbers': 'off',
-      '@typescript-eslint/no-unnecessary-condition': 'off',
-      '@typescript-eslint/restrict-template-expressions': 'off',
-    },
-  },
-  {
-    files: [
-      '**/pages/SettingsPage.tsx',
-      '**/components/analytics/funnel/FunnelMetrics.tsx',
-      '**/components/FilterBar.tsx',
-    ],
-    rules: {
-      'max-lines-per-function': 'off',
-    },
-  },
 )
