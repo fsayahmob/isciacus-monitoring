@@ -2,9 +2,11 @@
  * App Store - ISCIACUS Monitoring Dashboard
  * ==========================================
  * Global state management with Zustand
+ * Persists navigation state to survive page refresh
  */
 
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 import { PAGES, VIEW_MODES } from '../constants'
 import type { PageKey, ViewMode } from '../constants'
@@ -43,59 +45,71 @@ interface AppState {
   setSelectedProductId: (id: string | null) => void
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
-  // Navigation
-  currentPage: PAGES.PRODUCTS,
-  setCurrentPage: (page) => {
-    set({ currentPage: page })
-  },
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      // Navigation
+      currentPage: PAGES.PRODUCTS,
+      setCurrentPage: (page) => {
+        set({ currentPage: page })
+      },
 
-  // View mode
-  viewMode: VIEW_MODES.LIST,
-  setViewMode: (mode) => {
-    set({ viewMode: mode })
-  },
+      // View mode
+      viewMode: VIEW_MODES.LIST,
+      setViewMode: (mode) => {
+        set({ viewMode: mode })
+      },
 
-  // Filters
-  filters: {},
-  setFilters: (filters) => {
-    set({ filters, currentPageIndex: 0 })
-  },
-  updateFilter: (key, value) => {
-    const newFilters = { ...get().filters, [key]: value }
-    set({ filters: newFilters, currentPageIndex: 0 })
-  },
-  clearFilters: () => {
-    set({ filters: {}, currentPageIndex: 0 })
-  },
+      // Filters
+      filters: {},
+      setFilters: (filters) => {
+        set({ filters, currentPageIndex: 0 })
+      },
+      updateFilter: (key, value) => {
+        const newFilters = { ...get().filters, [key]: value }
+        set({ filters: newFilters, currentPageIndex: 0 })
+      },
+      clearFilters: () => {
+        set({ filters: {}, currentPageIndex: 0 })
+      },
 
-  // Pagination
-  currentPageIndex: 0,
-  setCurrentPageIndex: (page) => {
-    set({ currentPageIndex: page })
-  },
+      // Pagination
+      currentPageIndex: 0,
+      setCurrentPageIndex: (page) => {
+        set({ currentPageIndex: page })
+      },
 
-  // Sorting
-  sortField: null,
-  sortDirection: 'asc',
-  setSorting: (field) => {
-    const state = get()
-    if (state.sortField === field) {
-      set({ sortDirection: state.sortDirection === 'asc' ? 'desc' : 'asc' })
-    } else {
-      set({ sortField: field, sortDirection: 'asc' })
+      // Sorting
+      sortField: null,
+      sortDirection: 'asc',
+      setSorting: (field) => {
+        const state = get()
+        if (state.sortField === field) {
+          set({ sortDirection: state.sortDirection === 'asc' ? 'desc' : 'asc' })
+        } else {
+          set({ sortField: field, sortDirection: 'asc' })
+        }
+      },
+
+      // Loading
+      isLoading: false,
+      setIsLoading: (loading) => {
+        set({ isLoading: loading })
+      },
+
+      // Selected product
+      selectedProductId: null,
+      setSelectedProductId: (id) => {
+        set({ selectedProductId: id })
+      },
+    }),
+    {
+      name: 'isciacus-app-store',
+      // Only persist navigation and view mode, not filters/pagination
+      partialize: (state) => ({
+        currentPage: state.currentPage,
+        viewMode: state.viewMode,
+      }),
     }
-  },
-
-  // Loading
-  isLoading: false,
-  setIsLoading: (loading) => {
-    set({ isLoading: loading })
-  },
-
-  // Selected product
-  selectedProductId: null,
-  setSelectedProductId: (id) => {
-    set({ selectedProductId: id })
-  },
-}))
+  )
+)

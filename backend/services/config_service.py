@@ -188,33 +188,33 @@ class ConfigService:
             ),
             ConfigVariable(
                 key="SHOPIFY_API_KEY",
-                label="Clé API",
-                description="Clé API de votre application Shopify",
+                label="Clé API (optionnel)",
+                description="Clé API de votre application Shopify - uniquement pour OAuth",
                 how_to_get="""1. Allez dans Admin Shopify > Settings > Apps and sales channels
 2. Cliquez sur "Develop apps" puis sélectionnez votre app
 3. Allez dans "API credentials"
 4. Copiez la "API key"
 
-Note: Cette clé est utilisée pour l'authentification OAuth""",
+Note: Optionnel si vous avez déjà le Access Token.""",
                 value=api_key or None,
                 is_set=bool(api_key),
                 is_secret=True,
-                required=True,
+                required=False,
             ),
             ConfigVariable(
                 key="SHOPIFY_API_SECRET",
-                label="Secret API",
-                description="Secret API de votre application Shopify",
+                label="Secret API (optionnel)",
+                description="Secret API de votre application Shopify - uniquement pour OAuth",
                 how_to_get="""1. Allez dans Admin Shopify > Settings > Apps and sales channels
 2. Cliquez sur "Develop apps" puis sélectionnez votre app
 3. Allez dans "API credentials"
 4. Copiez la "API secret key"
 
-Important: Ne partagez jamais ce secret!""",
+Note: Optionnel si vous avez déjà le Access Token.""",
                 value=api_secret or None,
                 is_set=bool(api_secret),
                 is_secret=True,
-                required=True,
+                required=False,
             ),
             ConfigVariable(
                 key="SHOPIFY_ACCESS_TOKEN",

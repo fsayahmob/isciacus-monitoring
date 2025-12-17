@@ -450,32 +450,133 @@ jobs:
           python -c "from monitoring_app import app; print('✅ Backend imports successfully')"
 
   # =====================================================
-  # JOB 7: Deploy (main branch only)
+  # JOB 7: Docker Build (for production)
+  # =====================================================
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: [frontend-quality, backend-quality]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker images (no push)
+        run: |
+          echo "Building Docker images..."
+          docker compose build --no-cache
+          echo "✅ Docker images built successfully"
+
+  # =====================================================
+  # JOB 8: Deploy (main branch only)
   # =====================================================
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
-    needs: [frontend-tests, backend-tests, build]
+    needs: [frontend-tests, backend-tests, build, docker-build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
     steps:
-      - name: Download artifacts
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend build
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: dist/
 
-      - name: 🚀 Deploy notification
+      - name: 🚀 Deploy Summary
         run: |
           echo "========================================"
-          echo "🚀 READY FOR DEPLOYMENT"
+          echo "🚀 DEPLOYMENT READY"
           echo "========================================"
           echo ""
           echo "All checks passed:"
           echo "  ✅ Configuration guards"
           echo "  ✅ Frontend quality (ESLint, TypeScript, Prettier)"
           echo "  ✅ Backend quality (Ruff, Black, MyPy)"
-          echo "  ✅ Frontend tests"
-          echo "  ✅ Backend tests"
+          echo "  ✅ Frontend tests with coverage"
+          echo "  ✅ Backend tests with coverage"
           echo "  ✅ Production builds"
+          echo "  ✅ Docker images"
           echo ""
-          echo "Add deployment provider configuration here"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Configure secrets for your hosting provider"
+          echo "  2. Uncomment deployment steps below"
+          echo ""
+
+      # =====================================================
+      # DEPLOYMENT OPTIONS (uncomment as needed)
+      # =====================================================
+
+      # --- Option A: Deploy to Vercel (Frontend) ---
+      # - name: Deploy Frontend to Vercel
+      #   uses: amondnet/vercel-action@v25
+      #   with:
+      #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      #     vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+      #     vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+      #     working-directory: frontend
+
+      # --- Option B: Deploy to Railway (Backend) ---
+      # - name: Deploy Backend to Railway
+      #   uses: bervProject/railway-deploy@main
+      #   with:
+      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      #     service: backend
+
+      # --- Option C: Deploy to Fly.io (Full Stack) ---
+      # - name: Setup Fly.io
+      #   uses: superfly/flyctl-actions/setup-flyctl@master
+      # - name: Deploy to Fly.io
+      #   run: flyctl deploy --remote-only
+      #   env:
+      #     FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # --- Option D: Deploy to Docker Registry ---
+      # - name: Login to Docker Hub
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
+      # - name: Push Docker images
+      #   run: |
+      #     docker compose push
+
+  # =====================================================
+  # JOB 9: Inngest Sync (if configured)
+  # =====================================================
+  inngest-sync:
+    name: 📦 Inngest Functions Sync
+    runs-on: ubuntu-latest
+    needs: [backend-quality]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Inngest configuration
+        id: inngest-check
+        run: |
+          if [ -n "${{ secrets.INNGEST_SIGNING_KEY }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Inngest not configured (INNGEST_SIGNING_KEY secret not set)"
+            echo "Skipping Inngest sync - using local dev server mode"
+          fi
+
+      - name: Sync Inngest functions
+        if: steps.inngest-check.outputs.configured == 'true'
+        run: |
+          echo "Syncing Inngest functions..."
+          # Inngest auto-discovers functions when the app starts
+          # This step would trigger a deployment notification
+          echo "✅ Inngest functions will sync on next deployment"

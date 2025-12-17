@@ -311,13 +311,26 @@ class PermissionsCheckerService:
                 error_message="Shopify non configuré (SHOPIFY_STORE_URL ou SHOPIFY_ACCESS_TOKEN manquant)",
             )
 
+        # Special case for write_themes - need to actually test writing
+        if requirement.scope == "write_themes":
+            has_perm, error_msg = self.has_write_themes_permission()
+            if has_perm:
+                return PermissionCheckResult(
+                    requirement=requirement,
+                    status=PermissionStatus.GRANTED,
+                )
+            return PermissionCheckResult(
+                requirement=requirement,
+                status=PermissionStatus.DENIED,
+                error_message=error_msg or "Permission write_themes non accordée",
+            )
+
         # Map scopes to test endpoints
         test_endpoints = {
             "read_products": "/admin/api/2024-01/products.json?limit=1",
             "read_orders": "/admin/api/2024-01/orders.json?limit=1",
             "read_customers": "/admin/api/2024-01/customers.json?limit=1",
             "read_themes": "/admin/api/2024-01/themes.json",
-            "write_themes": "/admin/api/2024-01/themes.json",  # Can't really test write without writing
             "read_checkouts": "/admin/api/2024-01/checkouts.json?limit=1",
             "read_analytics": "/admin/api/2024-01/reports.json?limit=1",
         }
@@ -531,6 +544,73 @@ class PermissionsCheckerService:
             report.results.append(result)
 
         return report
+
+    def has_write_themes_permission(self) -> tuple[bool, str | None]:
+        """Check if write_themes permission is available.
+
+        Returns (True, None) if granted, (False, error_message) if denied.
+        This actually tests writing by attempting to read an asset that requires write access.
+        """
+        if not self._store_url or not self._access_token:
+            return False, "Shopify non configuré"
+
+        # To really test write permission, we try to PUT a non-existent asset
+        # This will fail with 403 if no write permission, or 404/422 if permission OK
+        try:
+            # Get active theme ID first
+            themes_url = f"{self._store_url}/admin/api/2024-01/themes.json"
+            resp = requests.get(themes_url, headers=self._get_shopify_headers(), timeout=10)
+
+            if resp.status_code == 403:
+                return False, "Permission read_themes manquante"
+
+            if resp.status_code != 200:
+                return False, f"Erreur accès thèmes: {resp.status_code}"
+
+            themes = resp.json().get("themes", [])
+            active_theme = next((t for t in themes if t.get("role") == "main"), None)
+
+            if not active_theme:
+                return False, "Aucun thème actif trouvé"
+
+            theme_id = active_theme.get("id")
+
+            # Try to write a test asset (will fail with 403 if no permission)
+            # Use a clearly named test file that we'll immediately delete
+            test_key = "snippets/__isciacus_permission_test__.liquid"
+            test_content = "{%- comment -%}Permission test - delete this{%- endcomment -%}"
+
+            assets_url = f"{self._store_url}/admin/api/2024-01/themes/{theme_id}/assets.json"
+            put_resp = requests.put(
+                assets_url,
+                headers=self._get_shopify_headers(),
+                json={"asset": {"key": test_key, "value": test_content}},
+                timeout=10,
+            )
+
+            if put_resp.status_code == 403:
+                return False, (
+                    "Permission write_themes manquante. "
+                    "Allez dans Shopify > Apps > Votre app > Configuration API > "
+                    "Ajoutez le scope 'write_themes' et réinstallez l'app."
+                )
+
+            if put_resp.status_code in (200, 201):
+                # Success! Delete the test file
+                requests.delete(
+                    assets_url,
+                    headers=self._get_shopify_headers(),
+                    params={"asset[key]": test_key},
+                    timeout=10,
+                )
+                return True, None
+
+            # 422 or other error means we have permission but something else failed
+            # This is OK - permission is granted
+            return True, None
+
+        except requests.exceptions.RequestException as e:
+            return False, f"Erreur de connexion: {e!s}"
 
     def get_permissions_summary(self) -> dict[str, Any]:
         """Get a summary of all permissions for display."""

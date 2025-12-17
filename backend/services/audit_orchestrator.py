@@ -184,6 +184,27 @@ class AuditOrchestrator:
         """Get the most recent audit session."""
         return self._load_session()
 
+    def _get_meta_config(self) -> dict[str, str]:
+        """Get Meta configuration from ConfigService."""
+        if self._config_service is None:
+            from services.config_service import ConfigService
+            self._config_service = ConfigService()
+        return self._config_service.get_meta_values()
+
+    def _get_merchant_center_config(self) -> dict[str, str]:
+        """Get Google Merchant Center configuration from ConfigService."""
+        if self._config_service is None:
+            from services.config_service import ConfigService
+            self._config_service = ConfigService()
+        return self._config_service.get_merchant_center_values()
+
+    def _get_search_console_config(self) -> dict[str, str]:
+        """Get Google Search Console configuration from ConfigService."""
+        if self._config_service is None:
+            from services.config_service import ConfigService
+            self._config_service = ConfigService()
+        return self._config_service.get_search_console_values()
+
     def get_available_audits(self) -> list[dict[str, Any]]:
         """Get list of available audit types with their status."""
         latest = self.get_latest_session()
@@ -192,7 +213,19 @@ class AuditOrchestrator:
         ga4_measurement_id = self._get_ga4_measurement_id()
         ga4_configured = bool(ga4_measurement_id)
 
-        # Determine availability and descriptions based on GA4 config
+        # Check if Meta is configured
+        meta_config = self._get_meta_config()
+        meta_configured = bool(meta_config.get("pixel_id")) and bool(meta_config.get("access_token"))
+
+        # Check if Merchant Center is configured
+        gmc_config = self._get_merchant_center_config()
+        gmc_configured = bool(gmc_config.get("merchant_id"))
+
+        # Check if Search Console is configured
+        gsc_config = self._get_search_console_config()
+        gsc_configured = bool(gsc_config.get("property_url"))
+
+        # Determine availability and descriptions based on config
         if ga4_configured:
             ga4_description = (
                 "Vérifie la couverture du tracking GA4 "
@@ -210,6 +243,42 @@ class AuditOrchestrator:
             theme_description = (
                 "⚠️ GA4 non configuré - Allez dans Settings > GA4 "
                 "pour configurer votre ID de mesure"
+            )
+
+        # Meta description based on config
+        if meta_configured:
+            meta_description = (
+                "Vérifie la configuration du Meta Pixel, "
+                "les événements et la synchronisation catalogue"
+            )
+        else:
+            meta_description = (
+                "⚠️ Meta non configuré - Allez dans Settings > Meta "
+                "pour configurer votre Pixel ID et Access Token"
+            )
+
+        # GMC description based on config
+        if gmc_configured:
+            gmc_description = (
+                "Vérifie les produits dans Google Shopping, "
+                "leur statut et les problèmes de données"
+            )
+        else:
+            gmc_description = (
+                "⚠️ Merchant Center non configuré - Allez dans Settings > Merchant Center "
+                "pour configurer votre Merchant ID"
+            )
+
+        # GSC description based on config
+        if gsc_configured:
+            gsc_description = (
+                "Vérifie l'indexation des pages, "
+                "les erreurs d'exploration et les sitemaps"
+            )
+        else:
+            gsc_description = (
+                "⚠️ Search Console non configuré - Allez dans Settings > Search Console "
+                "pour configurer votre propriété"
             )
 
         audits = [
@@ -236,9 +305,9 @@ class AuditOrchestrator:
             {
                 "type": AuditType.META_PIXEL.value,
                 "name": "Meta Pixel",
-                "description": "Vérifie la configuration du Meta Pixel et le catalogue Facebook",
+                "description": meta_description,
                 "icon": "facebook",
-                "available": False,  # TODO: Implement
+                "available": meta_configured,
                 "last_run": None,
                 "last_status": None,
                 "issues_count": 0,
@@ -246,9 +315,9 @@ class AuditOrchestrator:
             {
                 "type": AuditType.MERCHANT_CENTER.value,
                 "name": "Google Merchant Center",
-                "description": "Vérifie les produits dans Google Shopping et leur synchronisation",
+                "description": gmc_description,
                 "icon": "shopping-cart",
-                "available": False,  # TODO: Implement
+                "available": gmc_configured,
                 "last_run": None,
                 "last_status": None,
                 "issues_count": 0,
@@ -256,9 +325,9 @@ class AuditOrchestrator:
             {
                 "type": AuditType.SEARCH_CONSOLE.value,
                 "name": "Google Search Console",
-                "description": "Vérifie l'indexation et la couverture SEO des pages",
+                "description": gsc_description,
                 "icon": "search",
-                "available": False,  # TODO: Implement
+                "available": gsc_configured,
                 "last_run": None,
                 "last_status": None,
                 "issues_count": 0,
@@ -860,6 +929,661 @@ class AuditOrchestrator:
         self._save_current_session()
         return result
 
+    def run_meta_audit(self) -> AuditResult:
+        """Run the Meta Pixel audit with step-by-step progress."""
+        result = self.start_audit(AuditType.META_PIXEL)
+
+        # Get Meta config from ConfigService
+        if self._config_service is None:
+            from services.config_service import ConfigService
+            self._config_service = ConfigService()
+
+        meta_config = self._config_service.get_meta_values()
+        pixel_id = meta_config.get("pixel_id", "")
+        access_token = meta_config.get("access_token", "")
+
+        # Step 1: Meta Connection
+        self._update_step_status(result, "meta_connection", AuditStepStatus.RUNNING)
+
+        if not pixel_id:
+            self._update_step_status(
+                result, "meta_connection", AuditStepStatus.ERROR,
+                error_message="Meta Pixel ID non configuré. Allez dans Settings > Meta.",
+            )
+            for step in result.steps[1:]:
+                step.status = AuditStepStatus.SKIPPED
+            result.status = AuditStepStatus.ERROR
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+            self._save_current_session()
+            return result
+
+        self._update_step_status(
+            result, "meta_connection", AuditStepStatus.SUCCESS,
+            result_data={"pixel_id": pixel_id, "has_token": bool(access_token)},
+        )
+
+        # Step 2: Pixel Configuration (check in theme)
+        self._update_step_status(result, "pixel_config", AuditStepStatus.RUNNING)
+
+        pixel_in_theme = False
+        if self.theme_analyzer:
+            analysis = self.theme_analyzer.analyze_theme()
+            pixel_in_theme = analysis.meta_pixel_configured
+            theme_pixel_id = analysis.meta_pixel_id
+
+        if pixel_in_theme:
+            if theme_pixel_id == pixel_id:
+                self._update_step_status(
+                    result, "pixel_config", AuditStepStatus.SUCCESS,
+                    result_data={"pixel_in_theme": True, "pixel_match": True},
+                )
+            else:
+                self._update_step_status(
+                    result, "pixel_config", AuditStepStatus.WARNING,
+                    result_data={"pixel_in_theme": True, "pixel_match": False},
+                )
+                result.issues.append(AuditIssue(
+                    id="meta_pixel_mismatch",
+                    audit_type=AuditType.META_PIXEL,
+                    severity="warning",
+                    title="ID Pixel différent",
+                    description=f"Le Pixel dans le thème ({theme_pixel_id}) est différent de celui configuré ({pixel_id})",
+                ))
+        else:
+            self._update_step_status(
+                result, "pixel_config", AuditStepStatus.WARNING,
+                result_data={"pixel_in_theme": False},
+            )
+            result.issues.append(AuditIssue(
+                id="meta_pixel_not_installed",
+                audit_type=AuditType.META_PIXEL,
+                severity="error",
+                title="Meta Pixel non installé",
+                description=f"Le Meta Pixel {pixel_id} n'est pas détecté dans le thème Shopify",
+                action_available=False,
+                action_label="Installer le Pixel",
+            ))
+
+        # Step 3: Events Check (from theme analysis)
+        self._update_step_status(result, "events_check", AuditStepStatus.RUNNING)
+
+        meta_events_found = []
+        required_events = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"]
+
+        if self.theme_analyzer:
+            meta_events_found = analysis.meta_events_found
+
+        missing_events = [e for e in required_events if e not in meta_events_found]
+
+        if not missing_events:
+            self._update_step_status(
+                result, "events_check", AuditStepStatus.SUCCESS,
+                result_data={"events_found": meta_events_found, "coverage": "100%"},
+            )
+        elif len(missing_events) < len(required_events):
+            coverage = int((len(required_events) - len(missing_events)) / len(required_events) * 100)
+            self._update_step_status(
+                result, "events_check", AuditStepStatus.WARNING,
+                result_data={"events_found": meta_events_found, "coverage": f"{coverage}%"},
+            )
+            for event in missing_events:
+                severity = "error" if event in ["Purchase", "AddToCart"] else "warning"
+                result.issues.append(AuditIssue(
+                    id=f"meta_missing_{event.lower()}",
+                    audit_type=AuditType.META_PIXEL,
+                    severity=severity,
+                    title=f"Événement {event} manquant",
+                    description=f"L'événement Meta '{event}' n'est pas tracké",
+                ))
+        else:
+            self._update_step_status(
+                result, "events_check", AuditStepStatus.ERROR,
+                result_data={"events_found": [], "coverage": "0%"},
+            )
+            result.issues.append(AuditIssue(
+                id="meta_no_events",
+                audit_type=AuditType.META_PIXEL,
+                severity="critical",
+                title="Aucun événement Meta détecté",
+                description="Aucun événement de conversion n'est tracké avec le Meta Pixel",
+            ))
+
+        # Step 4: Catalog Sync (requires access token)
+        self._update_step_status(result, "catalog_sync", AuditStepStatus.RUNNING)
+
+        if not access_token:
+            self._update_step_status(
+                result, "catalog_sync", AuditStepStatus.SKIPPED,
+                error_message="META_ACCESS_TOKEN non configuré - synchronisation catalogue non vérifiable",
+            )
+            result.issues.append(AuditIssue(
+                id="meta_no_token",
+                audit_type=AuditType.META_PIXEL,
+                severity="medium",
+                title="Token Meta manquant",
+                description="Configurez META_ACCESS_TOKEN pour vérifier la synchronisation du catalogue Facebook",
+            ))
+        else:
+            # Try to check catalog via Meta API
+            try:
+                import requests
+                ad_account_id = meta_config.get("ad_account_id", "")
+                if ad_account_id:
+                    url = f"https://graph.facebook.com/v18.0/act_{ad_account_id}/product_catalogs"
+                    resp = requests.get(url, params={"access_token": access_token}, timeout=10)
+                    if resp.status_code == 200:
+                        catalogs = resp.json().get("data", [])
+                        self._update_step_status(
+                            result, "catalog_sync", AuditStepStatus.SUCCESS,
+                            result_data={"catalogs_count": len(catalogs)},
+                        )
+                    else:
+                        self._update_step_status(
+                            result, "catalog_sync", AuditStepStatus.WARNING,
+                            error_message=f"Erreur API Meta: {resp.status_code}",
+                        )
+                else:
+                    self._update_step_status(
+                        result, "catalog_sync", AuditStepStatus.SKIPPED,
+                        error_message="META_AD_ACCOUNT_ID non configuré",
+                    )
+            except Exception as e:
+                self._update_step_status(
+                    result, "catalog_sync", AuditStepStatus.ERROR,
+                    error_message=str(e),
+                )
+
+        # Finalize
+        result.status = self._overall_status(result.steps)
+        result.completed_at = datetime.now(tz=UTC).isoformat()
+        result.summary = {
+            "pixel_id": pixel_id,
+            "pixel_in_theme": pixel_in_theme,
+            "events_found": meta_events_found,
+            "events_missing": missing_events,
+            "issues_count": len(result.issues),
+        }
+
+        self._save_current_session()
+        return result
+
+    def run_gmc_audit(self) -> AuditResult:
+        """Run the Google Merchant Center audit with step-by-step progress."""
+        result = self.start_audit(AuditType.MERCHANT_CENTER)
+
+        # Get GMC config from ConfigService
+        if self._config_service is None:
+            from services.config_service import ConfigService
+            self._config_service = ConfigService()
+
+        gmc_config = self._config_service.get_merchant_center_values()
+        merchant_id = gmc_config.get("merchant_id", "")
+
+        # Step 1: GMC Connection
+        self._update_step_status(result, "gmc_connection", AuditStepStatus.RUNNING)
+
+        if not merchant_id:
+            self._update_step_status(
+                result, "gmc_connection", AuditStepStatus.ERROR,
+                error_message="GOOGLE_MERCHANT_ID non configuré. Allez dans Settings > Google Merchant Center.",
+            )
+            for step in result.steps[1:]:
+                step.status = AuditStepStatus.SKIPPED
+            result.status = AuditStepStatus.ERROR
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+            self._save_current_session()
+            return result
+
+        # Try to connect to Merchant Center API
+        try:
+            from google.oauth2 import service_account
+            from pathlib import Path
+
+            creds_path = gmc_config.get("service_account_key_path", "")
+            if not creds_path or not Path(creds_path).exists():
+                self._update_step_status(
+                    result, "gmc_connection", AuditStepStatus.ERROR,
+                    error_message="Fichier credentials Google non trouvé",
+                )
+                for step in result.steps[1:]:
+                    step.status = AuditStepStatus.SKIPPED
+                result.status = AuditStepStatus.ERROR
+                result.completed_at = datetime.now(tz=UTC).isoformat()
+                self._save_current_session()
+                return result
+
+            credentials = service_account.Credentials.from_service_account_file(
+                creds_path,
+                scopes=["https://www.googleapis.com/auth/content"],
+            )
+
+            import requests
+            from google.auth.transport.requests import Request
+            credentials.refresh(Request())
+
+            # Test connection by getting account info
+            headers = {"Authorization": f"Bearer {credentials.token}"}
+            resp = requests.get(
+                f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/accounts/{merchant_id}",
+                headers=headers,
+                timeout=10,
+            )
+
+            if resp.status_code == 200:
+                self._update_step_status(
+                    result, "gmc_connection", AuditStepStatus.SUCCESS,
+                    result_data={"merchant_id": merchant_id},
+                )
+            else:
+                self._update_step_status(
+                    result, "gmc_connection", AuditStepStatus.ERROR,
+                    error_message=f"Erreur API GMC: {resp.status_code} - {resp.text[:100]}",
+                )
+                for step in result.steps[1:]:
+                    step.status = AuditStepStatus.SKIPPED
+                result.status = AuditStepStatus.ERROR
+                result.completed_at = datetime.now(tz=UTC).isoformat()
+                self._save_current_session()
+                return result
+
+            # Step 2: Products Status
+            self._update_step_status(result, "products_status", AuditStepStatus.RUNNING)
+
+            products_resp = requests.get(
+                f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/products",
+                headers=headers,
+                timeout=30,
+            )
+
+            if products_resp.status_code == 200:
+                products_data = products_resp.json()
+                products = products_data.get("resources", [])
+                total_products = len(products)
+
+                # Count by status
+                approved = sum(1 for p in products if p.get("destinations", [{}])[0].get("status") == "approved")
+                disapproved = sum(1 for p in products if p.get("destinations", [{}])[0].get("status") == "disapproved")
+                pending = total_products - approved - disapproved
+
+                if disapproved > 0:
+                    self._update_step_status(
+                        result, "products_status", AuditStepStatus.WARNING,
+                        result_data={
+                            "total": total_products,
+                            "approved": approved,
+                            "disapproved": disapproved,
+                            "pending": pending,
+                        },
+                    )
+                    result.issues.append(AuditIssue(
+                        id="gmc_disapproved_products",
+                        audit_type=AuditType.MERCHANT_CENTER,
+                        severity="error",
+                        title=f"{disapproved} produits rejetés",
+                        description=f"{disapproved} produits sont rejetés par Google Merchant Center",
+                    ))
+                else:
+                    self._update_step_status(
+                        result, "products_status", AuditStepStatus.SUCCESS,
+                        result_data={
+                            "total": total_products,
+                            "approved": approved,
+                            "disapproved": 0,
+                            "pending": pending,
+                        },
+                    )
+            else:
+                self._update_step_status(
+                    result, "products_status", AuditStepStatus.ERROR,
+                    error_message=f"Erreur lecture produits: {products_resp.status_code}",
+                )
+
+            # Step 3: Feed Sync (compare with Shopify)
+            self._update_step_status(result, "feed_sync", AuditStepStatus.RUNNING)
+
+            # Get Shopify products count
+            from services.shopify_analytics import ShopifyAnalyticsService
+            shopify = ShopifyAnalyticsService()
+            shopify_products = shopify.get_products_count()
+
+            if shopify_products > 0 and total_products > 0:
+                sync_rate = int((total_products / shopify_products) * 100)
+                if sync_rate >= 90:
+                    self._update_step_status(
+                        result, "feed_sync", AuditStepStatus.SUCCESS,
+                        result_data={"shopify": shopify_products, "gmc": total_products, "sync_rate": f"{sync_rate}%"},
+                    )
+                else:
+                    self._update_step_status(
+                        result, "feed_sync", AuditStepStatus.WARNING,
+                        result_data={"shopify": shopify_products, "gmc": total_products, "sync_rate": f"{sync_rate}%"},
+                    )
+                    missing = shopify_products - total_products
+                    result.issues.append(AuditIssue(
+                        id="gmc_sync_incomplete",
+                        audit_type=AuditType.MERCHANT_CENTER,
+                        severity="warning",
+                        title=f"{missing} produits non synchronisés",
+                        description=f"Seulement {sync_rate}% des produits Shopify sont dans GMC",
+                    ))
+            else:
+                self._update_step_status(
+                    result, "feed_sync", AuditStepStatus.WARNING,
+                    result_data={"shopify": shopify_products, "gmc": total_products},
+                )
+
+            # Step 4: Issues Check
+            self._update_step_status(result, "issues_check", AuditStepStatus.RUNNING)
+
+            # Get product issues from GMC
+            issues_resp = requests.get(
+                f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/productstatuses",
+                headers=headers,
+                timeout=30,
+            )
+
+            issues_count = 0
+            if issues_resp.status_code == 200:
+                statuses = issues_resp.json().get("resources", [])
+                for status in statuses:
+                    item_issues = status.get("itemLevelIssues", [])
+                    issues_count += len([i for i in item_issues if i.get("servability") == "disapproved"])
+
+            if issues_count > 0:
+                self._update_step_status(
+                    result, "issues_check", AuditStepStatus.WARNING,
+                    result_data={"issues_count": issues_count},
+                )
+            else:
+                self._update_step_status(
+                    result, "issues_check", AuditStepStatus.SUCCESS,
+                    result_data={"issues_count": 0},
+                )
+
+            # Finalize
+            result.status = self._overall_status(result.steps)
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+            result.summary = {
+                "merchant_id": merchant_id,
+                "total_products": total_products,
+                "approved": approved,
+                "disapproved": disapproved,
+                "issues_count": len(result.issues),
+            }
+
+        except ImportError:
+            self._update_step_status(
+                result, "gmc_connection", AuditStepStatus.ERROR,
+                error_message="google-auth library non installée",
+            )
+            for step in result.steps[1:]:
+                step.status = AuditStepStatus.SKIPPED
+            result.status = AuditStepStatus.ERROR
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+        except Exception as e:
+            result.status = AuditStepStatus.ERROR
+            result.issues.append(AuditIssue(
+                id="gmc_audit_error",
+                audit_type=AuditType.MERCHANT_CENTER,
+                severity="critical",
+                title="Erreur d'audit GMC",
+                description=str(e),
+            ))
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+
+        self._save_current_session()
+        return result
+
+    def run_gsc_audit(self) -> AuditResult:
+        """Run the Google Search Console audit with step-by-step progress."""
+        result = self.start_audit(AuditType.SEARCH_CONSOLE)
+
+        # Get GSC config from ConfigService
+        if self._config_service is None:
+            from services.config_service import ConfigService
+            self._config_service = ConfigService()
+
+        gsc_config = self._config_service.get_search_console_values()
+        site_url = gsc_config.get("property_url", "")
+
+        # Step 1: GSC Connection
+        self._update_step_status(result, "gsc_connection", AuditStepStatus.RUNNING)
+
+        if not site_url:
+            self._update_step_status(
+                result, "gsc_connection", AuditStepStatus.ERROR,
+                error_message="GOOGLE_SEARCH_CONSOLE_PROPERTY non configuré. Allez dans Settings > Search Console.",
+            )
+            for step in result.steps[1:]:
+                step.status = AuditStepStatus.SKIPPED
+            result.status = AuditStepStatus.ERROR
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+            self._save_current_session()
+            return result
+
+        try:
+            from google.oauth2 import service_account
+            from pathlib import Path
+
+            creds_path = gsc_config.get("service_account_key_path", "")
+            if not creds_path or not Path(creds_path).exists():
+                self._update_step_status(
+                    result, "gsc_connection", AuditStepStatus.ERROR,
+                    error_message="Fichier credentials Google non trouvé",
+                )
+                for step in result.steps[1:]:
+                    step.status = AuditStepStatus.SKIPPED
+                result.status = AuditStepStatus.ERROR
+                result.completed_at = datetime.now(tz=UTC).isoformat()
+                self._save_current_session()
+                return result
+
+            credentials = service_account.Credentials.from_service_account_file(
+                creds_path,
+                scopes=["https://www.googleapis.com/auth/webmasters.readonly"],
+            )
+
+            import requests
+            from google.auth.transport.requests import Request
+            from urllib.parse import quote
+            credentials.refresh(Request())
+
+            headers = {"Authorization": f"Bearer {credentials.token}"}
+
+            # Test connection
+            encoded_site = quote(site_url, safe="")
+            resp = requests.get(
+                f"https://searchconsole.googleapis.com/webmasters/v3/sites/{encoded_site}",
+                headers=headers,
+                timeout=10,
+            )
+
+            if resp.status_code == 200:
+                self._update_step_status(
+                    result, "gsc_connection", AuditStepStatus.SUCCESS,
+                    result_data={"site_url": site_url},
+                )
+            else:
+                self._update_step_status(
+                    result, "gsc_connection", AuditStepStatus.ERROR,
+                    error_message=f"Erreur API GSC: {resp.status_code}",
+                )
+                for step in result.steps[1:]:
+                    step.status = AuditStepStatus.SKIPPED
+                result.status = AuditStepStatus.ERROR
+                result.completed_at = datetime.now(tz=UTC).isoformat()
+                self._save_current_session()
+                return result
+
+            # Step 2: Indexation Coverage
+            self._update_step_status(result, "indexation", AuditStepStatus.RUNNING)
+
+            # Get indexed pages via search analytics
+            from datetime import timedelta
+            end_date = datetime.now(tz=UTC).date()
+            start_date = end_date - timedelta(days=28)
+
+            search_resp = requests.post(
+                f"https://searchconsole.googleapis.com/webmasters/v3/sites/{encoded_site}/searchAnalytics/query",
+                headers=headers,
+                json={
+                    "startDate": start_date.strftime("%Y-%m-%d"),
+                    "endDate": end_date.strftime("%Y-%m-%d"),
+                    "dimensions": ["page"],
+                    "rowLimit": 1000,
+                },
+                timeout=30,
+            )
+
+            indexed_pages = 0
+            if search_resp.status_code == 200:
+                rows = search_resp.json().get("rows", [])
+                indexed_pages = len(rows)
+
+                # Get Shopify pages count (products + collections + pages)
+                from services.shopify_analytics import ShopifyAnalyticsService
+                shopify = ShopifyAnalyticsService()
+                shopify_products = shopify.get_products_count()
+                # Estimate total pages (products + collections + static)
+                estimated_pages = shopify_products + 20  # rough estimate
+
+                if indexed_pages >= estimated_pages * 0.8:
+                    self._update_step_status(
+                        result, "indexation", AuditStepStatus.SUCCESS,
+                        result_data={"indexed": indexed_pages, "estimated_total": estimated_pages},
+                    )
+                else:
+                    self._update_step_status(
+                        result, "indexation", AuditStepStatus.WARNING,
+                        result_data={"indexed": indexed_pages, "estimated_total": estimated_pages},
+                    )
+                    result.issues.append(AuditIssue(
+                        id="gsc_low_indexation",
+                        audit_type=AuditType.SEARCH_CONSOLE,
+                        severity="warning",
+                        title="Couverture d'indexation faible",
+                        description=f"Seulement {indexed_pages} pages indexées sur ~{estimated_pages} estimées",
+                    ))
+            else:
+                self._update_step_status(
+                    result, "indexation", AuditStepStatus.ERROR,
+                    error_message=f"Erreur API: {search_resp.status_code}",
+                )
+
+            # Step 3: Crawl Errors
+            self._update_step_status(result, "errors", AuditStepStatus.RUNNING)
+
+            # Note: URL Inspection API requires individual URL checks
+            # For now, we'll check for 404s in search analytics (pages with 0 clicks/impressions)
+            errors_found = 0
+
+            # Simple heuristic: pages in GSC data with 0 impressions might have issues
+            if search_resp.status_code == 200:
+                rows = search_resp.json().get("rows", [])
+                low_impression_pages = [r for r in rows if r.get("impressions", 0) == 0]
+                errors_found = len(low_impression_pages)
+
+            if errors_found > 10:
+                self._update_step_status(
+                    result, "errors", AuditStepStatus.WARNING,
+                    result_data={"potential_issues": errors_found},
+                )
+                result.issues.append(AuditIssue(
+                    id="gsc_potential_errors",
+                    audit_type=AuditType.SEARCH_CONSOLE,
+                    severity="medium",
+                    title=f"{errors_found} pages à vérifier",
+                    description="Plusieurs pages ont 0 impressions - vérifiez leur indexation",
+                ))
+            else:
+                self._update_step_status(
+                    result, "errors", AuditStepStatus.SUCCESS,
+                    result_data={"potential_issues": errors_found},
+                )
+
+            # Step 4: Sitemaps
+            self._update_step_status(result, "sitemaps", AuditStepStatus.RUNNING)
+
+            sitemaps_resp = requests.get(
+                f"https://searchconsole.googleapis.com/webmasters/v3/sites/{encoded_site}/sitemaps",
+                headers=headers,
+                timeout=10,
+            )
+
+            if sitemaps_resp.status_code == 200:
+                sitemaps = sitemaps_resp.json().get("sitemap", [])
+                sitemap_count = len(sitemaps)
+
+                if sitemap_count > 0:
+                    # Check for errors in sitemaps
+                    has_errors = any(s.get("errors", 0) > 0 for s in sitemaps)
+                    if has_errors:
+                        self._update_step_status(
+                            result, "sitemaps", AuditStepStatus.WARNING,
+                            result_data={"count": sitemap_count, "has_errors": True},
+                        )
+                        result.issues.append(AuditIssue(
+                            id="gsc_sitemap_errors",
+                            audit_type=AuditType.SEARCH_CONSOLE,
+                            severity="warning",
+                            title="Erreurs dans les sitemaps",
+                            description="Des erreurs ont été détectées dans vos sitemaps",
+                        ))
+                    else:
+                        self._update_step_status(
+                            result, "sitemaps", AuditStepStatus.SUCCESS,
+                            result_data={"count": sitemap_count, "has_errors": False},
+                        )
+                else:
+                    self._update_step_status(
+                        result, "sitemaps", AuditStepStatus.WARNING,
+                        result_data={"count": 0},
+                    )
+                    result.issues.append(AuditIssue(
+                        id="gsc_no_sitemap",
+                        audit_type=AuditType.SEARCH_CONSOLE,
+                        severity="warning",
+                        title="Aucun sitemap soumis",
+                        description="Soumettez votre sitemap Shopify à Google Search Console",
+                    ))
+            else:
+                self._update_step_status(
+                    result, "sitemaps", AuditStepStatus.ERROR,
+                    error_message=f"Erreur API: {sitemaps_resp.status_code}",
+                )
+
+            # Finalize
+            result.status = self._overall_status(result.steps)
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+            result.summary = {
+                "site_url": site_url,
+                "indexed_pages": indexed_pages,
+                "issues_count": len(result.issues),
+            }
+
+        except ImportError:
+            self._update_step_status(
+                result, "gsc_connection", AuditStepStatus.ERROR,
+                error_message="google-auth library non installée",
+            )
+            for step in result.steps[1:]:
+                step.status = AuditStepStatus.SKIPPED
+            result.status = AuditStepStatus.ERROR
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+        except Exception as e:
+            result.status = AuditStepStatus.ERROR
+            result.issues.append(AuditIssue(
+                id="gsc_audit_error",
+                audit_type=AuditType.SEARCH_CONSOLE,
+                severity="critical",
+                title="Erreur d'audit GSC",
+                description=str(e),
+            ))
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+
+        self._save_current_session()
+        return result
+
     def execute_action(self, audit_type: str, action_id: str) -> dict[str, Any]:
         """Execute a correction action on an audit issue.
 
@@ -907,7 +1631,8 @@ class AuditOrchestrator:
                 "error": f"Action '{action_id}' non trouvée",
             }
 
-        if issue.action_status != ActionStatus.AVAILABLE:
+        # Allow retry if action failed or is available
+        if issue.action_status not in (ActionStatus.AVAILABLE, ActionStatus.FAILED):
             return {
                 "success": False,
                 "error": f"Action non disponible (status: {issue.action_status.value})",
@@ -958,6 +1683,23 @@ class AuditOrchestrator:
             issue.action_status = ActionStatus.FAILED
             self._save_current_session()
             return {"success": False, "error": "Theme Analyzer non disponible"}
+
+        # Check write_themes permission first
+        from services.permissions_checker import PermissionsCheckerService
+        permissions_checker = PermissionsCheckerService(self._config_service)
+        has_permission, error_msg = permissions_checker.has_write_themes_permission()
+
+        if not has_permission:
+            issue.action_status = ActionStatus.FAILED
+            self._save_current_session()
+            return {
+                "success": False,
+                "error": error_msg or (
+                    "Permission write_themes manquante. "
+                    "Allez dans Shopify > Apps > Votre app > Configuration API > "
+                    "Ajoutez le scope 'write_themes' et réinstallez l'app."
+                ),
+            }
 
         ga4_id = self._get_ga4_measurement_id()
 

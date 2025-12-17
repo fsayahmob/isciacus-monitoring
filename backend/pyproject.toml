@@ -18,6 +18,8 @@ dependencies = [
     "uvicorn[standard]>=0.27.0",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
+    "slowapi>=0.1.9",
+    "inngest>=0.4.0",
 ]
 
 [project.optional-dependencies]

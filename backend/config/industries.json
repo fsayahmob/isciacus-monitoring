@@ -1,0 +1,409 @@
+{
+  "industries": [
+    {
+      "id": "fashion_luxury",
+      "name": "Mode / Luxe",
+      "description": "Vêtements, accessoires, produits de luxe",
+      "thresholds": {
+        "cvr_global": {
+          "label": "CVR Global",
+          "unit": "%",
+          "bad": { "max": 0.5 },
+          "ok": { "min": 0.5, "max": 1.2 },
+          "good": { "min": 1.2 },
+          "description": "Taux de conversion global visiteurs → achats"
+        },
+        "product_view_to_atc": {
+          "label": "Vue Produit → Panier",
+          "unit": "%",
+          "bad": { "max": 5 },
+          "ok": { "min": 5, "max": 10 },
+          "good": { "min": 10 },
+          "description": "Taux de conversion vue produit vers ajout panier"
+        },
+        "atc_to_checkout": {
+          "label": "Panier → Checkout",
+          "unit": "%",
+          "bad": { "max": 30 },
+          "ok": { "min": 30, "max": 50 },
+          "good": { "min": 50 },
+          "description": "Taux de conversion panier vers checkout"
+        },
+        "checkout_completion": {
+          "label": "Checkout → Achat",
+          "unit": "%",
+          "bad": { "max": 40 },
+          "ok": { "min": 40, "max": 60 },
+          "good": { "min": 60 },
+          "description": "Taux de completion du checkout"
+        },
+        "email_optin": {
+          "label": "Email Opt-in",
+          "unit": "%",
+          "bad": { "max": 70 },
+          "ok": { "min": 70, "max": 85 },
+          "good": { "min": 85 },
+          "description": "Taux d'opt-in email sur base clients"
+        },
+        "sms_optin": {
+          "label": "SMS Opt-in",
+          "unit": "%",
+          "bad": { "max": 3 },
+          "ok": { "min": 3, "max": 6 },
+          "good": { "min": 6 },
+          "description": "Taux d'opt-in SMS sur base clients"
+        },
+        "phone_rate": {
+          "label": "Taux Numéros",
+          "unit": "%",
+          "bad": { "max": 10 },
+          "ok": { "min": 10, "max": 20 },
+          "good": { "min": 20 },
+          "description": "Taux de clients avec numéro de téléphone"
+        }
+      }
+    },
+    {
+      "id": "electronics",
+      "name": "Électronique / High-Tech",
+      "description": "Informatique, smartphones, gadgets",
+      "thresholds": {
+        "cvr_global": {
+          "label": "CVR Global",
+          "unit": "%",
+          "bad": { "max": 1.0 },
+          "ok": { "min": 1.0, "max": 2.5 },
+          "good": { "min": 2.5 },
+          "description": "Taux de conversion global visiteurs → achats"
+        },
+        "product_view_to_atc": {
+          "label": "Vue Produit → Panier",
+          "unit": "%",
+          "bad": { "max": 8 },
+          "ok": { "min": 8, "max": 15 },
+          "good": { "min": 15 },
+          "description": "Taux de conversion vue produit vers ajout panier"
+        },
+        "atc_to_checkout": {
+          "label": "Panier → Checkout",
+          "unit": "%",
+          "bad": { "max": 35 },
+          "ok": { "min": 35, "max": 55 },
+          "good": { "min": 55 },
+          "description": "Taux de conversion panier vers checkout"
+        },
+        "checkout_completion": {
+          "label": "Checkout → Achat",
+          "unit": "%",
+          "bad": { "max": 45 },
+          "ok": { "min": 45, "max": 65 },
+          "good": { "min": 65 },
+          "description": "Taux de completion du checkout"
+        },
+        "email_optin": {
+          "label": "Email Opt-in",
+          "unit": "%",
+          "bad": { "max": 65 },
+          "ok": { "min": 65, "max": 80 },
+          "good": { "min": 80 },
+          "description": "Taux d'opt-in email sur base clients"
+        },
+        "sms_optin": {
+          "label": "SMS Opt-in",
+          "unit": "%",
+          "bad": { "max": 2 },
+          "ok": { "min": 2, "max": 5 },
+          "good": { "min": 5 },
+          "description": "Taux d'opt-in SMS sur base clients"
+        },
+        "phone_rate": {
+          "label": "Taux Numéros",
+          "unit": "%",
+          "bad": { "max": 8 },
+          "ok": { "min": 8, "max": 15 },
+          "good": { "min": 15 },
+          "description": "Taux de clients avec numéro de téléphone"
+        }
+      }
+    },
+    {
+      "id": "home_garden",
+      "name": "Maison / Jardin",
+      "description": "Décoration, mobilier, jardinage",
+      "thresholds": {
+        "cvr_global": {
+          "label": "CVR Global",
+          "unit": "%",
+          "bad": { "max": 1.5 },
+          "ok": { "min": 1.5, "max": 3.0 },
+          "good": { "min": 3.0 },
+          "description": "Taux de conversion global visiteurs → achats"
+        },
+        "product_view_to_atc": {
+          "label": "Vue Produit → Panier",
+          "unit": "%",
+          "bad": { "max": 6 },
+          "ok": { "min": 6, "max": 12 },
+          "good": { "min": 12 },
+          "description": "Taux de conversion vue produit vers ajout panier"
+        },
+        "atc_to_checkout": {
+          "label": "Panier → Checkout",
+          "unit": "%",
+          "bad": { "max": 32 },
+          "ok": { "min": 32, "max": 52 },
+          "good": { "min": 52 },
+          "description": "Taux de conversion panier vers checkout"
+        },
+        "checkout_completion": {
+          "label": "Checkout → Achat",
+          "unit": "%",
+          "bad": { "max": 42 },
+          "ok": { "min": 42, "max": 62 },
+          "good": { "min": 62 },
+          "description": "Taux de completion du checkout"
+        },
+        "email_optin": {
+          "label": "Email Opt-in",
+          "unit": "%",
+          "bad": { "max": 68 },
+          "ok": { "min": 68, "max": 82 },
+          "good": { "min": 82 },
+          "description": "Taux d'opt-in email sur base clients"
+        },
+        "sms_optin": {
+          "label": "SMS Opt-in",
+          "unit": "%",
+          "bad": { "max": 2 },
+          "ok": { "min": 2, "max": 4 },
+          "good": { "min": 4 },
+          "description": "Taux d'opt-in SMS sur base clients"
+        },
+        "phone_rate": {
+          "label": "Taux Numéros",
+          "unit": "%",
+          "bad": { "max": 12 },
+          "ok": { "min": 12, "max": 22 },
+          "good": { "min": 22 },
+          "description": "Taux de clients avec numéro de téléphone"
+        }
+      }
+    },
+    {
+      "id": "beauty_cosmetics",
+      "name": "Beauté / Cosmétiques",
+      "description": "Soins, maquillage, parfums",
+      "thresholds": {
+        "cvr_global": {
+          "label": "CVR Global",
+          "unit": "%",
+          "bad": { "max": 2.0 },
+          "ok": { "min": 2.0, "max": 4.0 },
+          "good": { "min": 4.0 },
+          "description": "Taux de conversion global visiteurs → achats"
+        },
+        "product_view_to_atc": {
+          "label": "Vue Produit → Panier",
+          "unit": "%",
+          "bad": { "max": 10 },
+          "ok": { "min": 10, "max": 18 },
+          "good": { "min": 18 },
+          "description": "Taux de conversion vue produit vers ajout panier"
+        },
+        "atc_to_checkout": {
+          "label": "Panier → Checkout",
+          "unit": "%",
+          "bad": { "max": 38 },
+          "ok": { "min": 38, "max": 58 },
+          "good": { "min": 58 },
+          "description": "Taux de conversion panier vers checkout"
+        },
+        "checkout_completion": {
+          "label": "Checkout → Achat",
+          "unit": "%",
+          "bad": { "max": 48 },
+          "ok": { "min": 48, "max": 68 },
+          "good": { "min": 68 },
+          "description": "Taux de completion du checkout"
+        },
+        "email_optin": {
+          "label": "Email Opt-in",
+          "unit": "%",
+          "bad": { "max": 75 },
+          "ok": { "min": 75, "max": 88 },
+          "good": { "min": 88 },
+          "description": "Taux d'opt-in email sur base clients"
+        },
+        "sms_optin": {
+          "label": "SMS Opt-in",
+          "unit": "%",
+          "bad": { "max": 4 },
+          "ok": { "min": 4, "max": 8 },
+          "good": { "min": 8 },
+          "description": "Taux d'opt-in SMS sur base clients"
+        },
+        "phone_rate": {
+          "label": "Taux Numéros",
+          "unit": "%",
+          "bad": { "max": 15 },
+          "ok": { "min": 15, "max": 25 },
+          "good": { "min": 25 },
+          "description": "Taux de clients avec numéro de téléphone"
+        }
+      }
+    },
+    {
+      "id": "food_beverage",
+      "name": "Alimentation / Boissons",
+      "description": "Épicerie fine, vins, produits alimentaires",
+      "thresholds": {
+        "cvr_global": {
+          "label": "CVR Global",
+          "unit": "%",
+          "bad": { "max": 2.5 },
+          "ok": { "min": 2.5, "max": 5.0 },
+          "good": { "min": 5.0 },
+          "description": "Taux de conversion global visiteurs → achats"
+        },
+        "product_view_to_atc": {
+          "label": "Vue Produit → Panier",
+          "unit": "%",
+          "bad": { "max": 12 },
+          "ok": { "min": 12, "max": 22 },
+          "good": { "min": 22 },
+          "description": "Taux de conversion vue produit vers ajout panier"
+        },
+        "atc_to_checkout": {
+          "label": "Panier → Checkout",
+          "unit": "%",
+          "bad": { "max": 40 },
+          "ok": { "min": 40, "max": 60 },
+          "good": { "min": 60 },
+          "description": "Taux de conversion panier vers checkout"
+        },
+        "checkout_completion": {
+          "label": "Checkout → Achat",
+          "unit": "%",
+          "bad": { "max": 50 },
+          "ok": { "min": 50, "max": 70 },
+          "good": { "min": 70 },
+          "description": "Taux de completion du checkout"
+        },
+        "email_optin": {
+          "label": "Email Opt-in",
+          "unit": "%",
+          "bad": { "max": 72 },
+          "ok": { "min": 72, "max": 85 },
+          "good": { "min": 85 },
+          "description": "Taux d'opt-in email sur base clients"
+        },
+        "sms_optin": {
+          "label": "SMS Opt-in",
+          "unit": "%",
+          "bad": { "max": 5 },
+          "ok": { "min": 5, "max": 10 },
+          "good": { "min": 10 },
+          "description": "Taux d'opt-in SMS sur base clients"
+        },
+        "phone_rate": {
+          "label": "Taux Numéros",
+          "unit": "%",
+          "bad": { "max": 18 },
+          "ok": { "min": 18, "max": 30 },
+          "good": { "min": 30 },
+          "description": "Taux de clients avec numéro de téléphone"
+        }
+      }
+    },
+    {
+      "id": "sports_outdoor",
+      "name": "Sport / Outdoor",
+      "description": "Équipement sportif, vêtements de sport",
+      "thresholds": {
+        "cvr_global": {
+          "label": "CVR Global",
+          "unit": "%",
+          "bad": { "max": 1.2 },
+          "ok": { "min": 1.2, "max": 2.8 },
+          "good": { "min": 2.8 },
+          "description": "Taux de conversion global visiteurs → achats"
+        },
+        "product_view_to_atc": {
+          "label": "Vue Produit → Panier",
+          "unit": "%",
+          "bad": { "max": 7 },
+          "ok": { "min": 7, "max": 14 },
+          "good": { "min": 14 },
+          "description": "Taux de conversion vue produit vers ajout panier"
+        },
+        "atc_to_checkout": {
+          "label": "Panier → Checkout",
+          "unit": "%",
+          "bad": { "max": 33 },
+          "ok": { "min": 33, "max": 53 },
+          "good": { "min": 53 },
+          "description": "Taux de conversion panier vers checkout"
+        },
+        "checkout_completion": {
+          "label": "Checkout → Achat",
+          "unit": "%",
+          "bad": { "max": 44 },
+          "ok": { "min": 44, "max": 64 },
+          "good": { "min": 64 },
+          "description": "Taux de completion du checkout"
+        },
+        "email_optin": {
+          "label": "Email Opt-in",
+          "unit": "%",
+          "bad": { "max": 68 },
+          "ok": { "min": 68, "max": 82 },
+          "good": { "min": 82 },
+          "description": "Taux d'opt-in email sur base clients"
+        },
+        "sms_optin": {
+          "label": "SMS Opt-in",
+          "unit": "%",
+          "bad": { "max": 3 },
+          "ok": { "min": 3, "max": 7 },
+          "good": { "min": 7 },
+          "description": "Taux d'opt-in SMS sur base clients"
+        },
+        "phone_rate": {
+          "label": "Taux Numéros",
+          "unit": "%",
+          "bad": { "max": 12 },
+          "ok": { "min": 12, "max": 22 },
+          "good": { "min": 22 },
+          "description": "Taux de clients avec numéro de téléphone"
+        }
+      }
+    }
+  ],
+  "sources": [
+    {
+      "name": "Dynamic Yield",
+      "url": "https://www.dynamicyield.com/benchmarks/",
+      "metric": "cvr_global"
+    },
+    {
+      "name": "Statista E-commerce",
+      "url": "https://www.statista.com/",
+      "metric": "industry_benchmarks"
+    },
+    {
+      "name": "Baymard Institute",
+      "url": "https://baymard.com/lists/cart-abandonment-rate",
+      "metric": "checkout_completion"
+    },
+    {
+      "name": "Omnisend",
+      "url": "https://www.omnisend.com/",
+      "metric": "email_optin"
+    },
+    {
+      "name": "Klaviyo",
+      "url": "https://www.klaviyo.com/",
+      "metric": "sms_optin"
+    }
+  ]
+}

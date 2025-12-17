@@ -11,5 +11,19 @@ requests>=2.31.0
 # Environment
 python-dotenv>=1.0.0
 
+# Security / Encryption
+cryptography>=42.0.0
+
 # Type hints
 typing-extensions>=4.9.0
+
+# Rate Limiting
+slowapi>=0.1.9
+
+# Google APIs
+google-analytics-data>=0.18.0
+google-auth>=2.27.0
+google-api-python-client>=2.100.0
+
+# Background Jobs
+inngest>=0.4.0

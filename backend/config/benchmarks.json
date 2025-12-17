@@ -1,0 +1,98 @@
+{
+  "industry": "fashion_luxury",
+  "version": "2025.1",
+  "last_updated": "2025-01-15",
+  "sources": [
+    {
+      "name": "Dynamic Yield",
+      "url": "https://www.dynamicyield.com/benchmarks/",
+      "metric": "cvr_global_fashion"
+    },
+    {
+      "name": "Statista",
+      "url": "https://www.statista.com/",
+      "metric": "cvr_luxury"
+    },
+    {
+      "name": "Baymard Institute",
+      "url": "https://baymard.com/lists/cart-abandonment-rate",
+      "metric": "checkout_completion"
+    },
+    {
+      "name": "Omnisend",
+      "url": "https://www.omnisend.com/",
+      "metric": "email_optin"
+    },
+    {
+      "name": "Klaviyo",
+      "url": "https://www.klaviyo.com/",
+      "metric": "sms_optin"
+    }
+  ],
+  "thresholds": {
+    "cvr_global_fashion": {
+      "label": "CVR Global Fashion",
+      "unit": "%",
+      "bad": { "max": 2.0 },
+      "ok": { "min": 2.0, "max": 3.3 },
+      "good": { "min": 3.3 },
+      "description": "Taux de conversion global pour le secteur mode"
+    },
+    "cvr_luxury": {
+      "label": "CVR Luxury",
+      "unit": "%",
+      "bad": { "max": 0.5 },
+      "ok": { "min": 0.5, "max": 1.2 },
+      "good": { "min": 1.2 },
+      "description": "Taux de conversion pour le secteur luxe"
+    },
+    "product_view_to_atc": {
+      "label": "Vue Produit → Panier",
+      "unit": "%",
+      "bad": { "max": 5 },
+      "ok": { "min": 5, "max": 10 },
+      "good": { "min": 10 },
+      "description": "Taux de conversion vue produit vers ajout panier"
+    },
+    "atc_to_checkout": {
+      "label": "Panier → Checkout",
+      "unit": "%",
+      "bad": { "max": 30 },
+      "ok": { "min": 30, "max": 50 },
+      "good": { "min": 50 },
+      "description": "Taux de conversion panier vers checkout"
+    },
+    "checkout_completion": {
+      "label": "Completion Checkout",
+      "unit": "%",
+      "bad": { "max": 40 },
+      "ok": { "min": 40, "max": 60 },
+      "good": { "min": 60 },
+      "description": "Taux de completion du checkout"
+    },
+    "email_optin": {
+      "label": "Email Opt-in",
+      "unit": "%",
+      "bad": { "max": 70 },
+      "ok": { "min": 70, "max": 85 },
+      "good": { "min": 85 },
+      "description": "Taux d'opt-in email sur base clients"
+    },
+    "sms_optin": {
+      "label": "SMS Opt-in",
+      "unit": "%",
+      "bad": { "max": 3 },
+      "ok": { "min": 3, "max": 6 },
+      "good": { "min": 6 },
+      "description": "Taux d'opt-in SMS sur base clients"
+    },
+    "phone_rate": {
+      "label": "Taux Numéros",
+      "unit": "%",
+      "bad": { "max": 10 },
+      "ok": { "min": 10, "max": 20 },
+      "good": { "min": 20 },
+      "description": "Taux de clients avec numéro de téléphone"
+    }
+  }
+}

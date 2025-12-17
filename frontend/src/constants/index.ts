@@ -64,6 +64,8 @@ export const STOCK_LEVEL_COLORS = {
 export const PAGES = {
   PRODUCTS: 'products',
   ANALYTICS: 'analytics',
+  BENCHMARKS: 'benchmarks',
+  AUDIT: 'audit',
   SETTINGS: 'settings',
 } as const
 

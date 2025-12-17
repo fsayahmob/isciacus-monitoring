@@ -6,10 +6,13 @@
 # Usage:
 #   docker-compose up              # Start all services
 #   docker-compose up -d           # Start in background
-#   docker-compose up frontend     # Start only frontend
-#   docker-compose up backend      # Start only backend
 #   docker-compose down            # Stop all services
 #   docker-compose logs -f         # View logs
+#
+# Services:
+#   - frontend:  React app (localhost:5173)
+#   - backend:   FastAPI (localhost:8080)
+#   - inngest:   Job queue dashboard (localhost:8288)
 # =====================================================
 
 services:
@@ -50,6 +53,22 @@ services:
       - ./backend/.env
     environment:
       - PYTHONUNBUFFERED=1
+      - INNGEST_DEV=1
+      - INNGEST_API_BASE_URL=http://inngest:8288
+    depends_on:
+      - inngest
+    networks:
+      - isciacus-network
+
+  # =====================================================
+  # Inngest - Job Queue Dev Server
+  # =====================================================
+  inngest:
+    image: inngest/inngest:latest
+    container_name: isciacus-inngest
+    ports:
+      - "8288:8288"
+    command: ["inngest", "dev", "-u", "http://backend:8080/api/inngest"]
     networks:
       - isciacus-network
 

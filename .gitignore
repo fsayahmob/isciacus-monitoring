@@ -21,6 +21,12 @@
 secrets.json
 credentials.json
 **/serviceAccountKey.json
+**/google-service-account.json
+backend/credentials/
+backend/data/.google_temp.json
+backend/data/.config_key
+backend/data/config.db
+backend/data/audits/
 
 # =====================================================
 # DEPENDENCIES

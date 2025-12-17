@@ -1182,6 +1182,12 @@ async def run_audit(audit_type: str, period: int = Query(default=30)) -> dict[st
         result = audit_orchestrator.run_ga4_audit(period)
     elif audit_enum == AuditType.THEME_CODE:
         result = audit_orchestrator.run_theme_audit()
+    elif audit_enum == AuditType.META_PIXEL:
+        result = audit_orchestrator.run_meta_audit()
+    elif audit_enum == AuditType.MERCHANT_CENTER:
+        result = audit_orchestrator.run_gmc_audit()
+    elif audit_enum == AuditType.SEARCH_CONSOLE:
+        result = audit_orchestrator.run_gsc_audit()
     else:
         raise HTTPException(
             status_code=501,
