@@ -109,6 +109,42 @@ function PermissionRow({ permission }: { permission: PermissionResult }): React.
   )
 }
 
+function PermissionsLoading(): React.ReactElement {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-burgundy border-t-transparent" />
+        <span className="text-sm text-gray-600">Vérification des permissions Shopify...</span>
+      </div>
+    </div>
+  )
+}
+
+function PermissionsError(): React.ReactElement {
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="h-3 w-3 rounded-full bg-amber-500" />
+        <span className="text-sm text-amber-700">
+          Impossible de vérifier les permissions (Shopify non configuré?)
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function PermissionsWarning(): React.ReactElement {
+  return (
+    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <p className="text-sm text-amber-800">
+        <strong>Action requise:</strong> Certaines permissions sont manquantes. Les actions de
+        correction nécessitent la permission{' '}
+        <code className="rounded bg-amber-100 px-1">write_themes</code>.
+      </p>
+    </div>
+  )
+}
+
 export function PermissionsPanel(): React.ReactElement {
   const {
     data: permissions,
@@ -123,45 +159,28 @@ export function PermissionsPanel(): React.ReactElement {
   })
 
   if (isLoading) {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-burgundy border-t-transparent" />
-          <span className="text-sm text-gray-600">Vérification des permissions Shopify...</span>
-        </div>
-      </div>
-    )
+    return <PermissionsLoading />
   }
-
   if (error !== null || permissions === undefined) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-amber-500" />
-          <span className="text-sm text-amber-700">
-            Impossible de vérifier les permissions (Shopify non configuré?)
-          </span>
-        </div>
-      </div>
-    )
+    return <PermissionsError />
   }
 
   const deniedCount = permissions.results.filter((p) => p.status === 'denied').length
   const grantedCount = permissions.results.filter((p) => p.status === 'granted').length
+  const statusLabel = permissions.all_granted
+    ? 'Toutes accordées'
+    : `${String(deniedCount)} permission${deniedCount > 1 ? 's' : ''} manquante${deniedCount > 1 ? 's' : ''}`
+  const statusClass = permissions.all_granted
+    ? 'bg-green-100 text-green-800'
+    : 'bg-red-100 text-red-800'
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-medium text-gray-900">Permissions Shopify</h3>
         <div className="flex items-center gap-2">
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-              permissions.all_granted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}
-          >
-            {permissions.all_granted
-              ? 'Toutes accordées'
-              : `${String(deniedCount)} permission${deniedCount > 1 ? 's' : ''} manquante${deniedCount > 1 ? 's' : ''}`}
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+            {statusLabel}
           </span>
           <button
             className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -190,15 +209,7 @@ export function PermissionsPanel(): React.ReactElement {
           <PermissionRow key={permission.id} permission={permission} />
         ))}
       </div>
-      {!permissions.all_granted && (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-sm text-amber-800">
-            <strong>Action requise:</strong> Certaines permissions sont manquantes. Les actions de
-            correction (comme l&apos;injection GA4) nécessitent la permission{' '}
-            <code className="rounded bg-amber-100 px-1">write_themes</code>.
-          </p>
-        </div>
-      )}
+      {!permissions.all_granted && <PermissionsWarning />}
     </div>
   )
 }
