@@ -59,7 +59,11 @@ interface SortableHeaderProps {
   align?: 'left' | 'center' | 'right'
 }
 
-function SortableHeader({ field, children, align = 'left' }: SortableHeaderProps): React.ReactElement {
+function SortableHeader({
+  field,
+  children,
+  align = 'left',
+}: SortableHeaderProps): React.ReactElement {
   const { sortField, sortDirection, setSorting } = useAppStore()
   const isActive = sortField === field
 

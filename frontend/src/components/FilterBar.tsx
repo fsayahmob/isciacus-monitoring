@@ -17,7 +17,12 @@ interface FilterSelectProps {
   onChange: (value: string) => void
 }
 
-function FilterSelect({ value, placeholder, options, onChange }: FilterSelectProps): React.ReactElement {
+function FilterSelect({
+  value,
+  placeholder,
+  options,
+  onChange,
+}: FilterSelectProps): React.ReactElement {
   return (
     <select
       className="rounded border border-gray-300 px-3 py-1.5 text-sm"
@@ -67,7 +72,11 @@ interface ActiveFilterBadgeProps {
   onClear: () => void
 }
 
-function ActiveFilterBadge({ filterKey, value, onClear }: ActiveFilterBadgeProps): React.ReactElement {
+function ActiveFilterBadge({
+  filterKey,
+  value,
+  onClear,
+}: ActiveFilterBadgeProps): React.ReactElement {
   return (
     <span className="inline-flex items-center gap-1 rounded bg-burgundy px-2 py-1 text-xs text-white">
       {filterKey}: {value}
