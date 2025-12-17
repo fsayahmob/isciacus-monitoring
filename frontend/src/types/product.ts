@@ -51,7 +51,7 @@ export interface ProductFilters {
   search?: string
   tag?: string
   stock_level?: string
-  publie?: boolean | string
+  publie?: string
   channel?: string
   collection?: string
   statut?: string
