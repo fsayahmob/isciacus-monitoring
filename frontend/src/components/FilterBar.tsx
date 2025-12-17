@@ -8,6 +8,168 @@ import { useCallback } from 'react'
 import { STOCK_LEVEL_LABELS } from '../constants'
 import { useFilters } from '../hooks/useProducts'
 import { useAppStore } from '../stores/useAppStore'
+import type { ProductFilters } from '../types/product'
+
+interface FilterSelectProps {
+  value: string
+  placeholder: string
+  options: string[]
+  onChange: (value: string) => void
+}
+
+function FilterSelect({ value, placeholder, options, onChange }: FilterSelectProps): JSX.Element {
+  return (
+    <select
+      className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value)
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function StockLevelSelect({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}): JSX.Element {
+  return (
+    <select
+      className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value)
+      }}
+    >
+      <option value="">Stock (tous)</option>
+      {Object.entries(STOCK_LEVEL_LABELS).map(([val, label]) => (
+        <option key={val} value={val}>
+          {label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+interface ActiveFilterBadgeProps {
+  filterKey: string
+  value: string
+  onClear: () => void
+}
+
+function ActiveFilterBadge({ filterKey, value, onClear }: ActiveFilterBadgeProps): JSX.Element {
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-burgundy px-2 py-1 text-xs text-white">
+      {filterKey}: {value}
+      <button className="hover:text-cream-dark" type="button" onClick={onClear}>
+        &times;
+      </button>
+    </span>
+  )
+}
+
+function ActiveFiltersDisplay({
+  filters,
+  onClearFilter,
+}: {
+  filters: ProductFilters
+  onClearFilter: (key: string) => void
+}): JSX.Element {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {Object.entries(filters).map(([key, value]) => {
+        if (value === undefined || value === '') {
+          return null
+        }
+        return (
+          <ActiveFilterBadge
+            key={key}
+            filterKey={key}
+            value={String(value)}
+            onClear={() => {
+              onClearFilter(key)
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function FilterControls({
+  filters,
+  tags,
+  channels,
+  collections,
+  onFilterChange,
+}: {
+  filters: ProductFilters
+  tags: string[]
+  channels: string[]
+  collections: string[]
+  onFilterChange: (key: string, value: string) => void
+}): JSX.Element {
+  return (
+    <>
+      <StockLevelSelect
+        value={filters.stock_level ?? ''}
+        onChange={(v) => {
+          onFilterChange('stock_level', v)
+        }}
+      />
+      <FilterSelect
+        options={['true', 'false']}
+        placeholder="Publication (tous)"
+        value={filters.publie ?? ''}
+        onChange={(v) => {
+          onFilterChange('publie', v)
+        }}
+      />
+      <FilterSelect
+        options={['ACTIVE', 'DRAFT', 'ARCHIVED']}
+        placeholder="Statut (tous)"
+        value={filters.statut ?? ''}
+        onChange={(v) => {
+          onFilterChange('statut', v)
+        }}
+      />
+      <FilterSelect
+        options={channels}
+        placeholder="Canal de vente (tous)"
+        value={filters.channel ?? ''}
+        onChange={(v) => {
+          onFilterChange('channel', v)
+        }}
+      />
+      <FilterSelect
+        options={collections}
+        placeholder="Collection (toutes)"
+        value={filters.collection ?? ''}
+        onChange={(v) => {
+          onFilterChange('collection', v)
+        }}
+      />
+      <FilterSelect
+        options={tags}
+        placeholder="Tags (tous)"
+        value={filters.tag ?? ''}
+        onChange={(v) => {
+          onFilterChange('tag', v)
+        }}
+      />
+    </>
+  )
+}
 
 export function FilterBar(): JSX.Element {
   const { filters, updateFilter, clearFilters } = useAppStore()
@@ -15,9 +177,9 @@ export function FilterBar(): JSX.Element {
 
   const handleFilterChange = useCallback(
     (key: string, value: string): void => {
-      updateFilter(key as keyof typeof filters, value)
+      updateFilter(key as keyof ProductFilters, value)
     },
-    [updateFilter, filters]
+    [updateFilter]
   )
 
   const activeFiltersCount = Object.values(filters).filter(
@@ -27,98 +189,13 @@ export function FilterBar(): JSX.Element {
   return (
     <div className="border-b border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-3">
-        {/* Stock Filter */}
-        <select
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-          value={filters.stock_level ?? ''}
-          onChange={(e) => {
-            handleFilterChange('stock_level', e.target.value)
-          }}
-        >
-          <option value="">Stock (tous)</option>
-          {Object.entries(STOCK_LEVEL_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-
-        {/* Publication Filter */}
-        <select
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-          value={filters.publie ?? ''}
-          onChange={(e) => {
-            handleFilterChange('publie', e.target.value)
-          }}
-        >
-          <option value="">Publication (tous)</option>
-          <option value="true">Publié</option>
-          <option value="false">Non publié</option>
-        </select>
-
-        {/* Status Filter */}
-        <select
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-          value={filters.statut ?? ''}
-          onChange={(e) => {
-            handleFilterChange('statut', e.target.value)
-          }}
-        >
-          <option value="">Statut (tous)</option>
-          <option value="ACTIVE">Active</option>
-          <option value="DRAFT">Brouillon</option>
-          <option value="ARCHIVED">Archivé</option>
-        </select>
-
-        {/* Channel Filter */}
-        <select
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-          value={filters.channel ?? ''}
-          onChange={(e) => {
-            handleFilterChange('channel', e.target.value)
-          }}
-        >
-          <option value="">Canal de vente (tous)</option>
-          {channels.map((channel) => (
-            <option key={channel} value={channel}>
-              {channel}
-            </option>
-          ))}
-        </select>
-
-        {/* Collection Filter */}
-        <select
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-          value={filters.collection ?? ''}
-          onChange={(e) => {
-            handleFilterChange('collection', e.target.value)
-          }}
-        >
-          <option value="">Collection (toutes)</option>
-          {collections.map((collection) => (
-            <option key={collection} value={collection}>
-              {collection}
-            </option>
-          ))}
-        </select>
-
-        {/* Tags Filter */}
-        <select
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-          value={filters.tag ?? ''}
-          onChange={(e) => {
-            handleFilterChange('tag', e.target.value)
-          }}
-        >
-          <option value="">Tags (tous)</option>
-          {tags.map((tag) => (
-            <option key={tag} value={tag}>
-              {tag}
-            </option>
-          ))}
-        </select>
-
-        {/* Clear Filters */}
+        <FilterControls
+          channels={channels}
+          collections={collections}
+          filters={filters}
+          tags={tags}
+          onFilterChange={handleFilterChange}
+        />
         {activeFiltersCount > 0 && (
           <button
             className="ml-2 text-sm text-burgundy hover:underline"
@@ -129,33 +206,13 @@ export function FilterBar(): JSX.Element {
           </button>
         )}
       </div>
-
-      {/* Active Filters Display */}
       {activeFiltersCount > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {Object.entries(filters).map(([key, value]) => {
-            if (value === undefined || value === '') {
-              return null
-            }
-            return (
-              <span
-                key={key}
-                className="inline-flex items-center gap-1 rounded bg-burgundy px-2 py-1 text-xs text-white"
-              >
-                {key}: {String(value)}
-                <button
-                  className="hover:text-cream-dark"
-                  type="button"
-                  onClick={() => {
-                    handleFilterChange(key, '')
-                  }}
-                >
-                  &times;
-                </button>
-              </span>
-            )
-          })}
-        </div>
+        <ActiveFiltersDisplay
+          filters={filters}
+          onClearFilter={(key) => {
+            handleFilterChange(key, '')
+          }}
+        />
       )}
     </div>
   )

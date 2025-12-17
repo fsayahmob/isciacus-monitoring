@@ -128,32 +128,54 @@ export default tseslint.config(
       }],
 
       // ===========================================
-      // 3. CODE STYLE & COMPLEXITY
+      // 3. CODE STYLE & COMPLEXITY (Architecture-Driven)
       // ===========================================
+      // File size limits - forces modular architecture
       'max-lines': ['error', {
         max: 300,
         skipBlankLines: true,
         skipComments: true,
       }],
+      // Function size limits - forces single responsibility
       'max-lines-per-function': ['error', {
         max: 80,
         skipBlankLines: true,
         skipComments: true,
       }],
+      // Nesting limits - forces flat, readable code
       'max-depth': ['error', 4],
+      // Parameter limits - forces clean interfaces
       'max-params': ['error', 5],
+      // Complexity limits - forces simple logic
       'complexity': ['error', 15],
+      // Statement limits per function
+      'max-statements': ['error', 25],
+      // Nested callback limits
+      'max-nested-callbacks': ['error', 3],
+      // Ternary restrictions
       'no-nested-ternary': 'error',
       'no-unneeded-ternary': 'error',
+      // Modern JS enforcement
       'prefer-const': 'error',
       'no-var': 'error',
+      'prefer-template': 'error',
+      'prefer-spread': 'error',
+      'prefer-rest-params': 'error',
+      'prefer-destructuring': ['error', {
+        array: false,
+        object: true,
+      }],
+      // Strict equality
       'eqeqeq': ['error', 'always'],
       'curly': ['error', 'all'],
+      // No debugging artifacts
       'no-console': ['error', {
         allow: ['warn', 'error'],
       }],
       'no-debugger': 'error',
       'no-alert': 'error',
+      // Array type style
+      '@typescript-eslint/array-type': ['error', { default: 'array' }],
 
       // ===========================================
       // 4. SECURITY RULES

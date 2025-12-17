@@ -102,6 +102,8 @@ ignore = [
     "COM812",  # Trailing comma - conflicts with Black
     "ISC001",  # Single line implicit string concatenation - conflicts with Black
     "S101",    # assert usage - needed for tests
+    "TC003",   # AsyncGenerator used at runtime, not just type checking
+    "PLR0913", # API endpoints with filters need many params
 ]
 
 # Allow autofix for all enabled rules

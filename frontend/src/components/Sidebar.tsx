@@ -8,7 +8,7 @@ import type { PageKey } from '../constants'
 import { useFilters } from '../hooks/useProducts'
 import { useAppStore } from '../stores/useAppStore'
 
-const NAV_ITEMS: Array<{ page: PageKey; label: string; icon: JSX.Element }> = [
+const NAV_ITEMS: { page: PageKey; label: string; icon: JSX.Element }[] = [
   {
     page: PAGES.PRODUCTS,
     label: 'Produits',

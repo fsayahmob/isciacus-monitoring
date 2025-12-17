@@ -22,10 +22,32 @@ function formatCurrency(value: number | null | undefined): string {
   return CURRENCY_FORMATTER.format(value)
 }
 
+function getMarginClass(marginValue: number): string {
+  if (isNaN(marginValue)) {
+    return ''
+  }
+  if (marginValue >= MARGIN_THRESHOLDS.HIGH) {
+    return 'text-green-600'
+  }
+  if (marginValue < MARGIN_THRESHOLDS.LOW) {
+    return 'text-red-600'
+  }
+  return ''
+}
+
+function getSortIcon(isActive: boolean, sortDirection: 'asc' | 'desc'): string {
+  if (!isActive) {
+    return '↕'
+  }
+  return sortDirection === 'asc' ? '↑' : '↓'
+}
+
 function StockBadge({ stock, level }: { stock: number; level: StockLevel }): JSX.Element {
   const colors = STOCK_LEVEL_COLORS[level]
   return (
-    <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${colors.bg} ${colors.text}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${colors.bg} ${colors.text}`}
+    >
       {colors.icon} {stock}
     </span>
   )
@@ -59,7 +81,7 @@ function SortableHeader({ field, children, align = 'left' }: SortableHeaderProps
       <span className={`flex items-center gap-1 ${alignClass}`}>
         {children}
         <span className={`sort-icon ${isActive ? 'opacity-100' : 'opacity-50'}`}>
-          {isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+          {getSortIcon(isActive, sortDirection)}
         </span>
       </span>
     </th>
@@ -70,12 +92,7 @@ function ProductRow({ product }: { product: Product }): JSX.Element {
   const { setSelectedProductId } = useAppStore()
 
   const marginValue = parseFloat(product.marge_pct)
-  const marginClass =
-    !isNaN(marginValue) && marginValue >= MARGIN_THRESHOLDS.HIGH
-      ? 'text-green-600'
-      : !isNaN(marginValue) && marginValue < MARGIN_THRESHOLDS.LOW
-        ? 'text-red-600'
-        : ''
+  const marginClass = getMarginClass(marginValue)
 
   const handleClick = useCallback((): void => {
     setSelectedProductId(product.product_id)

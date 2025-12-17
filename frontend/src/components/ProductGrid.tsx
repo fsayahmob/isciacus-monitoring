@@ -25,7 +25,9 @@ function formatCurrency(value: number | null | undefined): string {
 function StockBadge({ stock, level }: { stock: number; level: StockLevel }): JSX.Element {
   const colors = STOCK_LEVEL_COLORS[level]
   return (
-    <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${colors.bg} ${colors.text}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${colors.bg} ${colors.text}`}
+    >
       {colors.icon} {stock}
     </span>
   )
@@ -81,7 +83,9 @@ function ProductCard({ product }: { product: Product }): JSX.Element {
         <p className="truncate text-xs text-gray-500">{product.variante}</p>
 
         <div className="mt-2 flex items-center justify-between">
-          <span className="font-serif text-lg text-burgundy">{formatCurrency(product.prix_ttc)}</span>
+          <span className="font-serif text-lg text-burgundy">
+            {formatCurrency(product.prix_ttc)}
+          </span>
           <StockBadge level={product.stock_level} stock={product.stock} />
         </div>
 

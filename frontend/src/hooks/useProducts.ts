@@ -16,6 +16,16 @@ const QUERY_KEYS = {
   filters: 'filters',
 } as const
 
+function compareValues(aVal: unknown, bVal: unknown): number {
+  if (typeof aVal === 'string' && typeof bVal === 'string') {
+    return aVal.toLowerCase().localeCompare(bVal.toLowerCase())
+  }
+  if (typeof aVal === 'number' && typeof bVal === 'number') {
+    return aVal - bVal
+  }
+  return 0
+}
+
 function sortProducts(
   products: Product[],
   field: SortField | null,
@@ -28,21 +38,7 @@ function sortProducts(
   return [...products].sort((a, b) => {
     const aVal = a[field]
     const bVal = b[field]
-
-    if (aVal === null || aVal === undefined) {
-      return 1
-    }
-    if (bVal === null || bVal === undefined) {
-      return -1
-    }
-
-    let comparison = 0
-    if (typeof aVal === 'string' && typeof bVal === 'string') {
-      comparison = aVal.toLowerCase().localeCompare(bVal.toLowerCase())
-    } else if (typeof aVal === 'number' && typeof bVal === 'number') {
-      comparison = aVal - bVal
-    }
-
+    const comparison = compareValues(aVal, bVal)
     return direction === 'asc' ? comparison : -comparison
   })
 }

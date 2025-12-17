@@ -1,21 +1,36 @@
-#!/usr/bin/env python3
 """
 monitoring_app.py - Application web de monitoring des produits ISCIACUS
 Backend FastAPI avec données Shopify GraphQL uniquement
 """
 
+from __future__ import annotations
+
 import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import requests
 import uvicorn
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+
+# Type aliases for clarity
+ShopifyProduct = dict[str, Any]
+ProductData = dict[str, Any]
+FiltersData = dict[str, Any]
+
+
+# Constants for stock and margin thresholds
+STOCK_CRITICAL = 0
+STOCK_LOW = 2
+STOCK_MEDIUM = 5
+MARGIN_HIGH = 60
+MARGIN_MEDIUM = 40
 
 # Load environment variables
 load_dotenv()
@@ -33,8 +48,8 @@ GRAPHQL_URL = f"{STORE_URL}/admin/api/2024-01/graphql.json"
 HEADERS = {"X-Shopify-Access-Token": ACCESS_TOKEN, "Content-Type": "application/json"}
 
 # Cache global
-PRODUCTS_CACHE: list[dict] = []
-FILTERS_CACHE: dict = {}
+PRODUCTS_CACHE: list[ProductData] = []
+FILTERS_CACHE: FiltersData = {}
 
 # GraphQL Query avec image, canaux de vente et collections
 PRODUCTS_QUERY = """
@@ -71,42 +86,47 @@ def extract_id(gid: str) -> str:
     return gid.split("/")[-1] if "/" in gid else gid
 
 
-def calculate_margin_tag(prix_ht: float, cout_ht: float) -> Optional[str]:
+def calculate_margin_tag(prix_ht: float, cout_ht: float) -> str | None:
     """Calcule le tag de marge basé sur le pourcentage."""
     if prix_ht <= 0 or cout_ht <= 0:
         return None
     marge_pct = ((prix_ht - cout_ht) / prix_ht) * 100
-    if marge_pct >= 60:
+    if marge_pct >= MARGIN_HIGH:
         return "marge:haute"
-    if marge_pct >= 40:
+    if marge_pct >= MARGIN_MEDIUM:
         return "marge:moyenne"
     return "marge:faible"
 
 
 def calculate_stock_tag(stock: int) -> str:
     """Calcule le tag de stock."""
-    if stock == 0:
+    if stock == STOCK_CRITICAL:
         return "stock:rupture"
-    if stock <= 2:
+    if stock <= STOCK_LOW:
         return "stock:faible"
-    if stock <= 5:
+    if stock <= STOCK_MEDIUM:
         return "stock:moyen"
     return "stock:ok"
 
 
 def get_stock_level(stock: int) -> str:
     """Retourne le niveau de stock pour le filtrage."""
-    if stock == 0:
+    if stock == STOCK_CRITICAL:
         return "rupture"
-    if stock <= 2:
+    if stock <= STOCK_LOW:
         return "faible"
-    if stock <= 5:
+    if stock <= STOCK_MEDIUM:
         return "moyen"
     return "ok"
 
 
 def build_tags(
-    status: str, published: bool, stock: int, prix_ht: float, cout_ht: float
+    status: str,
+    *,
+    published: bool,
+    stock: int,
+    prix_ht: float,
+    cout_ht: float,
 ) -> list[str]:
     """Construit la liste des tags calculés."""
     tags = []
@@ -120,9 +140,9 @@ def build_tags(
     return tags
 
 
-def fetch_shopify_products(tag_filter: Optional[str] = None) -> list[dict]:
+def fetch_shopify_products(tag_filter: str | None = None) -> list[ShopifyProduct]:
     """Récupère tous les produits depuis Shopify GraphQL."""
-    all_products: list[dict] = []
+    all_products: list[ShopifyProduct] = []
     cursor = None
     query_str = f"tag:'{tag_filter}'" if tag_filter else ""
 
@@ -150,7 +170,14 @@ def fetch_shopify_products(tag_filter: Optional[str] = None) -> list[dict]:
     return all_products
 
 
-def transform_product(shopify_product: dict, variant: dict) -> dict:
+def _calculate_margin_pct(prix_ht: float, cout_ht: float) -> str:
+    """Calcule le pourcentage de marge formaté."""
+    if prix_ht > 0 and cout_ht > 0:
+        return f"{((prix_ht - cout_ht) / prix_ht * 100):.1f}%"
+    return ""
+
+
+def transform_product(shopify_product: ShopifyProduct, variant: ShopifyProduct) -> ProductData:
     """Transforme un produit Shopify en format interne."""
     product_id = extract_id(shopify_product.get("id", ""))
     variant_id = extract_id(variant.get("id", ""))
@@ -181,7 +208,7 @@ def transform_product(shopify_product: dict, variant: dict) -> dict:
     collections = [col.get("title") for col in collections_data if col.get("title")]
 
     # Tags calculés + tags Shopify
-    tags = build_tags(status, published, stock, prix_ht, cout_ht)
+    tags = build_tags(status, published=published, stock=stock, prix_ht=prix_ht, cout_ht=cout_ht)
     tags.extend(shopify_tags)
 
     return {
@@ -196,7 +223,7 @@ def transform_product(shopify_product: dict, variant: dict) -> dict:
         "prix_ht": round(prix_ht, 2),
         "cout_ht": cout_ht,
         "marge_brute": round(prix_ht - cout_ht, 2) if cout_ht else 0,
-        "marge_pct": f"{((prix_ht - cout_ht) / prix_ht * 100):.1f}%" if prix_ht > 0 and cout_ht > 0 else "",
+        "marge_pct": _calculate_margin_pct(prix_ht, cout_ht),
         "statut": status,
         "publie": published,
         "channels": channels,
@@ -208,11 +235,11 @@ def transform_product(shopify_product: dict, variant: dict) -> dict:
     }
 
 
-def load_all_products() -> tuple[list[dict], dict]:
+def load_all_products() -> tuple[list[ProductData], FiltersData]:
     """Charge tous les produits depuis Shopify GraphQL."""
     shopify_products = fetch_shopify_products()
 
-    products: list[dict] = []
+    products: list[ProductData] = []
     all_tags: set[str] = set()
     all_channels: set[str] = set()
     all_collections: set[str] = set()
@@ -250,21 +277,66 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(title="ISCIACUS Monitoring", version="2.2.0", lifespan=lifespan)
 
+# CORS middleware for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/api/products")
 async def get_products(
-    search: Optional[str] = None,
-    tag: Optional[str] = None,
-    stock_level: Optional[str] = None,
-    publie: Optional[bool] = None,
-    channel: Optional[str] = None,
-    collection: Optional[str] = None,
-    statut: Optional[str] = None,
+    search: str | None = None,
+    tag: str | None = None,
+    stock_level: str | None = None,
+    *,
+    publie: bool | None = None,
+    channel: str | None = None,
+    collection: str | None = None,
+    statut: str | None = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
-) -> dict:
+) -> ProductData:
     """Liste les produits avec filtres."""
-    filtered = PRODUCTS_CACHE
+    filtered = _apply_filters(
+        PRODUCTS_CACHE,
+        search=search,
+        tag=tag,
+        stock_level=stock_level,
+        publie=publie,
+        channel=channel,
+        collection=collection,
+        statut=statut,
+    )
+
+    # Compter les produits uniques dans les résultats filtrés
+    unique_filtered_products = len({p["product_id"] for p in filtered})
+
+    return {
+        "total": len(filtered),
+        "total_products": unique_filtered_products,
+        "limit": limit,
+        "offset": offset,
+        "products": filtered[offset : offset + limit],
+    }
+
+
+def _apply_filters(
+    products: list[ProductData],
+    *,
+    search: str | None,
+    tag: str | None,
+    stock_level: str | None,
+    publie: bool | None,
+    channel: str | None,
+    collection: str | None,
+    statut: str | None,
+) -> list[ProductData]:
+    """Apply all filters to the products list."""
+    filtered = products
 
     # Recherche texte
     if search:
@@ -305,20 +377,11 @@ async def get_products(
     if statut:
         filtered = [p for p in filtered if p.get("statut") == statut]
 
-    # Compter les produits uniques dans les résultats filtrés
-    unique_filtered_products = len({p["product_id"] for p in filtered})
-
-    return {
-        "total": len(filtered),
-        "total_products": unique_filtered_products,
-        "limit": limit,
-        "offset": offset,
-        "products": filtered[offset : offset + limit],
-    }
+    return filtered
 
 
 @app.get("/api/products/{product_id}")
-async def get_product(product_id: str) -> dict:
+async def get_product(product_id: str) -> ProductData:
     """Détails complets d'un produit."""
     for p in PRODUCTS_CACHE:
         if p["product_id"] == product_id:
@@ -327,13 +390,13 @@ async def get_product(product_id: str) -> dict:
 
 
 @app.get("/api/filters")
-async def get_filters() -> dict:
+async def get_filters() -> FiltersData:
     """Retourne les valeurs disponibles pour les filtres."""
     return FILTERS_CACHE
 
 
 @app.get("/api/reload")
-async def reload_data() -> dict:
+async def reload_data() -> ProductData:
     """Recharge les données depuis Shopify."""
     global PRODUCTS_CACHE, FILTERS_CACHE
     PRODUCTS_CACHE, FILTERS_CACHE = load_all_products()
@@ -341,7 +404,7 @@ async def reload_data() -> dict:
 
 
 @app.get("/api/health")
-async def health_check() -> dict:
+async def health_check() -> ProductData:
     """Health check endpoint for monitoring."""
     return {"status": "healthy", "products_count": len(PRODUCTS_CACHE)}
 
@@ -352,14 +415,14 @@ async def dashboard() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "index.html")
 
 
-@app.get("/static/{filename:path}")
-async def static_files(filename: str) -> FileResponse | dict:
+@app.get("/static/{filename:path}", response_model=None)
+async def static_files(filename: str) -> FileResponse:
     """Sert les fichiers statiques (images, etc.)."""
     filepath = BASE_DIR / "static" / filename
     if filepath.exists():
         return FileResponse(filepath)
-    return {"error": "Fichier non trouvé"}
+    raise HTTPException(status_code=404, detail="Fichier non trouvé")
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8080)  # noqa: S104

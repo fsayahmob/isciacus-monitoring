@@ -26,9 +26,7 @@ function ProductsPage(): JSX.Element {
   const { viewMode } = useAppStore()
 
   return (
-    <div className="p-4">
-      {viewMode === VIEW_MODES.LIST ? <ProductTable /> : <ProductGrid />}
-    </div>
+    <div className="p-4">{viewMode === VIEW_MODES.LIST ? <ProductTable /> : <ProductGrid />}</div>
   )
 }
 
