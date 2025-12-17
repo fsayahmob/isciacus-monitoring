@@ -1,0 +1,34 @@
+# =====================================================
+# ISCIACUS Monitoring - Code Owners
+# =====================================================
+# Critical files require explicit approval from owners
+# Reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# =====================================================
+
+# Default owner for everything
+*                                       @fsayahmob
+
+# =====================================================
+# CRITICAL FILES - Require explicit approval
+# =====================================================
+
+# CI/CD and workflows
+/.github/                               @fsayahmob
+/.github/workflows/                     @fsayahmob
+/.github/CODEOWNERS                     @fsayahmob
+
+# Frontend lint/config
+/frontend/eslint.config.js              @fsayahmob
+/frontend/tsconfig.json                 @fsayahmob
+/frontend/tsconfig.*.json               @fsayahmob
+/frontend/.prettierrc                   @fsayahmob
+/frontend/vite.config.ts                @fsayahmob
+/frontend/package.json                  @fsayahmob
+
+# Backend lint/config
+/backend/pyproject.toml                 @fsayahmob
+/backend/requirements.txt               @fsayahmob
+
+# Docker and deployment
+/docker-compose.yml                     @fsayahmob
+/Dockerfile*                            @fsayahmob

@@ -1,0 +1,58 @@
+# =====================================================
+# ISCIACUS Monitoring - Docker Compose
+# =====================================================
+# Local development setup
+#
+# Usage:
+#   docker-compose up              # Start all services
+#   docker-compose up -d           # Start in background
+#   docker-compose up frontend     # Start only frontend
+#   docker-compose up backend      # Start only backend
+#   docker-compose down            # Stop all services
+#   docker-compose logs -f         # View logs
+# =====================================================
+
+services:
+  # =====================================================
+  # Frontend - React + Vite
+  # =====================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: isciacus-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080
+    depends_on:
+      - backend
+    networks:
+      - isciacus-network
+
+  # =====================================================
+  # Backend - FastAPI
+  # =====================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: isciacus-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - isciacus-network
+
+networks:
+  isciacus-network:
+    driver: bridge

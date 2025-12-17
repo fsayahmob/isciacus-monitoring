@@ -1,0 +1,467 @@
+name: Code Quality & CI/CD
+
+# =====================================================
+# ISCIACUS Monitoring - Monorepo CI/CD Pipeline
+# =====================================================
+# FAANG-level strict configuration inspired by SellGlow iOS
+#
+# Philosophy: Architecture-Driven Development (ADD)
+# - All lint rules are ERROR level (not warning)
+# - Zero tolerance for code quality violations
+# - Guards prevent rule weakening
+# - Coverage enforcement (70% minimum)
+#
+# Jobs:
+# 1. config-guard     - Protects lint configs from weakening
+# 2. frontend-quality - ESLint + TypeScript
+# 3. backend-quality  - Ruff + Black + MyPy
+# 4. frontend-tests   - Vitest with coverage
+# 5. backend-tests    - Pytest with coverage
+# 6. build            - Production builds
+# 7. deploy           - Deployment (main branch only)
+# =====================================================
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+  COVERAGE_THRESHOLD: 70
+
+jobs:
+  # =====================================================
+  # JOB 1: Configuration Guard (SellGlow-style)
+  # =====================================================
+  # Prevents weakening of lint rules for BOTH frontend and backend
+  # =====================================================
+  config-guard:
+    name: 🛡️ Configuration Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 META-GUARD - Detect workflow modifications
+        run: |
+          echo "=== META-GUARD: Detecting workflow modifications ==="
+
+          if git diff origin/main...HEAD --name-only 2>/dev/null | grep -q ".github/workflows/"; then
+            echo "⚠️  ATTENTION: Workflow files modified!"
+            echo "This change requires explicit approval from CODEOWNERS"
+            echo ""
+            echo "Modified files:"
+            git diff origin/main...HEAD --name-only | grep ".github/workflows/" || true
+          else
+            echo "✅ Workflow files unchanged"
+          fi
+
+      # =====================================================
+      # FRONTEND GUARDS (ESLint)
+      # =====================================================
+      - name: 🔍 [FRONTEND] Guard 1 - No warning severity
+        run: |
+          echo "=== FRONTEND GUARD 1: All ESLint rules must be ERROR ==="
+
+          if grep -E "'warn'|\"warn\"" frontend/eslint.config.js 2>/dev/null; then
+            echo "❌ BLOCKED: Found 'warn' severity in ESLint config!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Frontend Rule Weakening"
+            exit 1
+          fi
+
+          echo "✅ All frontend rules are error severity"
+
+      - name: 🔍 [FRONTEND] Guard 2 - Max 3 disabled rules
+        run: |
+          echo "=== FRONTEND GUARD 2: Maximum 3 disabled ESLint rules ==="
+
+          OFF_COUNT=$(grep -cE "'off'|\"off\"" frontend/eslint.config.js 2>/dev/null || echo "0")
+          echo "Found $OFF_COUNT disabled rules"
+
+          if [ "$OFF_COUNT" -gt 3 ]; then
+            echo "❌ BLOCKED: Too many disabled rules ($OFF_COUNT > 3)"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Excessive Rule Disabling"
+            exit 1
+          fi
+
+          echo "✅ Disabled rules count acceptable ($OFF_COUNT ≤ 3)"
+
+      - name: 🔍 [FRONTEND] Guard 3 - No eslint-disable in code
+        run: |
+          echo "=== FRONTEND GUARD 3: No inline eslint-disable ==="
+
+          if grep -rn "eslint-disable" frontend/src/ 2>/dev/null | grep -v "eslint-disable-next-line @typescript-eslint/no-unused-vars"; then
+            echo "❌ BLOCKED: Found eslint-disable comments!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Inline Rule Bypass"
+            exit 1
+          fi
+
+          echo "✅ No forbidden eslint-disable comments"
+
+      - name: 🔍 [FRONTEND] Guard 4 - Minimum 30 rules
+        run: |
+          echo "=== FRONTEND GUARD 4: Minimum 30 active rules ==="
+
+          RULE_COUNT=$(grep -cE ":\s*'error'|:\s*\[.*'error'" frontend/eslint.config.js 2>/dev/null || echo "0")
+          echo "Found $RULE_COUNT rules with error severity"
+
+          if [ "$RULE_COUNT" -lt 30 ]; then
+            echo "❌ BLOCKED: Not enough rules ($RULE_COUNT < 30)"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Rule Count Reduction"
+            exit 1
+          fi
+
+          echo "✅ Rule count sufficient ($RULE_COUNT ≥ 30)"
+
+      - name: 🔍 [FRONTEND] Guard 5 - TypeScript strict mode
+        run: |
+          echo "=== FRONTEND GUARD 5: TypeScript strict mode ==="
+
+          if ! grep -q '"strict": true' frontend/tsconfig.json 2>/dev/null; then
+            echo "❌ BLOCKED: TypeScript strict mode not enabled!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Type Safety Weakening"
+            exit 1
+          fi
+
+          echo "✅ TypeScript strict mode enabled"
+
+      # =====================================================
+      # BACKEND GUARDS (Ruff/Python)
+      # =====================================================
+      - name: 🔍 [BACKEND] Guard 1 - Max 5 ignored Ruff rules
+        run: |
+          echo "=== BACKEND GUARD 1: Maximum 5 ignored Ruff rules ==="
+
+          # Count rules in ignore list
+          IGNORE_COUNT=$(grep -A 20 "^ignore = \[" backend/pyproject.toml 2>/dev/null | grep -c '"[A-Z]' || echo "0")
+          echo "Found $IGNORE_COUNT ignored rules"
+
+          if [ "$IGNORE_COUNT" -gt 5 ]; then
+            echo "❌ BLOCKED: Too many ignored Ruff rules ($IGNORE_COUNT > 5)"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Python Rule Weakening"
+            exit 1
+          fi
+
+          echo "✅ Ignored rules count acceptable ($IGNORE_COUNT ≤ 5)"
+
+      - name: 🔍 [BACKEND] Guard 2 - MyPy strict mode
+        run: |
+          echo "=== BACKEND GUARD 2: MyPy strict mode ==="
+
+          if ! grep -q "^strict = true" backend/pyproject.toml 2>/dev/null; then
+            echo "❌ BLOCKED: MyPy strict mode not enabled!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Type Safety Weakening"
+            exit 1
+          fi
+
+          echo "✅ MyPy strict mode enabled"
+
+      - name: 🔍 [BACKEND] Guard 3 - No noqa in code
+        run: |
+          echo "=== BACKEND GUARD 3: No noqa comments ==="
+
+          # Allow noqa only in specific patterns (e.g., imports in __init__.py)
+          if grep -rn "# noqa" backend/ 2>/dev/null | grep -v "__init__.py" | grep -v "# noqa: F401"; then
+            echo "❌ BLOCKED: Found unauthorized noqa comments!"
+            echo ""
+            echo "Allowed: # noqa: F401 in __init__.py for re-exports"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Inline Rule Bypass"
+            exit 1
+          fi
+
+          echo "✅ No forbidden noqa comments"
+
+      - name: 🔍 [BACKEND] Guard 4 - Security rules enabled
+        run: |
+          echo "=== BACKEND GUARD 4: Security rules (bandit) enabled ==="
+
+          if ! grep -q '"S"' backend/pyproject.toml 2>/dev/null; then
+            echo "❌ BLOCKED: Security rules (S/bandit) not enabled!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Security Rules Disabled"
+            exit 1
+          fi
+
+          echo "✅ Security rules enabled"
+
+      - name: 🔍 [BACKEND] Guard 5 - No print statements rule
+        run: |
+          echo "=== BACKEND GUARD 5: Print statements banned ==="
+
+          if ! grep -q '"T20"' backend/pyproject.toml 2>/dev/null; then
+            echo "❌ BLOCKED: T20 (flake8-print) not enabled!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Debug Code Allowed"
+            exit 1
+          fi
+
+          echo "✅ Print statements rule enabled"
+
+      - name: ✅ All guards passed
+        run: |
+          echo ""
+          echo "========================================"
+          echo "🛡️ ALL CONFIGURATION GUARDS PASSED"
+          echo "========================================"
+          echo ""
+          echo "Frontend guards:"
+          echo "  ✅ No warning severity rules"
+          echo "  ✅ Max 3 disabled rules"
+          echo "  ✅ No eslint-disable abuse"
+          echo "  ✅ Minimum 30 active rules"
+          echo "  ✅ TypeScript strict mode"
+          echo ""
+          echo "Backend guards:"
+          echo "  ✅ Max 5 ignored Ruff rules"
+          echo "  ✅ MyPy strict mode"
+          echo "  ✅ No noqa abuse"
+          echo "  ✅ Security rules enabled"
+          echo "  ✅ Print statements banned"
+          echo ""
+
+  # =====================================================
+  # JOB 2: Frontend Code Quality
+  # =====================================================
+  frontend-quality:
+    name: 🔍 Frontend Quality
+    runs-on: ubuntu-latest
+    needs: config-guard
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: 📋 TypeScript type checking
+        run: npm run typecheck
+
+      - name: 🔍 ESLint (strict mode)
+        run: npm run lint
+
+      - name: 📐 Prettier format check
+        run: npm run format:check
+
+  # =====================================================
+  # JOB 3: Backend Code Quality
+  # =====================================================
+  backend-quality:
+    name: 🔍 Backend Quality
+    runs-on: ubuntu-latest
+    needs: config-guard
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 🔍 Ruff linting (strict mode)
+        run: ruff check . --output-format=github
+
+      - name: 📐 Black format check
+        run: black --check .
+
+      - name: 📋 MyPy type checking
+        run: mypy . --ignore-missing-imports
+
+  # =====================================================
+  # JOB 4: Frontend Tests
+  # =====================================================
+  frontend-tests:
+    name: 🧪 Frontend Tests
+    runs-on: ubuntu-latest
+    needs: frontend-quality
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: 🧪 Run tests with coverage
+        run: npm run test:coverage
+
+      - name: 📊 Check coverage threshold
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+            echo "Coverage: $COVERAGE%"
+
+            if (( $(echo "$COVERAGE < $COVERAGE_THRESHOLD" | bc -l) )); then
+              echo "❌ Coverage ($COVERAGE%) below threshold ($COVERAGE_THRESHOLD%)"
+              exit 1
+            fi
+
+            echo "✅ Coverage meets threshold"
+          else
+            echo "⚠️ No coverage report found (tests may not exist yet)"
+          fi
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+
+  # =====================================================
+  # JOB 5: Backend Tests
+  # =====================================================
+  backend-tests:
+    name: 🧪 Backend Tests
+    runs-on: ubuntu-latest
+    needs: backend-quality
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 🧪 Run tests with coverage
+        run: |
+          if [ -d tests ] && [ "$(ls -A tests 2>/dev/null)" ]; then
+            pytest --cov=. --cov-report=json --cov-report=html --cov-fail-under=$COVERAGE_THRESHOLD
+          else
+            echo "⚠️ No tests directory found (tests may not exist yet)"
+          fi
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: backend/htmlcov/
+
+  # =====================================================
+  # JOB 6: Build
+  # =====================================================
+  build:
+    name: 🏗️ Build
+    runs-on: ubuntu-latest
+    needs: [frontend-quality, backend-quality]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Frontend build
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: 🏗️ Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
+      # Backend validation
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate backend
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          python -c "from monitoring_app import app; print('✅ Backend imports successfully')"
+
+  # =====================================================
+  # JOB 7: Deploy (main branch only)
+  # =====================================================
+  deploy:
+    name: 🚀 Deploy
+    runs-on: ubuntu-latest
+    needs: [frontend-tests, backend-tests, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+
+      - name: 🚀 Deploy notification
+        run: |
+          echo "========================================"
+          echo "🚀 READY FOR DEPLOYMENT"
+          echo "========================================"
+          echo ""
+          echo "All checks passed:"
+          echo "  ✅ Configuration guards"
+          echo "  ✅ Frontend quality (ESLint, TypeScript, Prettier)"
+          echo "  ✅ Backend quality (Ruff, Black, MyPy)"
+          echo "  ✅ Frontend tests"
+          echo "  ✅ Backend tests"
+          echo "  ✅ Production builds"
+          echo ""
+          echo "Add deployment provider configuration here"

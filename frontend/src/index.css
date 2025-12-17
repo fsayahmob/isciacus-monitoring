@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+/* =====================================================
+ * ISCIACUS Monitoring Dashboard - Global Styles
+ * ===================================================== */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Custom Colors */
+@theme {
+  --color-burgundy: #8b2942;
+  --color-burgundy-light: #f5f0dc;
+  --color-burgundy-dark: #6a1f33;
+  --color-cream: #faf8f3;
+  --color-cream-dark: #f5f0dc;
+}
+
+/* Base styles */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-cream);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'DM Serif Display', serif;
+}
+
+/* Skeleton loader animation */
+.skeleton {
+  background: linear-gradient(90deg, #e5e5e5 25%, #f0f0f0 50%, #e5e5e5 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Spinner animation */
+.spinner {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid var(--color-burgundy);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Toast notifications */
+.toast {
+  animation: toast-in 0.3s ease-out;
+}
+
+.toast.hide {
+  animation: toast-out 0.3s ease-in forwards;
+}
+
+@keyframes toast-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+/* Sortable headers */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable:hover {
+  background-color: var(--color-burgundy-dark);
+}
+
+.sort-icon {
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.sortable:hover .sort-icon,
+.sortable.active .sort-icon {
+  opacity: 1;
+}
+
+/* Navigation */
+.nav-link {
+  transition: all 0.2s;
+}
+
+.nav-link.active {
+  background-color: var(--color-burgundy);
+  color: white;
+}
+
+.nav-link.active:hover {
+  background-color: var(--color-burgundy-dark);
+}
+
+/* Product rows */
+.product-row:hover {
+  background-color: var(--color-cream-dark) !important;
+}
+
+/* Tag chips */
+.tag-chip {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag-chip:hover,
+.tag-chip.active {
+  background-color: var(--color-burgundy);
+  color: white;
+}

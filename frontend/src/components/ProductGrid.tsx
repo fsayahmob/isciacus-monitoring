@@ -1,0 +1,128 @@
+/**
+ * ProductGrid Component - ISCIACUS Monitoring Dashboard
+ * ======================================================
+ */
+
+import { useCallback } from 'react'
+
+import { STOCK_LEVEL_COLORS } from '../constants'
+import { useProducts } from '../hooks/useProducts'
+import { useAppStore } from '../stores/useAppStore'
+import type { Product, StockLevel } from '../types/product'
+
+const CURRENCY_FORMATTER = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+})
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '-'
+  }
+  return CURRENCY_FORMATTER.format(value)
+}
+
+function StockBadge({ stock, level }: { stock: number; level: StockLevel }): JSX.Element {
+  const colors = STOCK_LEVEL_COLORS[level]
+  return (
+    <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${colors.bg} ${colors.text}`}>
+      {colors.icon} {stock}
+    </span>
+  )
+}
+
+function ProductCard({ product }: { product: Product }): JSX.Element {
+  const { setSelectedProductId } = useAppStore()
+
+  const handleClick = useCallback((): void => {
+    setSelectedProductId(product.product_id)
+  }, [setSelectedProductId, product.product_id])
+
+  return (
+    <div
+      className="cursor-pointer border border-burgundy bg-white transition-shadow hover:shadow-lg"
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          handleClick()
+        }
+      }}
+    >
+      {/* Image */}
+      <div className="aspect-square overflow-hidden bg-gray-100">
+        {product.image_url !== null ? (
+          <img
+            alt={product.titre}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            src={product.image_url}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-400">
+            <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-3">
+        <h3 className="truncate text-sm font-medium" title={product.titre}>
+          {product.titre}
+        </h3>
+        <p className="truncate text-xs text-gray-500">{product.variante}</p>
+
+        <div className="mt-2 flex items-center justify-between">
+          <span className="font-serif text-lg text-burgundy">{formatCurrency(product.prix_ttc)}</span>
+          <StockBadge level={product.stock_level} stock={product.stock} />
+        </div>
+
+        {product.marge_pct !== '' && (
+          <div className="mt-1 text-xs text-gray-500">Marge: {product.marge_pct}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SkeletonCard(): JSX.Element {
+  return (
+    <div className="border border-burgundy bg-white">
+      <div className="skeleton aspect-square" />
+      <div className="p-3">
+        <div className="skeleton mb-2 h-4 w-3/4 rounded" />
+        <div className="skeleton mb-2 h-3 w-1/2 rounded" />
+        <div className="flex items-center justify-between">
+          <div className="skeleton h-6 w-20 rounded" />
+          <div className="skeleton h-5 w-12 rounded" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const SKELETON_CARD_COUNT = 10
+
+export function ProductGrid(): JSX.Element {
+  const { products, isLoading } = useProducts()
+
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {isLoading
+        ? Array.from({ length: SKELETON_CARD_COUNT }).map((_, i) => (
+            <SkeletonCard key={`skeleton-${String(i)}`} />
+          ))
+        : products.map((product) => (
+            <ProductCard key={`${product.product_id}-${product.variant_id}`} product={product} />
+          ))}
+    </div>
+  )
+}

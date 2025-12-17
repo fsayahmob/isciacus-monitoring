@@ -1,0 +1,15 @@
+# ISCIACUS Monitoring Backend - Dependencies
+# ==========================================
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# HTTP Client
+requests>=2.31.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Type hints
+typing-extensions>=4.9.0
