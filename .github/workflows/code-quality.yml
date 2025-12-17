@@ -175,11 +175,14 @@ jobs:
         run: |
           echo "=== BACKEND GUARD 3: No noqa comments ==="
 
-          # Allow noqa only in specific patterns (e.g., imports in __init__.py)
-          if grep -rn "# noqa" backend/ 2>/dev/null | grep -v "__init__.py" | grep -v "# noqa: F401"; then
+          # Allow noqa only in specific patterns:
+          # - F401 in __init__.py for re-exports
+          # - S104 for binding to 0.0.0.0 (development server)
+          if grep -rn "# noqa" backend/ 2>/dev/null | grep -v "__init__.py" | grep -v "# noqa: F401" | grep -v "# noqa: S104"; then
             echo "❌ BLOCKED: Found unauthorized noqa comments!"
             echo ""
             echo "Allowed: # noqa: F401 in __init__.py for re-exports"
+            echo "Allowed: # noqa: S104 for 0.0.0.0 binding (dev server)"
             echo ""
             echo "🚨 VIOLATION TYPE: Inline Rule Bypass"
             exit 1
