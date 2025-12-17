@@ -1241,10 +1241,11 @@ class AuditOrchestrator:
             # Step 3: Feed Sync (compare with Shopify)
             self._update_step_status(result, "feed_sync", AuditStepStatus.RUNNING)
 
-            # Get Shopify products count
+            # Get Shopify products with details
             from services.shopify_analytics import ShopifyAnalyticsService
             shopify = ShopifyAnalyticsService()
-            shopify_products = shopify.get_products_count()
+            shopify_products_list = shopify._fetch_all_products(only_published=True)
+            shopify_products = len(shopify_products_list)
 
             if shopify_products > 0 and total_products > 0:
                 sync_rate = int((total_products / shopify_products) * 100)
@@ -1254,17 +1255,72 @@ class AuditOrchestrator:
                         result_data={"shopify": shopify_products, "gmc": total_products, "sync_rate": f"{sync_rate}%"},
                     )
                 else:
+                    # Analyze WHY products are not synced
+                    missing = shopify_products - total_products
+
+                    # Analyze Shopify products for potential issues
+                    no_price = 0
+                    no_image = 0
+                    no_description = 0
+                    draft_products = 0
+
+                    for product in shopify_products_list:
+                        # Check for missing prices
+                        variants = product.get("variants", {}).get("nodes", [])
+                        if not variants or all(float(v.get("price", 0) or 0) == 0 for v in variants):
+                            no_price += 1
+
+                        # Check for missing images
+                        if not product.get("featuredImage"):
+                            no_image += 1
+
+                        # Check for missing description
+                        if not product.get("descriptionHtml") and not product.get("description"):
+                            no_description += 1
+
+                        # Check for draft status
+                        if product.get("status") == "DRAFT":
+                            draft_products += 1
+
+                    # Build detailed analysis
+                    analysis_details = []
+                    if no_price > 0:
+                        analysis_details.append(f"{no_price} produits sans prix")
+                    if no_image > 0:
+                        analysis_details.append(f"{no_image} produits sans image")
+                    if no_description > 0:
+                        analysis_details.append(f"{no_description} produits sans description")
+                    if draft_products > 0:
+                        analysis_details.append(f"{draft_products} produits en brouillon")
+
                     self._update_step_status(
                         result, "feed_sync", AuditStepStatus.WARNING,
-                        result_data={"shopify": shopify_products, "gmc": total_products, "sync_rate": f"{sync_rate}%"},
+                        result_data={
+                            "shopify": shopify_products,
+                            "gmc": total_products,
+                            "sync_rate": f"{sync_rate}%",
+                            "analysis": {
+                                "no_price": no_price,
+                                "no_image": no_image,
+                                "no_description": no_description,
+                                "draft": draft_products,
+                            },
+                        },
                     )
-                    missing = shopify_products - total_products
+
+                    # Create detailed issue
+                    description = f"Seulement {sync_rate}% des produits Shopify sont dans GMC."
+                    if analysis_details:
+                        description += f"\n\nCauses probables:\n• " + "\n• ".join(analysis_details)
+                    description += "\n\nVérifiez dans Shopify Admin > Google & YouTube > Produits"
+
                     result.issues.append(AuditIssue(
                         id="gmc_sync_incomplete",
                         audit_type=AuditType.MERCHANT_CENTER,
                         severity="warning",
                         title=f"{missing} produits non synchronisés",
-                        description=f"Seulement {sync_rate}% des produits Shopify sont dans GMC",
+                        description=description,
+                        details=analysis_details[:MAX_DETAILS_ITEMS] if analysis_details else None,
                     ))
             else:
                 self._update_step_status(
@@ -1443,7 +1499,7 @@ class AuditOrchestrator:
                 # Get Shopify pages count (products + collections + pages)
                 from services.shopify_analytics import ShopifyAnalyticsService
                 shopify = ShopifyAnalyticsService()
-                shopify_products = shopify.get_products_count()
+                shopify_products = len(shopify._fetch_all_products(only_published=True))
                 # Estimate total pages (products + collections + static)
                 estimated_pages = shopify_products + 20  # rough estimate
 
@@ -1516,7 +1572,7 @@ class AuditOrchestrator:
 
                 if sitemap_count > 0:
                     # Check for errors in sitemaps
-                    has_errors = any(s.get("errors", 0) > 0 for s in sitemaps)
+                    has_errors = any(int(s.get("errors", 0) or 0) > 0 for s in sitemaps)
                     if has_errors:
                         self._update_step_status(
                             result, "sitemaps", AuditStepStatus.WARNING,
@@ -1827,7 +1883,7 @@ class AuditOrchestrator:
         step_id: str,
         status: AuditStepStatus,
         result_data: dict[str, Any] | None = None,
-        error: str | None = None,
+        error_message: str | None = None,
     ) -> None:
         """Update a step's status and save session."""
         for step in result.steps:
@@ -1850,7 +1906,7 @@ class AuditOrchestrator:
 
                 step.status = status
                 step.result = result_data
-                step.error_message = error
+                step.error_message = error_message
                 break
 
         self._save_current_session()
