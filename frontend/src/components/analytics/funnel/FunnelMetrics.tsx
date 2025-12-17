@@ -2,7 +2,6 @@
  * FunnelMetrics Component - Key metrics summary cards
  * Separates GA4 funnel metrics from Shopify business metrics
  */
-/* eslint-disable max-lines-per-function */
 
 import type { ConversionFunnel } from '../../../types/analytics'
 

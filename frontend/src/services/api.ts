@@ -3,7 +3,6 @@
  * ============================================
  * HTTP client for communicating with FastAPI backend
  */
-/* eslint-disable max-lines */
 
 import axios from 'axios'
 

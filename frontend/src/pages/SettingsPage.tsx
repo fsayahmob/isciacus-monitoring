@@ -3,7 +3,6 @@
  * ==============================================
  * Professional configuration page for managing API credentials
  */
-/* eslint-disable max-lines-per-function */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'

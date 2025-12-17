@@ -1,7 +1,6 @@
 /**
  * Audit Results - Display audit results with progressive checklist
  */
-/* eslint-disable max-lines, max-lines-per-function, complexity, no-magic-numbers, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/restrict-template-expressions */
 
 import React from 'react'
 
