@@ -218,6 +218,7 @@ export default tseslint.config(
     files: [
       '**/pages/SettingsPage.tsx',
       '**/components/analytics/funnel/FunnelMetrics.tsx',
+      '**/components/FilterBar.tsx',
     ],
     rules: {
       'max-lines-per-function': 'off',

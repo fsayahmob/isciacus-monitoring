@@ -48,6 +48,9 @@ export async function fetchProducts(
   appendFilterParam(params, 'channel', filters.channel)
   appendFilterParam(params, 'collection', filters.collection)
   appendFilterParam(params, 'statut', filters.statut)
+  appendFilterParam(params, 'has_image', filters.has_image)
+  appendFilterParam(params, 'has_price', filters.has_price)
+  appendFilterParam(params, 'has_description', filters.has_description)
 
   const response = await apiClient.get<ProductsResponse>(`/api/products?${params.toString()}`)
   return response.data

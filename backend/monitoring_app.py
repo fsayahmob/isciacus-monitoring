@@ -343,6 +343,9 @@ async def get_products(
     channel: str | None = None,
     collection: str | None = None,
     statut: str | None = None,
+    has_image: bool | None = None,
+    has_price: bool | None = None,
+    has_description: bool | None = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
 ) -> ProductData:
@@ -356,6 +359,9 @@ async def get_products(
         channel=channel,
         collection=collection,
         statut=statut,
+        has_image=has_image,
+        has_price=has_price,
+        has_description=has_description,
     )
 
     # Compter les produits uniques dans les résultats filtrés
@@ -370,7 +376,7 @@ async def get_products(
     }
 
 
-def _apply_filters(
+def _apply_filters(  # noqa: PLR0913
     products: list[ProductData],
     *,
     search: str | None,
@@ -380,6 +386,9 @@ def _apply_filters(
     channel: str | None,
     collection: str | None,
     statut: str | None,
+    has_image: bool | None = None,
+    has_price: bool | None = None,
+    has_description: bool | None = None,
 ) -> list[ProductData]:
     """Apply all filters to the products list."""
     filtered = products
@@ -422,6 +431,27 @@ def _apply_filters(
     # Filtre par statut
     if statut:
         filtered = [p for p in filtered if p.get("statut") == statut]
+
+    # Filtre par présence d'image
+    if has_image is not None:
+        if has_image:
+            filtered = [p for p in filtered if p.get("image_url")]
+        else:
+            filtered = [p for p in filtered if not p.get("image_url")]
+
+    # Filtre par présence de prix (prix > 0)
+    if has_price is not None:
+        if has_price:
+            filtered = [p for p in filtered if (p.get("prix_ttc") or 0) > 0]
+        else:
+            filtered = [p for p in filtered if (p.get("prix_ttc") or 0) == 0]
+
+    # Filtre par présence de description
+    if has_description is not None:
+        if has_description:
+            filtered = [p for p in filtered if p.get("description")]
+        else:
+            filtered = [p for p in filtered if not p.get("description")]
 
     return filtered
 

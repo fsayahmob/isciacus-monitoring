@@ -55,6 +55,9 @@ export interface ProductFilters {
   channel?: string
   collection?: string
   statut?: string
+  has_image?: string
+  has_price?: string
+  has_description?: string
 }
 
 export type SortField = 'titre' | 'sku' | 'stock' | 'prix_ttc' | 'marge_brute'

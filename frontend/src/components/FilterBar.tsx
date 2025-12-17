@@ -66,6 +66,34 @@ function StockLevelSelect({
   )
 }
 
+function BooleanFilterSelect({
+  value,
+  placeholder,
+  withLabel,
+  withoutLabel,
+  onChange,
+}: {
+  value: string
+  placeholder: string
+  withLabel: string
+  withoutLabel: string
+  onChange: (v: string) => void
+}): React.ReactElement {
+  return (
+    <select
+      className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value)
+      }}
+    >
+      <option value="">{placeholder}</option>
+      <option value="true">{withLabel}</option>
+      <option value="false">{withoutLabel}</option>
+    </select>
+  )
+}
+
 interface ActiveFilterBadgeProps {
   filterKey: string
   value: string
@@ -174,6 +202,33 @@ function FilterControls({
         value={filters.tag ?? ''}
         onChange={(v) => {
           onFilterChange('tag', v)
+        }}
+      />
+      <BooleanFilterSelect
+        placeholder="Image (tous)"
+        value={filters.has_image ?? ''}
+        withLabel="Avec image"
+        withoutLabel="Sans image"
+        onChange={(v) => {
+          onFilterChange('has_image', v)
+        }}
+      />
+      <BooleanFilterSelect
+        placeholder="Prix (tous)"
+        value={filters.has_price ?? ''}
+        withLabel="Avec prix"
+        withoutLabel="Sans prix"
+        onChange={(v) => {
+          onFilterChange('has_price', v)
+        }}
+      />
+      <BooleanFilterSelect
+        placeholder="Description (tous)"
+        value={filters.has_description ?? ''}
+        withLabel="Avec description"
+        withoutLabel="Sans description"
+        onChange={(v) => {
+          onFilterChange('has_description', v)
         }}
       />
     </>
