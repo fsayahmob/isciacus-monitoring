@@ -145,8 +145,8 @@ jobs:
         run: |
           echo "=== BACKEND GUARD 1: Maximum 5 ignored Ruff rules ==="
 
-          # Count rules in ignore list
-          IGNORE_COUNT=$(grep -A 20 "^ignore = \[" backend/pyproject.toml 2>/dev/null | grep -c '"[A-Z]' || echo "0")
+          # Count rules in ignore list (stop at closing bracket)
+          IGNORE_COUNT=$(sed -n '/^ignore = \[/,/^]/p' backend/pyproject.toml 2>/dev/null | grep -c '"[A-Z]' || echo "0")
           echo "Found $IGNORE_COUNT ignored rules"
 
           if [ "$IGNORE_COUNT" -gt 5 ]; then
