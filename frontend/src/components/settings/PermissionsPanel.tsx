@@ -67,7 +67,9 @@ function getSeverityBadge(severity: PermissionResult['severity']): React.ReactEl
   }
 
   return (
-    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${colors[severity] ?? colors.medium}`}>
+    <span
+      className={`rounded px-1.5 py-0.5 text-xs font-medium ${colors[severity] ?? colors.medium}`}
+    >
       {severity}
     </span>
   )
@@ -88,15 +90,15 @@ function PermissionRow({ permission }: { permission: PermissionResult }): React.
         </div>
         <div className="flex items-center gap-2">
           {getSeverityBadge(permission.severity)}
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusTagColor(permission.status)}`}>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusTagColor(permission.status)}`}
+          >
             {getStatusLabel(permission.status)}
           </span>
         </div>
       </div>
       {isError && permission.error_message !== null && (
-        <div className="mt-2 text-sm text-red-700">
-          {permission.error_message}
-        </div>
+        <div className="mt-2 text-sm text-red-700">{permission.error_message}</div>
       )}
       {isError && permission.how_to_grant !== '' && (
         <div className="mt-2 rounded bg-red-100 p-2 text-xs text-red-800">
@@ -108,7 +110,12 @@ function PermissionRow({ permission }: { permission: PermissionResult }): React.
 }
 
 export function PermissionsPanel(): React.ReactElement {
-  const { data: permissions, isLoading, error, refetch } = useQuery({
+  const {
+    data: permissions,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['shopify-permissions'],
     queryFn: fetchShopifyPermissions,
     refetchInterval: PERMISSIONS_CHECK_INTERVAL,
@@ -147,11 +154,11 @@ export function PermissionsPanel(): React.ReactElement {
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-medium text-gray-900">Permissions Shopify</h3>
         <div className="flex items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            permissions.all_granted
-              ? 'bg-green-100 text-green-800'
-              : 'bg-red-100 text-red-800'
-          }`}>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+              permissions.all_granted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}
+          >
             {permissions.all_granted
               ? 'Toutes accordées'
               : `${String(deniedCount)} permission${deniedCount > 1 ? 's' : ''} manquante${deniedCount > 1 ? 's' : ''}`}
@@ -160,10 +167,17 @@ export function PermissionsPanel(): React.ReactElement {
             className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             title="Rafraîchir"
             type="button"
-            onClick={() => { void refetch() }}
+            onClick={() => {
+              void refetch()
+            }}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+              <path
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+              />
             </svg>
           </button>
         </div>
@@ -179,8 +193,9 @@ export function PermissionsPanel(): React.ReactElement {
       {!permissions.all_granted && (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="text-sm text-amber-800">
-            <strong>Action requise:</strong> Certaines permissions sont manquantes.
-            Les actions de correction (comme l&apos;injection GA4) nécessitent la permission <code className="rounded bg-amber-100 px-1">write_themes</code>.
+            <strong>Action requise:</strong> Certaines permissions sont manquantes. Les actions de
+            correction (comme l&apos;injection GA4) nécessitent la permission{' '}
+            <code className="rounded bg-amber-100 px-1">write_themes</code>.
           </p>
         </div>
       )}

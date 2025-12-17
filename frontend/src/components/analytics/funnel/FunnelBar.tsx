@@ -65,14 +65,20 @@ function getBenchmarkRange(benchmark: BenchmarkEvaluation | undefined): string {
   return ''
 }
 
-function FunnelBarContent({ stage, benchmarkStatus, hasBenchmark }: {
+function FunnelBarContent({
+  stage,
+  benchmarkStatus,
+  hasBenchmark,
+}: {
   stage: FunnelStage
   benchmarkStatus: string | undefined
   hasBenchmark: boolean
 }): React.ReactElement {
   return (
     <span className="flex items-center justify-end gap-1">
-      <span className={`font-mono ${hasBenchmark ? getBenchmarkColor(benchmarkStatus) : 'text-gray-500'}`}>
+      <span
+        className={`font-mono ${hasBenchmark ? getBenchmarkColor(benchmarkStatus) : 'text-gray-500'}`}
+      >
         {stage.rate}%
       </span>
       {hasBenchmark ? (
@@ -114,11 +120,11 @@ export function FunnelBar({ stage, maxValue, index }: FunnelBarProps): React.Rea
           </div>
         )}
       </div>
-      <div className={valueClass}>
-        {requiresGA4 ? '—' : stage.value.toLocaleString('fr-FR')}
-      </div>
+      <div className={valueClass}>{requiresGA4 ? '—' : stage.value.toLocaleString('fr-FR')}</div>
       <div className={rateClass}>
-        {requiresGA4 ? '—' : (
+        {requiresGA4 ? (
+          '—'
+        ) : (
           <FunnelBarContent
             benchmarkStatus={benchmarkStatus}
             hasBenchmark={hasBenchmark}
@@ -127,7 +133,7 @@ export function FunnelBar({ stage, maxValue, index }: FunnelBarProps): React.Rea
         )}
       </div>
       <div className="w-24 flex-shrink-0 text-right text-xs text-gray-400">
-        {hasBenchmark && benchmarkRange !== '' ? benchmarkRange : stage.rate_label ?? ''}
+        {hasBenchmark && benchmarkRange !== '' ? benchmarkRange : (stage.rate_label ?? '')}
       </div>
     </div>
   )

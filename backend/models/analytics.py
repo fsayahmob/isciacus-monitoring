@@ -138,6 +138,4 @@ class AvailableFilters(BaseModel):
     """Available tags and collections for filtering."""
 
     tags: list[str] = Field(description="All tags from products sold")
-    collections: list[dict[str, str]] = Field(
-        description="Collections with id, name, handle"
-    )
+    collections: list[dict[str, str]] = Field(description="Collections with id, name, handle")

@@ -132,11 +132,47 @@ class AuditOrchestrator:
         self._storage_dir.mkdir(parents=True, exist_ok=True)
         self._current_session: AuditSession | None = None
 
+    def _clear_cache_for_audit(self, audit_type: AuditType) -> None:
+        """Clear only the relevant caches for a specific audit type.
+
+        Each audit clears caches for the services it depends on:
+        - GA4_TRACKING: GA4 service + Shopify (for comparison)
+        - THEME_CODE: Theme analyzer
+        - MERCHANT_CENTER: Shopify products
+        - META_PIXEL: Theme analyzer
+        - SEARCH_CONSOLE: Shopify products
+        """
+        # Map audit types to their required services
+        audit_services: dict[AuditType, list[str]] = {
+            AuditType.GA4_TRACKING: ["ga4_audit", "shopify"],
+            AuditType.THEME_CODE: ["theme_analyzer"],
+            AuditType.MERCHANT_CENTER: ["shopify"],
+            AuditType.META_PIXEL: ["theme_analyzer"],
+            AuditType.SEARCH_CONSOLE: ["shopify"],
+        }
+
+        services_to_clear = audit_services.get(audit_type, [])
+
+        for service_name in services_to_clear:
+            if service_name == "ga4_audit" and self.ga4_audit is not None:
+                if hasattr(self.ga4_audit, "clear_cache"):
+                    self.ga4_audit.clear_cache()
+
+            elif service_name == "theme_analyzer" and self.theme_analyzer is not None:
+                if hasattr(self.theme_analyzer, "clear_cache"):
+                    self.theme_analyzer.clear_cache()
+
+            elif service_name == "shopify":
+                from services.shopify_analytics import clear_shopify_cache
+
+                clear_shopify_cache()
+
     def _get_ga4_measurement_id(self) -> str:
         """Get GA4 measurement ID from ConfigService (SQLite)."""
         if self._config_service is None:
             # Lazy import to avoid circular imports
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
 
         ga4_config = self._config_service.get_ga4_values()
@@ -188,6 +224,7 @@ class AuditOrchestrator:
         """Get Meta configuration from ConfigService."""
         if self._config_service is None:
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
         return self._config_service.get_meta_values()
 
@@ -195,6 +232,7 @@ class AuditOrchestrator:
         """Get Google Merchant Center configuration from ConfigService."""
         if self._config_service is None:
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
         return self._config_service.get_merchant_center_values()
 
@@ -202,6 +240,7 @@ class AuditOrchestrator:
         """Get Google Search Console configuration from ConfigService."""
         if self._config_service is None:
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
         return self._config_service.get_search_console_values()
 
@@ -215,7 +254,9 @@ class AuditOrchestrator:
 
         # Check if Meta is configured
         meta_config = self._get_meta_config()
-        meta_configured = bool(meta_config.get("pixel_id")) and bool(meta_config.get("access_token"))
+        meta_configured = bool(meta_config.get("pixel_id")) and bool(
+            meta_config.get("access_token")
+        )
 
         # Check if Merchant Center is configured
         gmc_config = self._get_merchant_center_config()
@@ -228,12 +269,10 @@ class AuditOrchestrator:
         # Determine availability and descriptions based on config
         if ga4_configured:
             ga4_description = (
-                "Vérifie la couverture du tracking GA4 "
-                "(événements, collections, produits)"
+                "Vérifie la couverture du tracking GA4 " "(événements, collections, produits)"
             )
             theme_description = (
-                "Analyse le code du thème Shopify "
-                "pour détecter les erreurs de tracking"
+                "Analyse le code du thème Shopify " "pour détecter les erreurs de tracking"
             )
         else:
             ga4_description = (
@@ -272,8 +311,7 @@ class AuditOrchestrator:
         # GSC description based on config
         if gsc_configured:
             gsc_description = (
-                "Vérifie l'indexation des pages, "
-                "les erreurs d'exploration et les sitemaps"
+                "Vérifie l'indexation des pages, " "les erreurs d'exploration et les sitemaps"
             )
         else:
             gsc_description = (
@@ -348,6 +386,9 @@ class AuditOrchestrator:
 
     def start_audit(self, audit_type: AuditType) -> AuditResult:
         """Start a specific audit type and return initial result with steps."""
+        # Clear only the relevant caches for this audit type
+        self._clear_cache_for_audit(audit_type)
+
         # Create or get current session
         if self._current_session is None:
             self._current_session = AuditSession(id=str(uuid4())[:8])
@@ -519,7 +560,7 @@ class AuditOrchestrator:
         if not ga4_measurement_id:
             self._mark_audit_unconfigured(
                 result,
-                "GA4 non configuré. Allez dans Settings > GA4 pour configurer votre ID de mesure (G-XXXXXXXX)."
+                "GA4 non configuré. Allez dans Settings > GA4 pour configurer votre ID de mesure (G-XXXXXXXX).",
             )
             return result
 
@@ -550,13 +591,15 @@ class AuditOrchestrator:
 
         except Exception as e:
             result.status = AuditStepStatus.ERROR
-            result.issues.append(AuditIssue(
-                id="audit_error",
-                audit_type=AuditType.GA4_TRACKING,
-                severity="critical",
-                title="Erreur d'audit",
-                description=str(e),
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="audit_error",
+                    audit_type=AuditType.GA4_TRACKING,
+                    severity="critical",
+                    title="Erreur d'audit",
+                    description=str(e),
+                )
+            )
 
         self._save_current_session()
         return result
@@ -580,14 +623,16 @@ class AuditOrchestrator:
         )
 
         if not ga4_connected:
-            result.issues.append(AuditIssue(
-                id="ga4_not_connected",
-                audit_type=AuditType.GA4_TRACKING,
-                severity="critical",
-                title="GA4 non connecté",
-                description="Impossible de se connecter à l'API GA4",
-                action_available=False,
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="ga4_not_connected",
+                    audit_type=AuditType.GA4_TRACKING,
+                    severity="critical",
+                    title="GA4 non connecté",
+                    description="Impossible de se connecter à l'API GA4",
+                    action_available=False,
+                )
+            )
             for step in result.steps[1:]:
                 step.status = AuditStepStatus.SKIPPED
             result.status = AuditStepStatus.ERROR
@@ -595,15 +640,11 @@ class AuditOrchestrator:
             return False
         return True
 
-    def _process_collections_coverage(
-        self, result: AuditResult, coll: dict[str, Any]
-    ) -> None:
+    def _process_collections_coverage(self, result: AuditResult, coll: dict[str, Any]) -> None:
         """Process collections coverage step."""
         self._update_step_status(result, "collections_coverage", AuditStepStatus.RUNNING)
         coll_status = self._rate_to_status(coll.get("rate", 0))
-        self._update_step_status(
-            result, "collections_coverage", coll_status, result_data=coll
-        )
+        self._update_step_status(result, "collections_coverage", coll_status, result_data=coll)
 
         if coll.get("missing"):
             rate = coll.get("rate", 0)
@@ -632,25 +673,23 @@ class AuditOrchestrator:
                     f"Possible problème de tracking ou de navigation."
                 )
 
-            result.issues.append(AuditIssue(
-                id="missing_collections",
-                audit_type=AuditType.GA4_TRACKING,
-                severity=severity,
-                title=f"{missing_count} collections sans visite",
-                description=description,
-                details=coll["missing"][:MAX_DETAILS_ITEMS],
-                action_available=False,
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="missing_collections",
+                    audit_type=AuditType.GA4_TRACKING,
+                    severity=severity,
+                    title=f"{missing_count} collections sans visite",
+                    description=description,
+                    details=coll["missing"][:MAX_DETAILS_ITEMS],
+                    action_available=False,
+                )
+            )
 
-    def _process_products_coverage(
-        self, result: AuditResult, prod: dict[str, Any]
-    ) -> None:
+    def _process_products_coverage(self, result: AuditResult, prod: dict[str, Any]) -> None:
         """Process products coverage step."""
         self._update_step_status(result, "products_coverage", AuditStepStatus.RUNNING)
         prod_status = self._rate_to_status(prod.get("rate", 0))
-        self._update_step_status(
-            result, "products_coverage", prod_status, result_data=prod
-        )
+        self._update_step_status(result, "products_coverage", prod_status, result_data=prod)
 
         if prod.get("missing"):
             rate = prod.get("rate", 0)
@@ -686,64 +725,62 @@ class AuditOrchestrator:
                     f"Possible problème de tracking view_item."
                 )
 
-            result.issues.append(AuditIssue(
-                id="missing_products",
-                audit_type=AuditType.GA4_TRACKING,
-                severity=severity,
-                title=f"{missing_count} produits sans vue récente",
-                description=description,
-                details=prod["missing"][:MAX_DETAILS_ITEMS],
-                action_available=False,
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="missing_products",
+                    audit_type=AuditType.GA4_TRACKING,
+                    severity=severity,
+                    title=f"{missing_count} produits sans vue récente",
+                    description=description,
+                    details=prod["missing"][:MAX_DETAILS_ITEMS],
+                    action_available=False,
+                )
+            )
 
-    def _process_events_coverage(
-        self, result: AuditResult, events: dict[str, Any]
-    ) -> None:
+    def _process_events_coverage(self, result: AuditResult, events: dict[str, Any]) -> None:
         """Process events coverage step."""
         self._update_step_status(result, "events_coverage", AuditStepStatus.RUNNING)
         events_status = self._rate_to_status(events.get("rate", 0))
-        self._update_step_status(
-            result, "events_coverage", events_status, result_data=events
-        )
+        self._update_step_status(result, "events_coverage", events_status, result_data=events)
 
         critical_events = ["purchase", "add_to_cart"]
         for missing_event in events.get("missing", []):
             is_critical = missing_event in critical_events
-            result.issues.append(AuditIssue(
-                id=f"missing_event_{missing_event}",
-                audit_type=AuditType.GA4_TRACKING,
-                severity="critical" if is_critical else "high",
-                title=f"Événement '{missing_event}' manquant",
-                description=f"L'événement GA4 {missing_event} n'est pas détecté",
-                action_available=True,
-                action_id=f"fix_event_{missing_event}",
-                action_label="Ajouter au thème",
-                action_status=ActionStatus.AVAILABLE,
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id=f"missing_event_{missing_event}",
+                    audit_type=AuditType.GA4_TRACKING,
+                    severity="critical" if is_critical else "high",
+                    title=f"Événement '{missing_event}' manquant",
+                    description=f"L'événement GA4 {missing_event} n'est pas détecté",
+                    action_available=True,
+                    action_id=f"fix_event_{missing_event}",
+                    action_label="Ajouter au thème",
+                    action_status=ActionStatus.AVAILABLE,
+                )
+            )
 
-    def _process_transactions_match(
-        self, result: AuditResult, trans: dict[str, Any]
-    ) -> None:
+    def _process_transactions_match(self, result: AuditResult, trans: dict[str, Any]) -> None:
         """Process transactions match step."""
         self._update_step_status(result, "transactions_match", AuditStepStatus.RUNNING)
         match_rate = trans.get("match_rate", 0) * 100
         trans_status = self._rate_to_status(match_rate)
-        self._update_step_status(
-            result, "transactions_match", trans_status, result_data=trans
-        )
+        self._update_step_status(result, "transactions_match", trans_status, result_data=trans)
 
         if match_rate < COVERAGE_RATE_HIGH:
             ga4_trans = trans.get("ga4_transactions", 0)
             shopify_orders = trans.get("shopify_orders", 0)
             is_critical = match_rate < COVERAGE_RATE_MEDIUM
-            result.issues.append(AuditIssue(
-                id="transactions_mismatch",
-                audit_type=AuditType.GA4_TRACKING,
-                severity="critical" if is_critical else "high",
-                title=f"Écart transactions: {match_rate:.0f}%",
-                description=f"{ga4_trans} GA4 vs {shopify_orders} Shopify",
-                action_available=False,
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="transactions_mismatch",
+                    audit_type=AuditType.GA4_TRACKING,
+                    severity="critical" if is_critical else "high",
+                    title=f"Écart transactions: {match_rate:.0f}%",
+                    description=f"{ga4_trans} GA4 vs {shopify_orders} Shopify",
+                    action_available=False,
+                )
+            )
 
     def run_theme_audit(self) -> AuditResult:
         """Run the theme code audit with step-by-step progress."""
@@ -754,7 +791,7 @@ class AuditOrchestrator:
         if not ga4_measurement_id:
             self._mark_audit_unconfigured(
                 result,
-                "GA4 non configuré. Allez dans Settings > GA4 pour configurer votre ID de mesure (G-XXXXXXXX)."
+                "GA4 non configuré. Allez dans Settings > GA4 pour configurer votre ID de mesure (G-XXXXXXXX).",
             )
             return result
 
@@ -774,14 +811,16 @@ class AuditOrchestrator:
 
             if not analysis.files_analyzed:
                 self._update_step_status(result, "theme_access", AuditStepStatus.ERROR)
-                result.issues.append(AuditIssue(
-                    id="theme_access_error",
-                    audit_type=AuditType.THEME_CODE,
-                    severity="critical",
-                    title="Accès thème impossible",
-                    description="Impossible d'accéder aux fichiers du thème Shopify",
-                    action_available=False,
-                ))
+                result.issues.append(
+                    AuditIssue(
+                        id="theme_access_error",
+                        audit_type=AuditType.THEME_CODE,
+                        severity="critical",
+                        title="Accès thème impossible",
+                        description="Impossible d'accéder aux fichiers du thème Shopify",
+                        action_available=False,
+                    )
+                )
                 for step in result.steps[1:]:
                     step.status = AuditStepStatus.SKIPPED
                 result.status = AuditStepStatus.ERROR
@@ -789,7 +828,9 @@ class AuditOrchestrator:
                 return result
 
             self._update_step_status(
-                result, "theme_access", AuditStepStatus.SUCCESS,
+                result,
+                "theme_access",
+                AuditStepStatus.SUCCESS,
                 result_data={"files_count": len(analysis.files_analyzed)},
             )
 
@@ -798,7 +839,9 @@ class AuditOrchestrator:
             ga4_ok = analysis.ga4_configured
             ga4_status = AuditStepStatus.SUCCESS if ga4_ok else AuditStepStatus.WARNING
             self._update_step_status(
-                result, "ga4_code", ga4_status,
+                result,
+                "ga4_code",
+                ga4_status,
                 result_data={
                     "configured": analysis.ga4_configured,
                     "via_shopify_native": analysis.ga4_via_shopify_native,
@@ -825,39 +868,49 @@ class AuditOrchestrator:
                     )
                     action_available = False
 
-                result.issues.append(AuditIssue(
-                    id="ga4_not_in_theme",
-                    audit_type=AuditType.THEME_CODE,
-                    severity="critical",
-                    title="GA4 non configuré",
-                    description=description,
-                    action_available=action_available,
-                    action_id="add_ga4_base" if action_available else None,
-                    action_label="Ajouter via snippet" if action_available else None,
-                    action_status=ActionStatus.AVAILABLE if action_available else ActionStatus.NOT_AVAILABLE,
-                ))
+                result.issues.append(
+                    AuditIssue(
+                        id="ga4_not_in_theme",
+                        audit_type=AuditType.THEME_CODE,
+                        severity="critical",
+                        title="GA4 non configuré",
+                        description=description,
+                        action_available=action_available,
+                        action_id="add_ga4_base" if action_available else None,
+                        action_label="Ajouter via snippet" if action_available else None,
+                        action_status=(
+                            ActionStatus.AVAILABLE
+                            if action_available
+                            else ActionStatus.NOT_AVAILABLE
+                        ),
+                    )
+                )
             elif analysis.ga4_via_shopify_native and not analysis.ga4_events_found:
                 # GA4 is configured via Shopify native - inform user it's OK
-                result.issues.append(AuditIssue(
-                    id="ga4_via_shopify_native",
-                    audit_type=AuditType.THEME_CODE,
-                    severity="low",
-                    title="GA4 configuré via Shopify",
-                    description=(
-                        f"GA4 ({analysis.ga4_measurement_id or 'ID non visible'}) "
-                        "est configuré via l'intégration native Shopify "
-                        "(Online Store > Preferences). "
-                        "Le tracking de base (page_view, purchase) est automatique."
-                    ),
-                    action_available=False,
-                ))
+                result.issues.append(
+                    AuditIssue(
+                        id="ga4_via_shopify_native",
+                        audit_type=AuditType.THEME_CODE,
+                        severity="low",
+                        title="GA4 configuré via Shopify",
+                        description=(
+                            f"GA4 ({analysis.ga4_measurement_id or 'ID non visible'}) "
+                            "est configuré via l'intégration native Shopify "
+                            "(Online Store > Preferences). "
+                            "Le tracking de base (page_view, purchase) est automatique."
+                        ),
+                        action_available=False,
+                    )
+                )
 
             # Step 3: Meta Code
             self._update_step_status(result, "meta_code", AuditStepStatus.RUNNING)
             meta_ok = analysis.meta_pixel_configured
             meta_status = AuditStepStatus.SUCCESS if meta_ok else AuditStepStatus.WARNING
             self._update_step_status(
-                result, "meta_code", meta_status,
+                result,
+                "meta_code",
+                meta_status,
                 result_data={
                     "configured": analysis.meta_pixel_configured,
                     "pixel_id": analysis.meta_pixel_id,
@@ -868,7 +921,9 @@ class AuditOrchestrator:
             # Step 4: GTM Code
             self._update_step_status(result, "gtm_code", AuditStepStatus.RUNNING)
             self._update_step_status(
-                result, "gtm_code", AuditStepStatus.SUCCESS,
+                result,
+                "gtm_code",
+                AuditStepStatus.SUCCESS,
                 result_data={
                     "configured": analysis.gtm_configured,
                     "container_id": analysis.gtm_container_id,
@@ -883,23 +938,27 @@ class AuditOrchestrator:
                 fixable = issue.fix_available
                 action_sts = ActionStatus.AVAILABLE if fixable else ActionStatus.NOT_AVAILABLE
                 event_name = issue.event or issue.issue_type
-                result.issues.append(AuditIssue(
-                    id=f"theme_issue_{i}",
-                    audit_type=AuditType.THEME_CODE,
-                    severity=issue.severity,
-                    title=f"{issue.tracking_type.value.upper()}: {event_name}",
-                    description=issue.description,
-                    details=[f"Fichier: {issue.file_path}"] if issue.file_path else None,
-                    action_available=fixable,
-                    action_id=f"fix_theme_{i}" if fixable else None,
-                    action_label="Corriger" if fixable else None,
-                    action_status=action_sts,
-                ))
+                result.issues.append(
+                    AuditIssue(
+                        id=f"theme_issue_{i}",
+                        audit_type=AuditType.THEME_CODE,
+                        severity=issue.severity,
+                        title=f"{issue.tracking_type.value.upper()}: {event_name}",
+                        description=issue.description,
+                        details=[f"Fichier: {issue.file_path}"] if issue.file_path else None,
+                        action_available=fixable,
+                        action_id=f"fix_theme_{i}" if fixable else None,
+                        action_label="Corriger" if fixable else None,
+                        action_status=action_sts,
+                    )
+                )
 
             has_issues = len(analysis.issues) > 0
             issues_status = AuditStepStatus.WARNING if has_issues else AuditStepStatus.SUCCESS
             self._update_step_status(
-                result, "issues_detection", issues_status,
+                result,
+                "issues_detection",
+                issues_status,
                 result_data={"issues_count": len(analysis.issues)},
             )
 
@@ -918,13 +977,15 @@ class AuditOrchestrator:
 
         except Exception as e:
             result.status = AuditStepStatus.ERROR
-            result.issues.append(AuditIssue(
-                id="theme_audit_error",
-                audit_type=AuditType.THEME_CODE,
-                severity="critical",
-                title="Erreur d'audit thème",
-                description=str(e),
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="theme_audit_error",
+                    audit_type=AuditType.THEME_CODE,
+                    severity="critical",
+                    title="Erreur d'audit thème",
+                    description=str(e),
+                )
+            )
 
         self._save_current_session()
         return result
@@ -936,6 +997,7 @@ class AuditOrchestrator:
         # Get Meta config from ConfigService
         if self._config_service is None:
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
 
         meta_config = self._config_service.get_meta_values()
@@ -947,7 +1009,9 @@ class AuditOrchestrator:
 
         if not pixel_id:
             self._update_step_status(
-                result, "meta_connection", AuditStepStatus.ERROR,
+                result,
+                "meta_connection",
+                AuditStepStatus.ERROR,
                 error_message="Meta Pixel ID non configuré. Allez dans Settings > Meta.",
             )
             for step in result.steps[1:]:
@@ -958,7 +1022,9 @@ class AuditOrchestrator:
             return result
 
         self._update_step_status(
-            result, "meta_connection", AuditStepStatus.SUCCESS,
+            result,
+            "meta_connection",
+            AuditStepStatus.SUCCESS,
             result_data={"pixel_id": pixel_id, "has_token": bool(access_token)},
         )
 
@@ -974,35 +1040,45 @@ class AuditOrchestrator:
         if pixel_in_theme:
             if theme_pixel_id == pixel_id:
                 self._update_step_status(
-                    result, "pixel_config", AuditStepStatus.SUCCESS,
+                    result,
+                    "pixel_config",
+                    AuditStepStatus.SUCCESS,
                     result_data={"pixel_in_theme": True, "pixel_match": True},
                 )
             else:
                 self._update_step_status(
-                    result, "pixel_config", AuditStepStatus.WARNING,
+                    result,
+                    "pixel_config",
+                    AuditStepStatus.WARNING,
                     result_data={"pixel_in_theme": True, "pixel_match": False},
                 )
-                result.issues.append(AuditIssue(
-                    id="meta_pixel_mismatch",
-                    audit_type=AuditType.META_PIXEL,
-                    severity="warning",
-                    title="ID Pixel différent",
-                    description=f"Le Pixel dans le thème ({theme_pixel_id}) est différent de celui configuré ({pixel_id})",
-                ))
+                result.issues.append(
+                    AuditIssue(
+                        id="meta_pixel_mismatch",
+                        audit_type=AuditType.META_PIXEL,
+                        severity="warning",
+                        title="ID Pixel différent",
+                        description=f"Le Pixel dans le thème ({theme_pixel_id}) est différent de celui configuré ({pixel_id})",
+                    )
+                )
         else:
             self._update_step_status(
-                result, "pixel_config", AuditStepStatus.WARNING,
+                result,
+                "pixel_config",
+                AuditStepStatus.WARNING,
                 result_data={"pixel_in_theme": False},
             )
-            result.issues.append(AuditIssue(
-                id="meta_pixel_not_installed",
-                audit_type=AuditType.META_PIXEL,
-                severity="error",
-                title="Meta Pixel non installé",
-                description=f"Le Meta Pixel {pixel_id} n'est pas détecté dans le thème Shopify",
-                action_available=False,
-                action_label="Installer le Pixel",
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="meta_pixel_not_installed",
+                    audit_type=AuditType.META_PIXEL,
+                    severity="error",
+                    title="Meta Pixel non installé",
+                    description=f"Le Meta Pixel {pixel_id} n'est pas détecté dans le thème Shopify",
+                    action_available=False,
+                    action_label="Installer le Pixel",
+                )
+            )
 
         # Step 3: Events Check (from theme analysis)
         self._update_step_status(result, "events_check", AuditStepStatus.RUNNING)
@@ -1017,56 +1093,73 @@ class AuditOrchestrator:
 
         if not missing_events:
             self._update_step_status(
-                result, "events_check", AuditStepStatus.SUCCESS,
+                result,
+                "events_check",
+                AuditStepStatus.SUCCESS,
                 result_data={"events_found": meta_events_found, "coverage": "100%"},
             )
         elif len(missing_events) < len(required_events):
-            coverage = int((len(required_events) - len(missing_events)) / len(required_events) * 100)
+            coverage = int(
+                (len(required_events) - len(missing_events)) / len(required_events) * 100
+            )
             self._update_step_status(
-                result, "events_check", AuditStepStatus.WARNING,
+                result,
+                "events_check",
+                AuditStepStatus.WARNING,
                 result_data={"events_found": meta_events_found, "coverage": f"{coverage}%"},
             )
             for event in missing_events:
                 severity = "error" if event in ["Purchase", "AddToCart"] else "warning"
-                result.issues.append(AuditIssue(
-                    id=f"meta_missing_{event.lower()}",
-                    audit_type=AuditType.META_PIXEL,
-                    severity=severity,
-                    title=f"Événement {event} manquant",
-                    description=f"L'événement Meta '{event}' n'est pas tracké",
-                ))
+                result.issues.append(
+                    AuditIssue(
+                        id=f"meta_missing_{event.lower()}",
+                        audit_type=AuditType.META_PIXEL,
+                        severity=severity,
+                        title=f"Événement {event} manquant",
+                        description=f"L'événement Meta '{event}' n'est pas tracké",
+                    )
+                )
         else:
             self._update_step_status(
-                result, "events_check", AuditStepStatus.ERROR,
+                result,
+                "events_check",
+                AuditStepStatus.ERROR,
                 result_data={"events_found": [], "coverage": "0%"},
             )
-            result.issues.append(AuditIssue(
-                id="meta_no_events",
-                audit_type=AuditType.META_PIXEL,
-                severity="critical",
-                title="Aucun événement Meta détecté",
-                description="Aucun événement de conversion n'est tracké avec le Meta Pixel",
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="meta_no_events",
+                    audit_type=AuditType.META_PIXEL,
+                    severity="critical",
+                    title="Aucun événement Meta détecté",
+                    description="Aucun événement de conversion n'est tracké avec le Meta Pixel",
+                )
+            )
 
         # Step 4: Catalog Sync (requires access token)
         self._update_step_status(result, "catalog_sync", AuditStepStatus.RUNNING)
 
         if not access_token:
             self._update_step_status(
-                result, "catalog_sync", AuditStepStatus.SKIPPED,
+                result,
+                "catalog_sync",
+                AuditStepStatus.SKIPPED,
                 error_message="META_ACCESS_TOKEN non configuré - synchronisation catalogue non vérifiable",
             )
-            result.issues.append(AuditIssue(
-                id="meta_no_token",
-                audit_type=AuditType.META_PIXEL,
-                severity="medium",
-                title="Token Meta manquant",
-                description="Configurez META_ACCESS_TOKEN pour vérifier la synchronisation du catalogue Facebook",
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="meta_no_token",
+                    audit_type=AuditType.META_PIXEL,
+                    severity="medium",
+                    title="Token Meta manquant",
+                    description="Configurez META_ACCESS_TOKEN pour vérifier la synchronisation du catalogue Facebook",
+                )
+            )
         else:
             # Try to check catalog via Meta API
             try:
                 import requests
+
                 ad_account_id = meta_config.get("ad_account_id", "")
                 if ad_account_id:
                     url = f"https://graph.facebook.com/v18.0/act_{ad_account_id}/product_catalogs"
@@ -1074,22 +1167,30 @@ class AuditOrchestrator:
                     if resp.status_code == 200:
                         catalogs = resp.json().get("data", [])
                         self._update_step_status(
-                            result, "catalog_sync", AuditStepStatus.SUCCESS,
+                            result,
+                            "catalog_sync",
+                            AuditStepStatus.SUCCESS,
                             result_data={"catalogs_count": len(catalogs)},
                         )
                     else:
                         self._update_step_status(
-                            result, "catalog_sync", AuditStepStatus.WARNING,
+                            result,
+                            "catalog_sync",
+                            AuditStepStatus.WARNING,
                             error_message=f"Erreur API Meta: {resp.status_code}",
                         )
                 else:
                     self._update_step_status(
-                        result, "catalog_sync", AuditStepStatus.SKIPPED,
+                        result,
+                        "catalog_sync",
+                        AuditStepStatus.SKIPPED,
                         error_message="META_AD_ACCOUNT_ID non configuré",
                     )
             except Exception as e:
                 self._update_step_status(
-                    result, "catalog_sync", AuditStepStatus.ERROR,
+                    result,
+                    "catalog_sync",
+                    AuditStepStatus.ERROR,
                     error_message=str(e),
                 )
 
@@ -1114,6 +1215,7 @@ class AuditOrchestrator:
         # Get GMC config from ConfigService
         if self._config_service is None:
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
 
         gmc_config = self._config_service.get_merchant_center_values()
@@ -1124,7 +1226,9 @@ class AuditOrchestrator:
 
         if not merchant_id:
             self._update_step_status(
-                result, "gmc_connection", AuditStepStatus.ERROR,
+                result,
+                "gmc_connection",
+                AuditStepStatus.ERROR,
                 error_message="GOOGLE_MERCHANT_ID non configuré. Allez dans Settings > Google Merchant Center.",
             )
             for step in result.steps[1:]:
@@ -1136,13 +1240,16 @@ class AuditOrchestrator:
 
         # Try to connect to Merchant Center API
         try:
-            from google.oauth2 import service_account
             from pathlib import Path
+
+            from google.oauth2 import service_account
 
             creds_path = gmc_config.get("service_account_key_path", "")
             if not creds_path or not Path(creds_path).exists():
                 self._update_step_status(
-                    result, "gmc_connection", AuditStepStatus.ERROR,
+                    result,
+                    "gmc_connection",
+                    AuditStepStatus.ERROR,
                     error_message="Fichier credentials Google non trouvé",
                 )
                 for step in result.steps[1:]:
@@ -1159,6 +1266,7 @@ class AuditOrchestrator:
 
             import requests
             from google.auth.transport.requests import Request
+
             credentials.refresh(Request())
 
             # Test connection by getting account info
@@ -1171,12 +1279,16 @@ class AuditOrchestrator:
 
             if resp.status_code == 200:
                 self._update_step_status(
-                    result, "gmc_connection", AuditStepStatus.SUCCESS,
+                    result,
+                    "gmc_connection",
+                    AuditStepStatus.SUCCESS,
                     result_data={"merchant_id": merchant_id},
                 )
             else:
                 self._update_step_status(
-                    result, "gmc_connection", AuditStepStatus.ERROR,
+                    result,
+                    "gmc_connection",
+                    AuditStepStatus.ERROR,
                     error_message=f"Erreur API GMC: {resp.status_code} - {resp.text[:100]}",
                 )
                 for step in result.steps[1:]:
@@ -1201,13 +1313,23 @@ class AuditOrchestrator:
                 total_products = len(products)
 
                 # Count by status
-                approved = sum(1 for p in products if p.get("destinations", [{}])[0].get("status") == "approved")
-                disapproved = sum(1 for p in products if p.get("destinations", [{}])[0].get("status") == "disapproved")
+                approved = sum(
+                    1
+                    for p in products
+                    if p.get("destinations", [{}])[0].get("status") == "approved"
+                )
+                disapproved = sum(
+                    1
+                    for p in products
+                    if p.get("destinations", [{}])[0].get("status") == "disapproved"
+                )
                 pending = total_products - approved - disapproved
 
                 if disapproved > 0:
                     self._update_step_status(
-                        result, "products_status", AuditStepStatus.WARNING,
+                        result,
+                        "products_status",
+                        AuditStepStatus.WARNING,
                         result_data={
                             "total": total_products,
                             "approved": approved,
@@ -1215,16 +1337,20 @@ class AuditOrchestrator:
                             "pending": pending,
                         },
                     )
-                    result.issues.append(AuditIssue(
-                        id="gmc_disapproved_products",
-                        audit_type=AuditType.MERCHANT_CENTER,
-                        severity="error",
-                        title=f"{disapproved} produits rejetés",
-                        description=f"{disapproved} produits sont rejetés par Google Merchant Center",
-                    ))
+                    result.issues.append(
+                        AuditIssue(
+                            id="gmc_disapproved_products",
+                            audit_type=AuditType.MERCHANT_CENTER,
+                            severity="error",
+                            title=f"{disapproved} produits rejetés",
+                            description=f"{disapproved} produits sont rejetés par Google Merchant Center",
+                        )
+                    )
                 else:
                     self._update_step_status(
-                        result, "products_status", AuditStepStatus.SUCCESS,
+                        result,
+                        "products_status",
+                        AuditStepStatus.SUCCESS,
                         result_data={
                             "total": total_products,
                             "approved": approved,
@@ -1234,7 +1360,9 @@ class AuditOrchestrator:
                     )
             else:
                 self._update_step_status(
-                    result, "products_status", AuditStepStatus.ERROR,
+                    result,
+                    "products_status",
+                    AuditStepStatus.ERROR,
                     error_message=f"Erreur lecture produits: {products_resp.status_code}",
                 )
 
@@ -1243,16 +1371,26 @@ class AuditOrchestrator:
 
             # Get Shopify products with full details for GMC analysis
             from services.shopify_analytics import ShopifyAnalyticsService
+
             shopify = ShopifyAnalyticsService()
             shopify_products_list = shopify.fetch_products_for_gmc_audit()
             shopify_products = len(shopify_products_list)
+
+            # Get Google Shopping publication status from Shopify
+            google_pub_status = shopify.fetch_products_google_shopping_status()
 
             if shopify_products > 0 and total_products > 0:
                 sync_rate = int((total_products / shopify_products) * 100)
                 if sync_rate >= 90:
                     self._update_step_status(
-                        result, "feed_sync", AuditStepStatus.SUCCESS,
-                        result_data={"shopify": shopify_products, "gmc": total_products, "sync_rate": f"{sync_rate}%"},
+                        result,
+                        "feed_sync",
+                        AuditStepStatus.SUCCESS,
+                        result_data={
+                            "shopify": shopify_products,
+                            "gmc": total_products,
+                            "sync_rate": f"{sync_rate}%",
+                        },
                     )
                 else:
                     # Analyze product eligibility for GMC sync
@@ -1276,9 +1414,7 @@ class AuditOrchestrator:
                         # Check price from variants
                         variants = product.get("variants", {}).get("nodes", [])
                         if variants:
-                            has_price = any(
-                                float(v.get("price", 0) or 0) > 0 for v in variants
-                            )
+                            has_price = any(float(v.get("price", 0) or 0) > 0 for v in variants)
 
                         # Count missing attributes
                         if not has_price:
@@ -1303,9 +1439,7 @@ class AuditOrchestrator:
                         f"{eligible_products} produits éligibles GMC (avec prix, image, description)"
                     )
                     if ineligible_products > 0:
-                        analysis_details.append(
-                            f"{ineligible_products} produits non éligibles:"
-                        )
+                        analysis_details.append(f"{ineligible_products} produits non éligibles:")
                     if no_price > 0:
                         analysis_details.append(f"  • {no_price} sans prix")
                     if no_image > 0:
@@ -1315,18 +1449,38 @@ class AuditOrchestrator:
                     if draft_products > 0:
                         analysis_details.append(f"  • {draft_products} en brouillon")
 
+                    # Add Google Shopping publication status from Shopify API
+                    google_channel_found = google_pub_status.get("google_channel_found", False)
+                    published_to_google = google_pub_status.get("published_to_google", 0)
+                    not_published_to_google = google_pub_status.get("not_published_to_google", 0)
+
+                    if google_channel_found:
+                        analysis_details.append("\n📡 Publication Google Shopping (Shopify):")
+                        analysis_details.append(
+                            f"  • {published_to_google} produits publiés sur le canal Google"
+                        )
+                        analysis_details.append(
+                            f"  • {not_published_to_google} produits NON publiés"
+                        )
+
                     # Add sync gap analysis
                     if total_products < eligible_products:
                         gap = eligible_products - total_products
                         analysis_details.append(
                             f"\n⚠️ {gap} produits éligibles ne sont PAS dans GMC"
                         )
+                        if google_channel_found and not_published_to_google > 0:
+                            analysis_details.append(
+                                f"→ {not_published_to_google} ne sont pas publiés sur le canal Google dans Shopify"
+                            )
                         analysis_details.append(
-                            "Vérifiez le statut dans Shopify > Google & YouTube"
+                            "Vérifiez le statut dans Shopify > Google & YouTube > Produits"
                         )
 
                     self._update_step_status(
-                        result, "feed_sync", AuditStepStatus.WARNING,
+                        result,
+                        "feed_sync",
+                        AuditStepStatus.WARNING,
                         result_data={
                             "shopify": shopify_products,
                             "gmc": total_products,
@@ -1338,6 +1492,11 @@ class AuditOrchestrator:
                                 "no_image": no_image,
                                 "no_description": no_description,
                                 "draft": draft_products,
+                            },
+                            "google_channel": {
+                                "found": google_channel_found,
+                                "published": published_to_google,
+                                "not_published": not_published_to_google,
                             },
                         },
                     )
@@ -1354,26 +1513,45 @@ class AuditOrchestrator:
 • {no_image} produits sans image principale
 • {no_description} produits sans description"""
 
+                    # Add Google Shopping publication info
+                    if google_channel_found:
+                        description += f"""
+
+📡 Statut publication Google Shopping (API Shopify):
+• {published_to_google} produits publiés sur le canal Google
+• {not_published_to_google} produits NON publiés sur le canal"""
+
                     if total_products < eligible_products:
                         gap = eligible_products - total_products
                         description += f"""
 
-⚠️ ÉCART DÉTECTÉ: {gap} produits éligibles ne sont pas dans GMC!
-Ces produits ont toutes les données requises mais ne sont pas synchronisés.
+⚠️ ÉCART DÉTECTÉ: {gap} produits éligibles ne sont pas dans GMC!"""
+                        if google_channel_found and not_published_to_google > 0:
+                            description += f"""
+→ {not_published_to_google} ne sont pas publiés sur le canal Google dans Shopify
+→ Activez-les dans Shopify Admin > Google & YouTube > Produits"""
+                        else:
+                            description += """
 → Vérifiez dans Shopify Admin > Google & YouTube > Produits
-→ Certains produits peuvent être exclus manuellement ou avoir des erreurs GMC"""
+→ Certains produits peuvent être exclus ou avoir des erreurs GMC"""
 
-                    result.issues.append(AuditIssue(
-                        id="gmc_sync_incomplete",
-                        audit_type=AuditType.MERCHANT_CENTER,
-                        severity="warning",
-                        title=f"{total_products} produits synchronisés sur {eligible_products} éligibles",
-                        description=description,
-                        details=analysis_details[:MAX_DETAILS_ITEMS] if analysis_details else None,
-                    ))
+                    result.issues.append(
+                        AuditIssue(
+                            id="gmc_sync_incomplete",
+                            audit_type=AuditType.MERCHANT_CENTER,
+                            severity="warning",
+                            title=f"{total_products} produits synchronisés sur {eligible_products} éligibles",
+                            description=description,
+                            details=(
+                                analysis_details[:MAX_DETAILS_ITEMS] if analysis_details else None
+                            ),
+                        )
+                    )
             else:
                 self._update_step_status(
-                    result, "feed_sync", AuditStepStatus.WARNING,
+                    result,
+                    "feed_sync",
+                    AuditStepStatus.WARNING,
                     result_data={"shopify": shopify_products, "gmc": total_products},
                 )
 
@@ -1392,16 +1570,22 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
                 statuses = issues_resp.json().get("resources", [])
                 for status in statuses:
                     item_issues = status.get("itemLevelIssues", [])
-                    issues_count += len([i for i in item_issues if i.get("servability") == "disapproved"])
+                    issues_count += len(
+                        [i for i in item_issues if i.get("servability") == "disapproved"]
+                    )
 
             if issues_count > 0:
                 self._update_step_status(
-                    result, "issues_check", AuditStepStatus.WARNING,
+                    result,
+                    "issues_check",
+                    AuditStepStatus.WARNING,
                     result_data={"issues_count": issues_count},
                 )
             else:
                 self._update_step_status(
-                    result, "issues_check", AuditStepStatus.SUCCESS,
+                    result,
+                    "issues_check",
+                    AuditStepStatus.SUCCESS,
                     result_data={"issues_count": 0},
                 )
 
@@ -1414,11 +1598,18 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
                 "approved": approved,
                 "disapproved": disapproved,
                 "issues_count": len(result.issues),
+                "google_channel": {
+                    "found": google_pub_status.get("google_channel_found", False),
+                    "published": google_pub_status.get("published_to_google", 0),
+                    "not_published": google_pub_status.get("not_published_to_google", 0),
+                },
             }
 
         except ImportError:
             self._update_step_status(
-                result, "gmc_connection", AuditStepStatus.ERROR,
+                result,
+                "gmc_connection",
+                AuditStepStatus.ERROR,
                 error_message="google-auth library non installée",
             )
             for step in result.steps[1:]:
@@ -1427,13 +1618,15 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
             result.completed_at = datetime.now(tz=UTC).isoformat()
         except Exception as e:
             result.status = AuditStepStatus.ERROR
-            result.issues.append(AuditIssue(
-                id="gmc_audit_error",
-                audit_type=AuditType.MERCHANT_CENTER,
-                severity="critical",
-                title="Erreur d'audit GMC",
-                description=str(e),
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="gmc_audit_error",
+                    audit_type=AuditType.MERCHANT_CENTER,
+                    severity="critical",
+                    title="Erreur d'audit GMC",
+                    description=str(e),
+                )
+            )
             result.completed_at = datetime.now(tz=UTC).isoformat()
 
         self._save_current_session()
@@ -1446,6 +1639,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
         # Get GSC config from ConfigService
         if self._config_service is None:
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
 
         gsc_config = self._config_service.get_search_console_values()
@@ -1456,7 +1650,9 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
         if not site_url:
             self._update_step_status(
-                result, "gsc_connection", AuditStepStatus.ERROR,
+                result,
+                "gsc_connection",
+                AuditStepStatus.ERROR,
                 error_message="GOOGLE_SEARCH_CONSOLE_PROPERTY non configuré. Allez dans Settings > Search Console.",
             )
             for step in result.steps[1:]:
@@ -1467,13 +1663,16 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
             return result
 
         try:
-            from google.oauth2 import service_account
             from pathlib import Path
+
+            from google.oauth2 import service_account
 
             creds_path = gsc_config.get("service_account_key_path", "")
             if not creds_path or not Path(creds_path).exists():
                 self._update_step_status(
-                    result, "gsc_connection", AuditStepStatus.ERROR,
+                    result,
+                    "gsc_connection",
+                    AuditStepStatus.ERROR,
                     error_message="Fichier credentials Google non trouvé",
                 )
                 for step in result.steps[1:]:
@@ -1488,9 +1687,11 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
                 scopes=["https://www.googleapis.com/auth/webmasters.readonly"],
             )
 
+            from urllib.parse import quote
+
             import requests
             from google.auth.transport.requests import Request
-            from urllib.parse import quote
+
             credentials.refresh(Request())
 
             headers = {"Authorization": f"Bearer {credentials.token}"}
@@ -1505,12 +1706,16 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
             if resp.status_code == 200:
                 self._update_step_status(
-                    result, "gsc_connection", AuditStepStatus.SUCCESS,
+                    result,
+                    "gsc_connection",
+                    AuditStepStatus.SUCCESS,
                     result_data={"site_url": site_url},
                 )
             else:
                 self._update_step_status(
-                    result, "gsc_connection", AuditStepStatus.ERROR,
+                    result,
+                    "gsc_connection",
+                    AuditStepStatus.ERROR,
                     error_message=f"Erreur API GSC: {resp.status_code}",
                 )
                 for step in result.steps[1:]:
@@ -1525,6 +1730,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
             # Get indexed pages via search analytics
             from datetime import timedelta
+
             end_date = datetime.now(tz=UTC).date()
             start_date = end_date - timedelta(days=28)
 
@@ -1547,6 +1753,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
                 # Get Shopify pages count (products + collections + pages)
                 from services.shopify_analytics import ShopifyAnalyticsService
+
                 shopify = ShopifyAnalyticsService()
                 shopify_products = len(shopify._fetch_all_products(only_published=True))
                 # Estimate total pages (products + collections + static)
@@ -1554,24 +1761,32 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
                 if indexed_pages >= estimated_pages * 0.8:
                     self._update_step_status(
-                        result, "indexation", AuditStepStatus.SUCCESS,
+                        result,
+                        "indexation",
+                        AuditStepStatus.SUCCESS,
                         result_data={"indexed": indexed_pages, "estimated_total": estimated_pages},
                     )
                 else:
                     self._update_step_status(
-                        result, "indexation", AuditStepStatus.WARNING,
+                        result,
+                        "indexation",
+                        AuditStepStatus.WARNING,
                         result_data={"indexed": indexed_pages, "estimated_total": estimated_pages},
                     )
-                    result.issues.append(AuditIssue(
-                        id="gsc_low_indexation",
-                        audit_type=AuditType.SEARCH_CONSOLE,
-                        severity="warning",
-                        title="Couverture d'indexation faible",
-                        description=f"Seulement {indexed_pages} pages indexées sur ~{estimated_pages} estimées",
-                    ))
+                    result.issues.append(
+                        AuditIssue(
+                            id="gsc_low_indexation",
+                            audit_type=AuditType.SEARCH_CONSOLE,
+                            severity="warning",
+                            title="Couverture d'indexation faible",
+                            description=f"Seulement {indexed_pages} pages indexées sur ~{estimated_pages} estimées",
+                        )
+                    )
             else:
                 self._update_step_status(
-                    result, "indexation", AuditStepStatus.ERROR,
+                    result,
+                    "indexation",
+                    AuditStepStatus.ERROR,
                     error_message=f"Erreur API: {search_resp.status_code}",
                 )
 
@@ -1590,19 +1805,25 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
             if errors_found > 10:
                 self._update_step_status(
-                    result, "errors", AuditStepStatus.WARNING,
+                    result,
+                    "errors",
+                    AuditStepStatus.WARNING,
                     result_data={"potential_issues": errors_found},
                 )
-                result.issues.append(AuditIssue(
-                    id="gsc_potential_errors",
-                    audit_type=AuditType.SEARCH_CONSOLE,
-                    severity="medium",
-                    title=f"{errors_found} pages à vérifier",
-                    description="Plusieurs pages ont 0 impressions - vérifiez leur indexation",
-                ))
+                result.issues.append(
+                    AuditIssue(
+                        id="gsc_potential_errors",
+                        audit_type=AuditType.SEARCH_CONSOLE,
+                        severity="medium",
+                        title=f"{errors_found} pages à vérifier",
+                        description="Plusieurs pages ont 0 impressions - vérifiez leur indexation",
+                    )
+                )
             else:
                 self._update_step_status(
-                    result, "errors", AuditStepStatus.SUCCESS,
+                    result,
+                    "errors",
+                    AuditStepStatus.SUCCESS,
                     result_data={"potential_issues": errors_found},
                 )
 
@@ -1624,36 +1845,48 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
                     has_errors = any(int(s.get("errors", 0) or 0) > 0 for s in sitemaps)
                     if has_errors:
                         self._update_step_status(
-                            result, "sitemaps", AuditStepStatus.WARNING,
+                            result,
+                            "sitemaps",
+                            AuditStepStatus.WARNING,
                             result_data={"count": sitemap_count, "has_errors": True},
                         )
-                        result.issues.append(AuditIssue(
-                            id="gsc_sitemap_errors",
-                            audit_type=AuditType.SEARCH_CONSOLE,
-                            severity="warning",
-                            title="Erreurs dans les sitemaps",
-                            description="Des erreurs ont été détectées dans vos sitemaps",
-                        ))
+                        result.issues.append(
+                            AuditIssue(
+                                id="gsc_sitemap_errors",
+                                audit_type=AuditType.SEARCH_CONSOLE,
+                                severity="warning",
+                                title="Erreurs dans les sitemaps",
+                                description="Des erreurs ont été détectées dans vos sitemaps",
+                            )
+                        )
                     else:
                         self._update_step_status(
-                            result, "sitemaps", AuditStepStatus.SUCCESS,
+                            result,
+                            "sitemaps",
+                            AuditStepStatus.SUCCESS,
                             result_data={"count": sitemap_count, "has_errors": False},
                         )
                 else:
                     self._update_step_status(
-                        result, "sitemaps", AuditStepStatus.WARNING,
+                        result,
+                        "sitemaps",
+                        AuditStepStatus.WARNING,
                         result_data={"count": 0},
                     )
-                    result.issues.append(AuditIssue(
-                        id="gsc_no_sitemap",
-                        audit_type=AuditType.SEARCH_CONSOLE,
-                        severity="warning",
-                        title="Aucun sitemap soumis",
-                        description="Soumettez votre sitemap Shopify à Google Search Console",
-                    ))
+                    result.issues.append(
+                        AuditIssue(
+                            id="gsc_no_sitemap",
+                            audit_type=AuditType.SEARCH_CONSOLE,
+                            severity="warning",
+                            title="Aucun sitemap soumis",
+                            description="Soumettez votre sitemap Shopify à Google Search Console",
+                        )
+                    )
             else:
                 self._update_step_status(
-                    result, "sitemaps", AuditStepStatus.ERROR,
+                    result,
+                    "sitemaps",
+                    AuditStepStatus.ERROR,
                     error_message=f"Erreur API: {sitemaps_resp.status_code}",
                 )
 
@@ -1668,7 +1901,9 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
         except ImportError:
             self._update_step_status(
-                result, "gsc_connection", AuditStepStatus.ERROR,
+                result,
+                "gsc_connection",
+                AuditStepStatus.ERROR,
                 error_message="google-auth library non installée",
             )
             for step in result.steps[1:]:
@@ -1677,13 +1912,15 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
             result.completed_at = datetime.now(tz=UTC).isoformat()
         except Exception as e:
             result.status = AuditStepStatus.ERROR
-            result.issues.append(AuditIssue(
-                id="gsc_audit_error",
-                audit_type=AuditType.SEARCH_CONSOLE,
-                severity="critical",
-                title="Erreur d'audit GSC",
-                description=str(e),
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id="gsc_audit_error",
+                    audit_type=AuditType.SEARCH_CONSOLE,
+                    severity="critical",
+                    title="Erreur d'audit GSC",
+                    description=str(e),
+                )
+            )
             result.completed_at = datetime.now(tz=UTC).isoformat()
 
         self._save_current_session()
@@ -1710,9 +1947,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
         # Execute and return result
         return self._execute_action_impl(issue, action_id)
 
-    def _validate_action_request(
-        self, audit_type: str, action_id: str
-    ) -> dict[str, Any]:
+    def _validate_action_request(self, audit_type: str, action_id: str) -> dict[str, Any]:
         """Validate action request and return issue if valid."""
         session = self.get_latest_session()
         if not session or audit_type not in session.audits:
@@ -1745,9 +1980,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
         return {"issue": issue, "session": session}
 
-    def _execute_action_impl(
-        self, issue: AuditIssue, action_id: str
-    ) -> dict[str, Any]:
+    def _execute_action_impl(self, issue: AuditIssue, action_id: str) -> dict[str, Any]:
         """Execute the actual action implementation."""
         try:
             if action_id == "add_ga4_base":
@@ -1791,6 +2024,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
 
         # Check write_themes permission first
         from services.permissions_checker import PermissionsCheckerService
+
         permissions_checker = PermissionsCheckerService(self._config_service)
         has_permission, error_msg = permissions_checker.has_write_themes_permission()
 
@@ -1799,7 +2033,8 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
             self._save_current_session()
             return {
                 "success": False,
-                "error": error_msg or (
+                "error": error_msg
+                or (
                     "Permission write_themes manquante. "
                     "Allez dans Shopify > Apps > Votre app > Configuration API > "
                     "Ajoutez le scope 'write_themes' et réinstallez l'app."
@@ -1908,9 +2143,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
         self._save_current_session()
         return {"success": False, "error": "Échec de la mise à jour du thème"}
 
-    def _execute_theme_fix(
-        self, issue: AuditIssue, action_id: str
-    ) -> dict[str, Any]:
+    def _execute_theme_fix(self, issue: AuditIssue, action_id: str) -> dict[str, Any]:
         """Execute a theme fix action."""
         issue_index = int(action_id.replace("fix_theme_", ""))
         if self.theme_analyzer:
@@ -1990,10 +2223,7 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
             "id": session.id,
             "created_at": session.created_at,
             "updated_at": session.updated_at,
-            "audits": {
-                k: self._result_to_dict(v)
-                for k, v in session.audits.items()
-            },
+            "audits": {k: self._result_to_dict(v) for k, v in session.audits.items()},
         }
 
     def _result_to_dict(self, result: AuditResult) -> dict[str, Any]:
@@ -2063,30 +2293,34 @@ Ces produits ont toutes les données requises mais ne sont pas synchronisés.
         )
 
         for step_data in data.get("steps", []):
-            result.steps.append(AuditStep(
-                id=step_data.get("id", ""),
-                name=step_data.get("name", ""),
-                description=step_data.get("description", ""),
-                status=AuditStepStatus(step_data.get("status", "pending")),
-                started_at=step_data.get("started_at"),
-                completed_at=step_data.get("completed_at"),
-                duration_ms=step_data.get("duration_ms"),
-                result=step_data.get("result"),
-                error_message=step_data.get("error_message"),
-            ))
+            result.steps.append(
+                AuditStep(
+                    id=step_data.get("id", ""),
+                    name=step_data.get("name", ""),
+                    description=step_data.get("description", ""),
+                    status=AuditStepStatus(step_data.get("status", "pending")),
+                    started_at=step_data.get("started_at"),
+                    completed_at=step_data.get("completed_at"),
+                    duration_ms=step_data.get("duration_ms"),
+                    result=step_data.get("result"),
+                    error_message=step_data.get("error_message"),
+                )
+            )
 
         for issue_data in data.get("issues", []):
-            result.issues.append(AuditIssue(
-                id=issue_data.get("id", ""),
-                audit_type=AuditType(issue_data.get("audit_type", "ga4_tracking")),
-                severity=issue_data.get("severity", "medium"),
-                title=issue_data.get("title", ""),
-                description=issue_data.get("description", ""),
-                details=issue_data.get("details"),
-                action_available=issue_data.get("action_available", False),
-                action_id=issue_data.get("action_id"),
-                action_label=issue_data.get("action_label"),
-                action_status=ActionStatus(issue_data.get("action_status", "not_available")),
-            ))
+            result.issues.append(
+                AuditIssue(
+                    id=issue_data.get("id", ""),
+                    audit_type=AuditType(issue_data.get("audit_type", "ga4_tracking")),
+                    severity=issue_data.get("severity", "medium"),
+                    title=issue_data.get("title", ""),
+                    description=issue_data.get("description", ""),
+                    details=issue_data.get("details"),
+                    action_available=issue_data.get("action_available", False),
+                    action_id=issue_data.get("action_id"),
+                    action_label=issue_data.get("action_label"),
+                    action_status=ActionStatus(issue_data.get("action_status", "not_available")),
+                )
+            )
 
         return result

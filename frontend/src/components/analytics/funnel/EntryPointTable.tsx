@@ -36,7 +36,8 @@ export function EntryPointTable({ entries }: EntryPointTableProps): React.ReactE
         </tbody>
       </table>
       <p className="mt-3 text-xs text-gray-400 italic">
-        Note: Le CVR par point d&apos;entrée requiert l&apos;intégration GA4 pour les données de visiteurs.
+        Note: Le CVR par point d&apos;entrée requiert l&apos;intégration GA4 pour les données de
+        visiteurs.
       </p>
     </div>
   )

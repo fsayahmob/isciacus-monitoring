@@ -333,6 +333,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/api/products")
 async def get_products(
     search: str | None = None,
@@ -611,75 +612,89 @@ async def get_conversion_funnel(
     stages = []
 
     # Stage 1: Visiteurs (base = 100%)
-    stages.append({
-        "name": "Visiteurs",
-        "value": visitors,
-        "rate": 100.0 if ga4_available else 0.0,
-        "rate_label": "Base",
-        "source": "GA4",
-        "benchmark_key": None,
-        "benchmark_status": "ok" if ga4_available else "requires_ga4",
-    })
+    stages.append(
+        {
+            "name": "Visiteurs",
+            "value": visitors,
+            "rate": 100.0 if ga4_available else 0.0,
+            "rate_label": "Base",
+            "source": "GA4",
+            "benchmark_key": None,
+            "benchmark_status": "ok" if ga4_available else "requires_ga4",
+        }
+    )
 
     # Stage 2: Vues Produit (% des visiteurs qui voient un produit)
     pv_rate = calc_rate(product_views, visitors) if ga4_available else 0.0
-    stages.append({
-        "name": "Vues Produit",
-        "value": product_views,
-        "rate": pv_rate,
-        "rate_label": "% Visiteurs",
-        "source": "GA4",
-        "benchmark_key": None,
-        "benchmark_status": "ok" if ga4_available else "requires_ga4",
-    })
+    stages.append(
+        {
+            "name": "Vues Produit",
+            "value": product_views,
+            "rate": pv_rate,
+            "rate_label": "% Visiteurs",
+            "source": "GA4",
+            "benchmark_key": None,
+            "benchmark_status": "ok" if ga4_available else "requires_ga4",
+        }
+    )
 
     # Stage 3: Ajout Panier (% des vues produit qui ajoutent au panier)
     atc_rate = calc_rate(add_to_cart, product_views) if ga4_available else 0.0
     atc_benchmark = (
         benchmarks_service.evaluate("product_view_to_atc", atc_rate) if ga4_available else None
     )
-    stages.append({
-        "name": "Ajout Panier",
-        "value": add_to_cart,
-        "rate": atc_rate,
-        "rate_label": "% Vues Produit",
-        "source": "GA4",
-        "benchmark_key": "product_view_to_atc",
-        "benchmark_status": atc_benchmark["status"] if atc_benchmark else "requires_ga4",
-        "benchmark": atc_benchmark,
-    })
+    stages.append(
+        {
+            "name": "Ajout Panier",
+            "value": add_to_cart,
+            "rate": atc_rate,
+            "rate_label": "% Vues Produit",
+            "source": "GA4",
+            "benchmark_key": "product_view_to_atc",
+            "benchmark_status": atc_benchmark["status"] if atc_benchmark else "requires_ga4",
+            "benchmark": atc_benchmark,
+        }
+    )
 
     # Stage 4: Checkout (% des ajouts panier qui passent au checkout)
     checkout_rate = calc_rate(begin_checkout, add_to_cart) if ga4_available else 0.0
     checkout_benchmark = (
         benchmarks_service.evaluate("atc_to_checkout", checkout_rate) if ga4_available else None
     )
-    stages.append({
-        "name": "Checkout",
-        "value": begin_checkout,
-        "rate": checkout_rate,
-        "rate_label": "% Ajout Panier",
-        "source": "GA4",
-        "benchmark_key": "atc_to_checkout",
-        "benchmark_status": checkout_benchmark["status"] if checkout_benchmark else "requires_ga4",
-        "benchmark": checkout_benchmark,
-    })
+    stages.append(
+        {
+            "name": "Checkout",
+            "value": begin_checkout,
+            "rate": checkout_rate,
+            "rate_label": "% Ajout Panier",
+            "source": "GA4",
+            "benchmark_key": "atc_to_checkout",
+            "benchmark_status": (
+                checkout_benchmark["status"] if checkout_benchmark else "requires_ga4"
+            ),
+            "benchmark": checkout_benchmark,
+        }
+    )
 
     # Stage 5: Achat GA4 (% des checkouts qui achètent - GA4 tracked only)
     purchase_rate = calc_rate(ga4_purchases, begin_checkout) if ga4_available else 0.0
     purchase_benchmark = (
         benchmarks_service.evaluate("checkout_completion", purchase_rate) if ga4_available else None
     )
-    stages.append({
-        "name": "Achat",
-        "value": ga4_purchases,
-        "rate": purchase_rate,
-        "rate_label": "% Checkout",
-        "source": "GA4",
-        "benchmark_key": "checkout_completion",
-        "benchmark_status": purchase_benchmark["status"] if purchase_benchmark else "requires_ga4",
-        "benchmark": purchase_benchmark,
-    })
+    stages.append(
+        {
+            "name": "Achat",
+            "value": ga4_purchases,
+            "rate": purchase_rate,
+            "rate_label": "% Checkout",
+            "source": "GA4",
+            "benchmark_key": "checkout_completion",
+            "benchmark_status": (
+                purchase_benchmark["status"] if purchase_benchmark else "requires_ga4"
+            ),
+            "benchmark": purchase_benchmark,
+        }
+    )
 
     # Evaluate global CVR against benchmark (GA4-only CVR)
     cvr_benchmark = benchmarks_service.evaluate("cvr_luxury", ga4_cvr)
@@ -906,11 +921,15 @@ async def get_ga4_status() -> dict[str, Any]:
             "available": test_data.get("error") is None,
             "error": test_data.get("error"),
             "property_id": property_id,
-            "sample_data": {
-                "visitors_7d": test_data.get("visitors"),
-                "product_views_7d": test_data.get("product_views"),
-                "add_to_cart_7d": test_data.get("add_to_cart"),
-            } if test_data.get("error") is None else None,
+            "sample_data": (
+                {
+                    "visitors_7d": test_data.get("visitors"),
+                    "product_views_7d": test_data.get("product_views"),
+                    "add_to_cart_7d": test_data.get("add_to_cart"),
+                }
+                if test_data.get("error") is None
+                else None
+            ),
         }
     return {
         "available": False,
@@ -975,8 +994,7 @@ async def trigger_audit_job(
     """Trigger async audit job via Inngest (if configured)."""
     from jobs.inngest_setup import trigger_audit_job as trigger_job
 
-    result = await trigger_job(period)
-    return result
+    return await trigger_job(period)
 
 
 # ============================================================================
@@ -1087,19 +1105,25 @@ async def get_tracking_code_analysis(refresh: bool = False) -> dict[str, Any]:
             "events_found": analysis.ga4_events_found,
             "required_events": theme_analyzer.REQUIRED_GA4_EVENTS,
             "missing_events": [
-                e for e in theme_analyzer.REQUIRED_GA4_EVENTS
-                if e not in analysis.ga4_events_found
+                e for e in theme_analyzer.REQUIRED_GA4_EVENTS if e not in analysis.ga4_events_found
             ],
         },
         "meta_pixel": {
             "configured": analysis.meta_pixel_configured,
             "pixel_id": analysis.meta_pixel_id,
             "events_found": analysis.meta_events_found,
-            "required_events": theme_analyzer.REQUIRED_META_EVENTS if analysis.meta_pixel_configured else [],
-            "missing_events": [
-                e for e in theme_analyzer.REQUIRED_META_EVENTS
-                if e not in analysis.meta_events_found
-            ] if analysis.meta_pixel_configured else [],
+            "required_events": (
+                theme_analyzer.REQUIRED_META_EVENTS if analysis.meta_pixel_configured else []
+            ),
+            "missing_events": (
+                [
+                    e
+                    for e in theme_analyzer.REQUIRED_META_EVENTS
+                    if e not in analysis.meta_events_found
+                ]
+                if analysis.meta_pixel_configured
+                else []
+            ),
         },
         "gtm": {
             "configured": analysis.gtm_configured,
@@ -1137,10 +1161,7 @@ async def apply_theme_fix(issue_index: int) -> dict[str, Any]:
     issue = analysis.issues[issue_index]
 
     if not issue.fix_available:
-        raise HTTPException(
-            status_code=400,
-            detail="No automatic fix available for this issue"
-        )
+        raise HTTPException(status_code=400, detail="No automatic fix available for this issue")
 
     success = theme_analyzer.apply_fix(issue)
 
@@ -1155,8 +1176,7 @@ async def apply_theme_fix(issue_index: int) -> dict[str, Any]:
             },
         }
     raise HTTPException(
-        status_code=500,
-        detail="Failed to apply fix - check theme write permissions"
+        status_code=500, detail="Failed to apply fix - check theme write permissions"
     )
 
 
@@ -1185,10 +1205,7 @@ async def get_latest_audit_session() -> dict[str, Any]:
             "id": session.id,
             "created_at": session.created_at,
             "updated_at": session.updated_at,
-            "audits": {
-                k: audit_orchestrator._result_to_dict(v)
-                for k, v in session.audits.items()
-            },
+            "audits": {k: audit_orchestrator._result_to_dict(v) for k, v in session.audits.items()},
         },
     }
 
@@ -1203,10 +1220,7 @@ async def run_audit(audit_type: str, period: int = Query(default=30)) -> dict[st
     try:
         audit_enum = AuditType(audit_type)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown audit type: {audit_type}"
-        )
+        raise HTTPException(status_code=400, detail=f"Unknown audit type: {audit_type}")
 
     if audit_enum == AuditType.GA4_TRACKING:
         result = audit_orchestrator.run_ga4_audit(period)
@@ -1220,8 +1234,7 @@ async def run_audit(audit_type: str, period: int = Query(default=30)) -> dict[st
         result = audit_orchestrator.run_gsc_audit()
     else:
         raise HTTPException(
-            status_code=501,
-            detail=f"Audit type '{audit_type}' not yet implemented"
+            status_code=501, detail=f"Audit type '{audit_type}' not yet implemented"
         )
 
     return {
@@ -1242,10 +1255,7 @@ async def execute_audit_action(
     result = audit_orchestrator.execute_action(audit_type, action_id)
 
     if not result.get("success"):
-        raise HTTPException(
-            status_code=400,
-            detail=result.get("error", "Action failed")
-        )
+        raise HTTPException(status_code=400, detail=result.get("error", "Action failed"))
 
     return result
 

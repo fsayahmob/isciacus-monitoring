@@ -30,6 +30,15 @@ class AuditService:
         self._cache_file = Path(__file__).parent.parent / "data" / "audit_cache.json"
         self._last_audit: dict[str, Any] | None = None
 
+    def clear_cache(self) -> None:
+        """Clear all caches to ensure fresh data on next audit."""
+        self._last_audit = None
+        # Also clear underlying service caches
+        if hasattr(self.shopify, "clear_all_caches"):
+            self.shopify.clear_all_caches()
+        if hasattr(self.ga4, "clear_cache"):
+            self.ga4.clear_cache()
+
     def _load_cache(self) -> dict[str, Any] | None:
         """Load cached audit results."""
         if self._cache_file.exists():
@@ -63,71 +72,102 @@ class AuditService:
 
         # Check 1: GA4 Connection
         ga4_available = self.ga4.is_available()
-        checks.append({
-            "name": "Connexion GA4",
-            "status": "ok" if ga4_available else "error",
-            "message": "GA4 API connectee" if ga4_available else "GA4 non configure",
-            "recommendation": None if ga4_available else "Configurer GA4_PROPERTY_ID et les credentials",
-        })
+        checks.append(
+            {
+                "name": "Connexion GA4",
+                "status": "ok" if ga4_available else "error",
+                "message": "GA4 API connectee" if ga4_available else "GA4 non configure",
+                "recommendation": (
+                    None if ga4_available else "Configurer GA4_PROPERTY_ID et les credentials"
+                ),
+            }
+        )
 
         # Get all tracking coverage data
         tracking_coverage = self._get_full_tracking_coverage(period, ga4_available)
 
         # Check 2: Collections Coverage
         coll = tracking_coverage["collections"]
-        checks.append({
-            "name": "Couverture Collections",
-            "status": coll["status"],
-            "message": f"{coll['tracked']}/{coll['total']} collections trackees ({coll['rate']:.0f}%)",
-            "details": coll["missing"][:10] if coll["missing"] else None,
-            "recommendation": "Ajouter le tracking GA4 sur les pages de collection manquantes"
-            if coll["missing"] else None,
-        })
+        checks.append(
+            {
+                "name": "Couverture Collections",
+                "status": coll["status"],
+                "message": f"{coll['tracked']}/{coll['total']} collections trackees ({coll['rate']:.0f}%)",
+                "details": coll["missing"][:10] if coll["missing"] else None,
+                "recommendation": (
+                    "Ajouter le tracking GA4 sur les pages de collection manquantes"
+                    if coll["missing"]
+                    else None
+                ),
+            }
+        )
 
         # Check 3: Products Coverage
         prod = tracking_coverage["products"]
-        checks.append({
-            "name": "Couverture Produits",
-            "status": prod["status"],
-            "message": f"{prod['tracked']}/{prod['total']} produits tracks ({prod['rate']:.0f}%)",
-            "details": prod["missing"][:10] if prod["missing"] else None,
-            "recommendation": "Verifier le tracking des fiches produit"
-            if prod["missing"] else None,
-        })
+        checks.append(
+            {
+                "name": "Couverture Produits",
+                "status": prod["status"],
+                "message": f"{prod['tracked']}/{prod['total']} produits tracks ({prod['rate']:.0f}%)",
+                "details": prod["missing"][:10] if prod["missing"] else None,
+                "recommendation": (
+                    "Verifier le tracking des fiches produit" if prod["missing"] else None
+                ),
+            }
+        )
 
         # Check 4: Transaction Match Rate
         shopify_orders = self._get_shopify_order_count(period)
         ga4_transactions = self._get_ga4_transaction_count(period) if ga4_available else 0
         match_rate = ga4_transactions / shopify_orders if shopify_orders > 0 else 0
 
-        checks.append({
-            "name": "Transactions GA4 vs Shopify",
-            "status": "ok" if match_rate >= 0.9 else "warning" if match_rate >= 0.7 else "error",
-            "message": f"{ga4_transactions} transactions GA4 / {shopify_orders} commandes Shopify ({match_rate * 100:.0f}%)",
-            "recommendation": "Verifier que le tracking purchase est bien configure"
-            if match_rate < 0.9 else None,
-        })
+        checks.append(
+            {
+                "name": "Transactions GA4 vs Shopify",
+                "status": (
+                    "ok" if match_rate >= 0.9 else "warning" if match_rate >= 0.7 else "error"
+                ),
+                "message": f"{ga4_transactions} transactions GA4 / {shopify_orders} commandes Shopify ({match_rate * 100:.0f}%)",
+                "recommendation": (
+                    "Verifier que le tracking purchase est bien configure"
+                    if match_rate < 0.9
+                    else None
+                ),
+            }
+        )
 
         # Check 5: E-commerce Events Coverage
         events = tracking_coverage["events"]
-        checks.append({
-            "name": "Evenements E-commerce",
-            "status": events["status"],
-            "message": f"{events['tracked']}/{events['total']} evenements configures",
-            "details": events["missing"] if events["missing"] else None,
-            "recommendation": "Configurer les evenements GA4 manquants"
-            if events["missing"] else None,
-        })
+        checks.append(
+            {
+                "name": "Evenements E-commerce",
+                "status": events["status"],
+                "message": f"{events['tracked']}/{events['total']} evenements configures",
+                "details": events["missing"] if events["missing"] else None,
+                "recommendation": (
+                    "Configurer les evenements GA4 manquants" if events["missing"] else None
+                ),
+            }
+        )
 
         # Check 6: Ad Blockers Impact Estimate
         estimated_blocked = 1 - match_rate if match_rate < 1 else 0
-        checks.append({
-            "name": "Impact Ad Blockers estime",
-            "status": "ok" if estimated_blocked < 0.2 else "warning" if estimated_blocked < 0.35 else "error",
-            "message": f"~{estimated_blocked * 100:.0f}% des visites potentiellement bloquees",
-            "recommendation": "Considerer le server-side tracking pour contourner les ad blockers"
-            if estimated_blocked >= 0.2 else None,
-        })
+        checks.append(
+            {
+                "name": "Impact Ad Blockers estime",
+                "status": (
+                    "ok"
+                    if estimated_blocked < 0.2
+                    else "warning" if estimated_blocked < 0.35 else "error"
+                ),
+                "message": f"~{estimated_blocked * 100:.0f}% des visites potentiellement bloquees",
+                "recommendation": (
+                    "Considerer le server-side tracking pour contourner les ad blockers"
+                    if estimated_blocked >= 0.2
+                    else None
+                ),
+            }
+        )
 
         # Build summary
         summary = {
@@ -179,7 +219,9 @@ class AuditService:
 
         # Calculate collections coverage
         missing_collections = [c for c in shopify_collections if c.lower() not in ga4_collections]
-        coll_rate = len(ga4_collections) / len(shopify_collections) * 100 if shopify_collections else 0
+        coll_rate = (
+            len(ga4_collections) / len(shopify_collections) * 100 if shopify_collections else 0
+        )
 
         # Calculate products coverage
         missing_products = [p for p in shopify_products if p.lower() not in ga4_products]

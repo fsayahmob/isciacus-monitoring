@@ -1,0 +1,569 @@
+{
+  "ga4_connected": true,
+  "checks": [
+    {
+      "name": "Connexion GA4",
+      "status": "ok",
+      "message": "GA4 API connectee",
+      "recommendation": null
+    },
+    {
+      "name": "Couverture Collections",
+      "status": "ok",
+      "message": "72/56 collections trackees (129%)",
+      "details": [
+        "carte-cadeaux",
+        "vetements-2",
+        "nudie-jeans-1",
+        "kleman",
+        "selection-de-la-semaine",
+        "archives-30",
+        "archives-60",
+        "chaussettes",
+        "tote-bag",
+        "gift"
+      ],
+      "recommendation": "Ajouter le tracking GA4 sur les pages de collection manquantes"
+    },
+    {
+      "name": "Couverture Produits",
+      "status": "ok",
+      "message": "601/667 produits tracks (90%)",
+      "details": [
+        "emeric-me",
+        "boxer-w",
+        "short-de-bain-malibu-cousteau",
+        "short-de-bain-malibu-moss-green",
+        "pull-rocket-chick-yellow",
+        "short-saporitori-mili-camo",
+        "veste-otto-chick-yellow",
+        "tropical-jacket-olive-poplin",
+        "fat-pant",
+        "jeans-lean-dean-dry-black-eyes"
+      ],
+      "recommendation": "Verifier le tracking des fiches produit"
+    },
+    {
+      "name": "Transactions GA4 vs Shopify",
+      "status": "ok",
+      "message": "16 transactions GA4 / 17 commandes Shopify (94%)",
+      "recommendation": null
+    },
+    {
+      "name": "Evenements E-commerce",
+      "status": "ok",
+      "message": "5/5 evenements configures",
+      "details": null,
+      "recommendation": null
+    },
+    {
+      "name": "Impact Ad Blockers estime",
+      "status": "ok",
+      "message": "~6% des visites potentiellement bloquees",
+      "recommendation": null
+    }
+  ],
+  "summary": {
+    "total_checks": 6,
+    "passed": 6,
+    "warnings": 0,
+    "errors": 0
+  },
+  "tracking_coverage": {
+    "collections": {
+      "total": 56,
+      "tracked": 72,
+      "missing": [
+        "carte-cadeaux",
+        "vetements-2",
+        "nudie-jeans-1",
+        "kleman",
+        "selection-de-la-semaine",
+        "archives-30",
+        "archives-60",
+        "chaussettes",
+        "tote-bag",
+        "gift",
+        "de-50",
+        "idees-cadeaux"
+      ],
+      "rate": 128.57142857142858,
+      "status": "ok",
+      "items": [
+        {
+          "name": "nouveautes",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "catalogue-complet",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "carte-cadeaux",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "archives",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "carhartt-wip-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "ayaq-mountain-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "homecore-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "olow-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "bisous-skateboards-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "service-works-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "manufacture-nebeau-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "nitto-knitwear-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "portuguese-flannel-1",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "les-deux-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "universal-works-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "h2o-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "robert-mackie-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "penco-vf",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "norda-run",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "boogie-bougie",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "coldbreaker",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "gronenberg",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "komono-1",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "t-shirts-polos",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "pulls-sweats",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "vestes-manteaux",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "chemises-surchemises-1",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "pantalons-jeans-shorts",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "chaussures-norda",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "chaussures-kleman",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "vetements-1",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "chaussures-1",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "chapeaux-bonnets-echarpes",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "lifestyle-objets",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "accessoires-2",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "vetements-2",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "gramicci",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "houdini",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "isciacus-store",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "kdpresse-1",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "nudie-jeans-1",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "papier-and-co",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "pockies",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "kleman",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "trajectoire-studio",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "surchemises",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "chez-maman",
+          "tracked": true,
+          "type": "collection"
+        },
+        {
+          "name": "selection-de-la-semaine",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "archives-30",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "archives-60",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "chaussettes",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "tote-bag",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "gift",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "de-50",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "idees-cadeaux",
+          "tracked": false,
+          "type": "collection"
+        },
+        {
+          "name": "dead-stock",
+          "tracked": true,
+          "type": "collection"
+        }
+      ]
+    },
+    "products": {
+      "total": 667,
+      "tracked": 601,
+      "missing": [
+        "emeric-me",
+        "boxer-w",
+        "short-de-bain-malibu-cousteau",
+        "short-de-bain-malibu-moss-green",
+        "pull-rocket-chick-yellow",
+        "short-saporitori-mili-camo",
+        "veste-otto-chick-yellow",
+        "tropical-jacket-olive-poplin",
+        "fat-pant",
+        "jeans-lean-dean-dry-black-eyes",
+        "jeans-lean-dean-worn-indigofera",
+        "pantalon-tuff-tony-faded-green",
+        "jeans-gritty-jackson-dark-space",
+        "bob-wax-marine-1",
+        "porte-cles-cloche-lisse-bleu-fumee",
+        "veste-sans-manches-kaki",
+        "short-de-bain-malibu-navy",
+        "short-de-bain-malibu-red",
+        "chemise-chuck-bd-cream",
+        "chemise-goerge-les-vacances-off-white"
+      ],
+      "rate": 90.10494752623688,
+      "status": "ok",
+      "sample": [
+        {
+          "name": "gabriel-femme",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "yannick-n",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "yann-em",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "yvan-n",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "yvan-b",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "emeric-eb",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "emeric-me",
+          "tracked": false,
+          "type": "product"
+        },
+        {
+          "name": "baby-brett-e",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "boxer-w",
+          "tracked": false,
+          "type": "product"
+        },
+        {
+          "name": "manufacture-nebeau-yannick-marine",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "manufacture-nebeau-wallon-gris",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "pull-yvan-na",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "short-de-bain-malibu-cousteau",
+          "tracked": false,
+          "type": "product"
+        },
+        {
+          "name": "short-de-bain-malibu-moss-green",
+          "tracked": false,
+          "type": "product"
+        },
+        {
+          "name": "pull-rocket-chick-yellow",
+          "tracked": false,
+          "type": "product"
+        },
+        {
+          "name": "veste-light-def-army-green",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "short-saporitori-mili-camo",
+          "tracked": false,
+          "type": "product"
+        },
+        {
+          "name": "veste-otto-chick-yellow",
+          "tracked": false,
+          "type": "product"
+        },
+        {
+          "name": "jeans-lean-dean-dry-lost-orange",
+          "tracked": true,
+          "type": "product"
+        },
+        {
+          "name": "baby-brett-woods",
+          "tracked": true,
+          "type": "product"
+        }
+      ]
+    },
+    "events": {
+      "total": 5,
+      "tracked": 5,
+      "missing": [],
+      "rate": 100.0,
+      "status": "ok",
+      "items": [
+        {
+          "name": "page_view",
+          "tracked": true,
+          "type": "event",
+          "description": "Vue de page"
+        },
+        {
+          "name": "view_item",
+          "tracked": true,
+          "type": "event",
+          "description": "Vue fiche produit"
+        },
+        {
+          "name": "add_to_cart",
+          "tracked": true,
+          "type": "event",
+          "description": "Ajout au panier"
+        },
+        {
+          "name": "begin_checkout",
+          "tracked": true,
+          "type": "event",
+          "description": "Debut checkout"
+        },
+        {
+          "name": "purchase",
+          "tracked": true,
+          "type": "event",
+          "description": "Achat confirme"
+        }
+      ]
+    }
+  },
+  "collections_coverage": {
+    "shopify_total": 56,
+    "ga4_tracked": 72,
+    "missing": [
+      "carte-cadeaux",
+      "vetements-2",
+      "nudie-jeans-1",
+      "kleman",
+      "selection-de-la-semaine",
+      "archives-30",
+      "archives-60",
+      "chaussettes",
+      "tote-bag",
+      "gift",
+      "de-50",
+      "idees-cadeaux"
+    ]
+  },
+  "transactions_match": {
+    "shopify_orders": 17,
+    "ga4_transactions": 16,
+    "match_rate": 0.9411764705882353
+  },
+  "last_audit": "2025-12-17T22:43:02.267219+00:00"
+}

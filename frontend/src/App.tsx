@@ -23,7 +23,6 @@ function ProductsPage(): React.ReactElement {
   )
 }
 
-
 function MainContent(): React.ReactElement {
   const { currentPage } = useAppStore()
 

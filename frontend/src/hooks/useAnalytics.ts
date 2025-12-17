@@ -226,7 +226,9 @@ export function useSalesByCollection(
   const query = useQuery({
     queryKey: ['salesByCollection', collectionId, period],
     queryFn: () =>
-      collectionId !== null ? fetchSalesByCollection(collectionId, period) : Promise.resolve(undefined),
+      collectionId !== null
+        ? fetchSalesByCollection(collectionId, period)
+        : Promise.resolve(undefined),
     enabled: collectionId !== null,
     staleTime: STALE_TIME,
   })

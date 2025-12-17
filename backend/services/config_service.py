@@ -675,7 +675,11 @@ Pour plus de volume, souscrivez à un plan payant.""",
 
     def _get_inngest_config(self) -> ConfigSection:
         """Get Inngest configuration."""
-        is_dev = self._get_value("INNGEST_DEV").lower() == "true" if self._get_value("INNGEST_DEV") else True
+        is_dev = (
+            self._get_value("INNGEST_DEV").lower() == "true"
+            if self._get_value("INNGEST_DEV")
+            else True
+        )
         signing_key = self._get_value("INNGEST_SIGNING_KEY")
         event_key = self._get_value("INNGEST_EVENT_KEY")
 
@@ -997,9 +1001,7 @@ Note: Requis uniquement en mode production (INNGEST_DEV=false)""",
             site_list = sites.get("siteEntry", [])
 
             # Check if property exists
-            property_found = any(
-                site.get("siteUrl") == property_url for site in site_list
-            )
+            property_found = any(site.get("siteUrl") == property_url for site in site_list)
 
             if property_found:
                 return {
@@ -1120,8 +1122,12 @@ Note: Requis uniquement en mode production (INNGEST_DEV=false)""",
                     "success": True,
                     "message": "Connexion SerpAPI réussie",
                     "details": {
-                        "search_engine": data.get("search_metadata", {}).get("google_url", "N/A")[:50],
-                        "total_results": data.get("search_information", {}).get("total_results", "N/A"),
+                        "search_engine": data.get("search_metadata", {}).get("google_url", "N/A")[
+                            :50
+                        ],
+                        "total_results": data.get("search_information", {}).get(
+                            "total_results", "N/A"
+                        ),
                     },
                 }
             if response.status_code == 401:
@@ -1193,7 +1199,9 @@ Note: Requis uniquement en mode production (INNGEST_DEV=false)""",
             service = build("content", "v2.1", credentials=credentials)
 
             # Test by getting account info
-            account = service.accounts().get(merchantId=merchant_id, accountId=merchant_id).execute()
+            account = (
+                service.accounts().get(merchantId=merchant_id, accountId=merchant_id).execute()
+            )
 
             return {
                 "success": True,
@@ -1234,13 +1242,17 @@ Note: Requis uniquement en mode production (INNGEST_DEV=false)""",
         """Update configuration in secure store."""
         # Define which keys are secrets
         secret_keys = {
-            "SHOPIFY_API_KEY", "SHOPIFY_API_SECRET", "SHOPIFY_ACCESS_TOKEN",
+            "SHOPIFY_API_KEY",
+            "SHOPIFY_API_SECRET",
+            "SHOPIFY_ACCESS_TOKEN",
             "META_ACCESS_TOKEN",
             "GOOGLE_ADS_DEVELOPER_TOKEN",
-            "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN",
+            "TWILIO_ACCOUNT_SID",
+            "TWILIO_AUTH_TOKEN",
             "ANTHROPIC_API_KEY",
             "SERPAPI_KEY",
-            "INNGEST_SIGNING_KEY", "INNGEST_EVENT_KEY",
+            "INNGEST_SIGNING_KEY",
+            "INNGEST_EVENT_KEY",
         }
 
         try:

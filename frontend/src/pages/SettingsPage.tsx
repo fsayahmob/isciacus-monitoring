@@ -7,7 +7,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { ConfigSectionCard, HealthIndicator, LoadingSkeleton, PermissionsPanel } from '../components/settings'
+import {
+  ConfigSectionCard,
+  HealthIndicator,
+  LoadingSkeleton,
+  PermissionsPanel,
+} from '../components/settings'
 import {
   ErrorDisplay,
   ProgressBar,
@@ -29,7 +34,9 @@ interface SaveStatus {
 function useSaveMutation(
   setEditedValues: React.Dispatch<React.SetStateAction<Record<string, string>>>,
   setSaveStatus: React.Dispatch<React.SetStateAction<SaveStatus | null>>
-): ReturnType<typeof useMutation<{ success: boolean; message: string }, Error, Record<string, string>>> {
+): ReturnType<
+  typeof useMutation<{ success: boolean; message: string }, Error, Record<string, string>>
+> {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -44,7 +51,10 @@ function useSaveMutation(
       }
     },
     onError: (err) => {
-      setSaveStatus({ type: 'error', message: err instanceof Error ? err.message : 'Erreur lors de la sauvegarde' })
+      setSaveStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erreur lors de la sauvegarde',
+      })
     },
   })
 }
@@ -55,7 +65,12 @@ export function SettingsPage(): React.ReactElement {
   const [editedValues, setEditedValues] = useState<Record<string, string>>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null)
 
-  const { data: config, isLoading, error, refetch } = useQuery({
+  const {
+    data: config,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['config'],
     queryFn: fetchConfig,
     staleTime: CONFIG_STALE_TIME,
@@ -77,14 +92,23 @@ export function SettingsPage(): React.ReactElement {
   const handleSave = (): void => {
     const updates: Record<string, string> = {}
     for (const [key, value] of Object.entries(editedValues)) {
-      if (value.trim() !== '') { updates[key] = value }
+      if (value.trim() !== '') {
+        updates[key] = value
+      }
     }
-    if (Object.keys(updates).length > 0) { saveMutation.mutate(updates) }
+    if (Object.keys(updates).length > 0) {
+      saveMutation.mutate(updates)
+    }
   }
 
-  const handleCancel = (): void => { setEditedValues({}); setSaveStatus(null) }
+  const handleCancel = (): void => {
+    setEditedValues({})
+    setSaveStatus(null)
+  }
 
-  if (error) { return <ErrorDisplay error={error instanceof Error ? error : null} /> }
+  if (error) {
+    return <ErrorDisplay error={error instanceof Error ? error : null} />
+  }
 
   const configuredCount = config?.sections.filter((s) => s.is_configured).length ?? 0
   const totalCount = config?.sections.length ?? 0
@@ -97,10 +121,26 @@ export function SettingsPage(): React.ReactElement {
         <HealthIndicator />
         <PermissionsPanel />
       </div>
-      {!isLoading && config !== undefined && <ProgressBar configured={configuredCount} total={totalCount} />}
+      {!isLoading && config !== undefined && (
+        <ProgressBar configured={configuredCount} total={totalCount} />
+      )}
       <StatusMessage status={saveStatus} />
-      <SettingsContent config={config} editedValues={editedValues} handleTestConnection={handleTestConnection} isLoading={isLoading} testLoading={testLoading} testResults={testResults} onValueChange={handleValueChange} />
-      <SaveBar changeCount={changeCount} hasChanges={changeCount > 0} isSaving={saveMutation.isPending} onCancel={handleCancel} onSave={handleSave} />
+      <SettingsContent
+        config={config}
+        editedValues={editedValues}
+        handleTestConnection={handleTestConnection}
+        isLoading={isLoading}
+        testLoading={testLoading}
+        testResults={testResults}
+        onValueChange={handleValueChange}
+      />
+      <SaveBar
+        changeCount={changeCount}
+        hasChanges={changeCount > 0}
+        isSaving={saveMutation.isPending}
+        onCancel={handleCancel}
+        onSave={handleSave}
+      />
     </div>
   )
 }
@@ -111,7 +151,9 @@ function SettingsHeader({ onRefresh }: { onRefresh: () => void }): React.ReactEl
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-serif text-3xl text-burgundy">Configuration</h2>
-          <p className="mt-2 text-gray-600">Gérez vos intégrations et paramètres de connexion aux services externes.</p>
+          <p className="mt-2 text-gray-600">
+            Gérez vos intégrations et paramètres de connexion aux services externes.
+          </p>
         </div>
         <RefreshButton onRefresh={onRefresh} />
       </div>
@@ -120,7 +162,13 @@ function SettingsHeader({ onRefresh }: { onRefresh: () => void }): React.ReactEl
 }
 
 function SettingsContent({
-  config, isLoading, editedValues, testLoading, testResults, handleTestConnection, onValueChange,
+  config,
+  isLoading,
+  editedValues,
+  testLoading,
+  testResults,
+  handleTestConnection,
+  onValueChange,
 }: {
   config: ConfigData | undefined
   isLoading: boolean
@@ -130,11 +178,21 @@ function SettingsContent({
   handleTestConnection: (sectionId: string) => void
   onValueChange: (key: string, value: string) => void
 }): React.ReactElement {
-  if (isLoading) { return <LoadingSkeleton /> }
+  if (isLoading) {
+    return <LoadingSkeleton />
+  }
   return (
     <div className="space-y-8">
       {config?.sections.map((section) => (
-        <ConfigSectionCard key={section.id} editedValues={editedValues} section={section} testLoading={testLoading} testResult={testResults} onTestConnection={handleTestConnection} onValueChange={onValueChange} />
+        <ConfigSectionCard
+          key={section.id}
+          editedValues={editedValues}
+          section={section}
+          testLoading={testLoading}
+          testResult={testResults}
+          onTestConnection={handleTestConnection}
+          onValueChange={onValueChange}
+        />
       ))}
     </div>
   )

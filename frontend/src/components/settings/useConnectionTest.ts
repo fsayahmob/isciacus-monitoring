@@ -58,8 +58,8 @@ export function useConnectionTest(): ConnectionTestHook {
         ...prev,
         [sectionId]: {
           success: false,
-          message: err instanceof Error ? err.message : 'Erreur inconnue'
-        }
+          message: err instanceof Error ? err.message : 'Erreur inconnue',
+        },
       }))
     },
     onSettled: () => {

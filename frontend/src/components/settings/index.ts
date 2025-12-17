@@ -14,13 +14,7 @@ export {
 
 export { DefaultSectionIcon, SectionIcon } from './SectionIcons'
 
-export {
-  ErrorDisplay,
-  ProgressBar,
-  RefreshButton,
-  SaveBar,
-  StatusMessage,
-} from './SettingsHelpers'
+export { ErrorDisplay, ProgressBar, RefreshButton, SaveBar, StatusMessage } from './SettingsHelpers'
 
 export { useConnectionTest } from './useConnectionTest'
 

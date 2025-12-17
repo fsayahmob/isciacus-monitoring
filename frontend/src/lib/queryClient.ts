@@ -40,7 +40,8 @@ export const queryClient = new QueryClient({
  * Async localStorage adapter for query persistence
  */
 const asyncLocalStorage = {
-  getItem: (key: string): Promise<string | null> => Promise.resolve(window.localStorage.getItem(key)),
+  getItem: (key: string): Promise<string | null> =>
+    Promise.resolve(window.localStorage.getItem(key)),
   setItem: (key: string, value: string): Promise<void> => {
     window.localStorage.setItem(key, value)
     return Promise.resolve()

@@ -32,9 +32,16 @@ def _get_shopify_config() -> dict[str, str]:
     global _config_cache
     if _config_cache is None:
         from services.config_service import ConfigService
+
         config_service = ConfigService()
         _config_cache = config_service.get_shopify_values()
     return _config_cache
+
+
+def clear_shopify_cache() -> None:
+    """Clear the module-level config cache. Call this before audits to ensure fresh data."""
+    global _config_cache
+    _config_cache = None
 
 
 def _get_store_url() -> str:
@@ -188,6 +195,33 @@ query getCollections($cursor: String) {
 }
 """
 
+# GraphQL query to get all publications (sales channels)
+PUBLICATIONS_QUERY = """
+query getPublications {
+    publications(first: 50) {
+        nodes {
+            id
+            name
+        }
+    }
+}
+"""
+
+# GraphQL query to get products with their publication status for a specific channel
+PRODUCTS_PUBLICATION_STATUS_QUERY = """
+query getProductsPublicationStatus($cursor: String, $publicationId: ID!) {
+    products(first: 250, after: $cursor, query: "status:active") {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+            id
+            handle
+            title
+            publishedOnPublication(publicationId: $publicationId)
+        }
+    }
+}
+"""
+
 
 class ShopifyAnalyticsService:
     """Service for fetching analytics data from Shopify."""
@@ -200,6 +234,14 @@ class ShopifyAnalyticsService:
         self._funnel_cache_timestamps: dict[int, datetime] = {}
         self._customer_cache_timestamp: datetime | None = None
         self._cache_ttl_seconds = 300  # 5 minutes cache
+
+    def clear_all_caches(self) -> None:
+        """Clear all instance caches. Call this before audits to ensure fresh data."""
+        clear_shopify_cache()  # Module-level config cache
+        self._customer_cache = None
+        self._customer_cache_timestamp = None
+        self._funnel_cache.clear()
+        self._funnel_cache_timestamps.clear()
 
     def _is_customer_cache_valid(self) -> bool:
         """Check if customer cache is still valid."""
@@ -308,9 +350,7 @@ class ShopifyAnalyticsService:
                 return channel_def.get("handle", "unknown")
         return "unknown"
 
-    def _fetch_orders(
-        self, days: int = 30, *, ecommerce_only: bool = True
-    ) -> list[dict[str, Any]]:
+    def _fetch_orders(self, days: int = 30, *, ecommerce_only: bool = True) -> list[dict[str, Any]]:
         """Fetch orders for the given period.
 
         Args:
@@ -341,9 +381,7 @@ class ShopifyAnalyticsService:
 
         # Filter to e-commerce only (web channel, not pos)
         if ecommerce_only:
-            all_orders = [
-                o for o in all_orders if self._get_order_channel(o) == "web"
-            ]
+            all_orders = [o for o in all_orders if self._get_order_channel(o) == "web"]
 
         return all_orders
 
@@ -597,10 +635,7 @@ class ShopifyAnalyticsService:
 
         # Filter to only published products if requested
         if only_published:
-            all_products = [
-                p for p in all_products
-                if p.get("publishedAt") is not None
-            ]
+            all_products = [p for p in all_products if p.get("publishedAt") is not None]
 
         return all_products
 
@@ -629,12 +664,124 @@ class ShopifyAnalyticsService:
                 break
 
         # Filter to only published products
-        all_products = [
-            p for p in all_products
-            if p.get("publishedAt") is not None
-        ]
+        return [p for p in all_products if p.get("publishedAt") is not None]
 
-        return all_products
+    def fetch_publications(self) -> list[dict[str, Any]]:
+        """Fetch all sales channel publications from Shopify.
+
+        Returns list of publications with id and name.
+        Common names: 'Online Store', 'Google & YouTube', 'Facebook & Instagram'
+        """
+        data = self._execute_graphql(PUBLICATIONS_QUERY)
+
+        if "errors" in data:
+            return []
+
+        return data.get("data", {}).get("publications", {}).get("nodes", [])
+
+    def get_google_shopping_publication_id(self) -> str | None:
+        """Get the publication ID for Google Shopping channel.
+
+        Returns the publication ID if found, None otherwise.
+        """
+        publications = self.fetch_publications()
+
+        # Look for Google & YouTube channel (the official Google Shopping integration)
+        for pub in publications:
+            name = pub.get("name", "").lower()
+            if "google" in name:
+                return pub.get("id")
+
+        return None
+
+    def fetch_products_google_shopping_status(
+        self,
+    ) -> dict[str, Any]:
+        """Fetch which products are published to Google Shopping channel.
+
+        Returns dict with:
+        - google_channel_found: bool - whether Google & YouTube channel exists
+        - publication_id: str | None - the publication ID
+        - publication_name: str | None - the publication name
+        - total_products: int - total active products
+        - published_to_google: int - count published to Google Shopping
+        - not_published_to_google: int - count NOT published
+        - products_published: list - product handles published to Google
+        - products_not_published: list - product handles NOT published
+        """
+        # First, find Google Shopping publication
+        publications = self.fetch_publications()
+        google_pub = None
+
+        for pub in publications:
+            name = pub.get("name", "").lower()
+            if "google" in name:
+                google_pub = pub
+                break
+
+        if not google_pub:
+            return {
+                "google_channel_found": False,
+                "publication_id": None,
+                "publication_name": None,
+                "total_products": 0,
+                "published_to_google": 0,
+                "not_published_to_google": 0,
+                "products_published": [],
+                "products_not_published": [],
+            }
+
+        publication_id = google_pub.get("id")
+        publication_name = google_pub.get("name")
+
+        # Now fetch all products with their publication status
+        all_products: list[dict[str, Any]] = []
+        cursor = None
+
+        while True:
+            data = self._execute_graphql(
+                PRODUCTS_PUBLICATION_STATUS_QUERY,
+                {"cursor": cursor, "publicationId": publication_id},
+            )
+
+            if "errors" in data:
+                break
+
+            products_data = data.get("data", {}).get("products", {})
+            all_products.extend(products_data.get("nodes", []))
+
+            page_info = products_data.get("pageInfo", {})
+            if page_info.get("hasNextPage"):
+                cursor = page_info.get("endCursor")
+            else:
+                break
+
+        # Categorize products
+        published = []
+        not_published = []
+
+        for product in all_products:
+            is_published = product.get("publishedOnPublication", False)
+            product_info = {
+                "id": product.get("id"),
+                "handle": product.get("handle"),
+                "title": product.get("title"),
+            }
+            if is_published:
+                published.append(product_info)
+            else:
+                not_published.append(product_info)
+
+        return {
+            "google_channel_found": True,
+            "publication_id": publication_id,
+            "publication_name": publication_name,
+            "total_products": len(all_products),
+            "published_to_google": len(published),
+            "not_published_to_google": len(not_published),
+            "products_published": published,
+            "products_not_published": not_published,
+        }
 
     def _fetch_all_collections(self, *, only_with_products: bool = True) -> list[dict[str, Any]]:
         """Fetch all collections from Shopify.
@@ -663,8 +810,7 @@ class ShopifyAnalyticsService:
         # Filter to only collections with products if requested
         if only_with_products:
             all_collections = [
-                c for c in all_collections
-                if c.get("productsCount", {}).get("count", 0) > 0
+                c for c in all_collections if c.get("productsCount", {}).get("count", 0) > 0
             ]
 
         return all_collections
@@ -750,9 +896,7 @@ class ShopifyAnalyticsService:
             collections=sorted(all_collections.values(), key=lambda x: x["name"]),
         )
 
-    def get_sales_by_tag(
-        self, tag: str, days: int = 30
-    ) -> FilteredSalesAnalysis:
+    def get_sales_by_tag(self, tag: str, days: int = 30) -> FilteredSalesAnalysis:
         """Get sales analysis for a specific tag.
 
         REAL DATA from Shopify - only products with the specified tag.
@@ -820,9 +964,7 @@ class ShopifyAnalyticsService:
             last_updated=datetime.now(tz=UTC).isoformat(),
         )
 
-    def get_sales_by_collection(
-        self, collection_id: str, days: int = 30
-    ) -> FilteredSalesAnalysis:
+    def get_sales_by_collection(self, collection_id: str, days: int = 30) -> FilteredSalesAnalysis:
         """Get sales analysis for a specific collection.
 
         REAL DATA from Shopify - only products in the specified collection.

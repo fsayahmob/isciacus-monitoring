@@ -7,20 +7,68 @@
 import axios from 'axios'
 
 import { API_BASE_URL, DEFAULT_PAGE_SIZE } from '../constants'
-import type { AvailableFilters, BenchmarkConfig, CollectionCVRResponse, ConversionFunnel, CustomerStats, FilteredSalesAnalysis, IndustriesResponse } from '../types/analytics'
+import type {
+  AvailableFilters,
+  BenchmarkConfig,
+  CollectionCVRResponse,
+  ConversionFunnel,
+  CustomerStats,
+  FilteredSalesAnalysis,
+  IndustriesResponse,
+} from '../types/analytics'
 import type { FiltersResponse, ProductFilters, ProductsResponse } from '../types/product'
-import type { AuditResult, AuditSession, AvailableAudit, ConfigData, ConnectionTestResult, HealthCheckResult, PermissionsReport, TrackingAuditData } from './apiTypes'
+import type {
+  AuditResult,
+  AuditSession,
+  AvailableAudit,
+  ConfigData,
+  ConnectionTestResult,
+  HealthCheckResult,
+  PermissionsReport,
+  TrackingAuditData,
+} from './apiTypes'
 
 // Re-export types for consumers
-export type { AuditCheck, AuditIssue, AuditResult, AuditSession, AuditStep, AuditStepStatus, ActionStatus, AvailableAudit, ConfigData, ConfigSection, ConfigVariable, ConnectionTestResult, HealthCheckResult, PermissionResult, PermissionsReport, ServiceHealth, TrackingAuditData, TrackingCoverage, TrackingCoverageItem, TrackingCoverageSection } from './apiTypes'
+export type {
+  AuditCheck,
+  AuditIssue,
+  AuditResult,
+  AuditSession,
+  AuditStep,
+  AuditStepStatus,
+  ActionStatus,
+  AvailableAudit,
+  ConfigData,
+  ConfigSection,
+  ConfigVariable,
+  ConnectionTestResult,
+  HealthCheckResult,
+  PermissionResult,
+  PermissionsReport,
+  ServiceHealth,
+  TrackingAuditData,
+  TrackingCoverage,
+  TrackingCoverageItem,
+  TrackingCoverageSection,
+} from './apiTypes'
 
-const apiClient = axios.create({ baseURL: API_BASE_URL, timeout: 30000, headers: { 'Content-Type': 'application/json' } })
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json' },
+})
 
 function appendFilterParam(params: URLSearchParams, key: string, value: string | undefined): void {
-  if (value !== undefined && value !== '') { params.append(key, value) }
+  if (value !== undefined && value !== '') {
+    params.append(key, value)
+  }
 }
 
-export async function fetchProducts(filters: ProductFilters = {}, page = 0, pageSize = DEFAULT_PAGE_SIZE): Promise<ProductsResponse> {
+export async function fetchProducts(
+  filters: ProductFilters = {},
+  page = 0,
+  pageSize = DEFAULT_PAGE_SIZE
+): Promise<ProductsResponse> {
   const params = new URLSearchParams()
   params.append('limit', String(pageSize))
   params.append('offset', String(page * pageSize))
@@ -50,20 +98,31 @@ export async function reloadData(): Promise<{ status: string; count: number }> {
 
 // Analytics API
 export async function fetchCustomerStats(refresh = false): Promise<CustomerStats> {
-  const response = await apiClient.get<CustomerStats>(`/api/analytics/customers${refresh ? '?refresh=true' : ''}`)
+  const response = await apiClient.get<CustomerStats>(
+    `/api/analytics/customers${refresh ? '?refresh=true' : ''}`
+  )
   return response.data
 }
 
-export async function fetchConversionFunnel(period = 30, refresh = false): Promise<ConversionFunnel> {
+export async function fetchConversionFunnel(
+  period = 30,
+  refresh = false
+): Promise<ConversionFunnel> {
   const params = new URLSearchParams()
   params.append('period', String(period))
-  if (refresh) { params.append('refresh', 'true') }
-  const response = await apiClient.get<ConversionFunnel>(`/api/analytics/funnel?${params.toString()}`)
+  if (refresh) {
+    params.append('refresh', 'true')
+  }
+  const response = await apiClient.get<ConversionFunnel>(
+    `/api/analytics/funnel?${params.toString()}`
+  )
   return response.data
 }
 
 export async function fetchCollectionCVR(period = 30): Promise<CollectionCVRResponse> {
-  const response = await apiClient.get<CollectionCVRResponse>(`/api/analytics/funnel/by-collection?period=${String(period)}`)
+  const response = await apiClient.get<CollectionCVRResponse>(
+    `/api/analytics/funnel/by-collection?period=${String(period)}`
+  )
   return response.data
 }
 
@@ -83,26 +142,40 @@ export async function fetchIndustries(): Promise<IndustriesResponse> {
 }
 
 export async function setIndustry(industryId: string): Promise<BenchmarkConfig> {
-  const response = await apiClient.put<BenchmarkConfig>(`/api/benchmarks/industry/${encodeURIComponent(industryId)}`)
+  const response = await apiClient.put<BenchmarkConfig>(
+    `/api/benchmarks/industry/${encodeURIComponent(industryId)}`
+  )
   return response.data
 }
 
 // Sales Analysis API
-export async function fetchAvailableSalesFilters(period = 30, allCatalog = false): Promise<AvailableFilters> {
+export async function fetchAvailableSalesFilters(
+  period = 30,
+  allCatalog = false
+): Promise<AvailableFilters> {
   const params = new URLSearchParams()
   params.append('period', String(period))
-  if (allCatalog) { params.append('all_catalog', 'true') }
+  if (allCatalog) {
+    params.append('all_catalog', 'true')
+  }
   const response = await apiClient.get<AvailableFilters>(`/api/analytics/sales/filters?${params}`)
   return response.data
 }
 
 export async function fetchSalesByTag(tag: string, period = 30): Promise<FilteredSalesAnalysis> {
-  const response = await apiClient.get<FilteredSalesAnalysis>(`/api/analytics/sales/by-tag/${encodeURIComponent(tag)}?period=${String(period)}`)
+  const response = await apiClient.get<FilteredSalesAnalysis>(
+    `/api/analytics/sales/by-tag/${encodeURIComponent(tag)}?period=${String(period)}`
+  )
   return response.data
 }
 
-export async function fetchSalesByCollection(collectionId: string, period = 30): Promise<FilteredSalesAnalysis> {
-  const response = await apiClient.get<FilteredSalesAnalysis>(`/api/analytics/sales/by-collection/${encodeURIComponent(collectionId)}?period=${String(period)}`)
+export async function fetchSalesByCollection(
+  collectionId: string,
+  period = 30
+): Promise<FilteredSalesAnalysis> {
+  const response = await apiClient.get<FilteredSalesAnalysis>(
+    `/api/analytics/sales/by-collection/${encodeURIComponent(collectionId)}?period=${String(period)}`
+  )
   return response.data
 }
 
@@ -112,8 +185,13 @@ export async function fetchTrackingAudit(): Promise<TrackingAuditData> {
   return response.data
 }
 
-export async function fetchAuditStatus(): Promise<{ has_issues: boolean; last_audit: string | null }> {
-  const response = await apiClient.get<{ has_issues: boolean; last_audit: string | null }>('/api/audit/status')
+export async function fetchAuditStatus(): Promise<{
+  has_issues: boolean
+  last_audit: string | null
+}> {
+  const response = await apiClient.get<{ has_issues: boolean; last_audit: string | null }>(
+    '/api/audit/status'
+  )
   return response.data
 }
 
@@ -128,12 +206,19 @@ export async function fetchLatestAuditSession(): Promise<{ session: AuditSession
 }
 
 export async function runAudit(auditType: string, period = 30): Promise<{ result: AuditResult }> {
-  const response = await apiClient.post<{ result: AuditResult }>(`/api/audits/run/${auditType}?period=${String(period)}`)
+  const response = await apiClient.post<{ result: AuditResult }>(
+    `/api/audits/run/${auditType}?period=${String(period)}`
+  )
   return response.data
 }
 
-export async function executeAuditAction(auditType: string, actionId: string): Promise<{ success: boolean; message?: string; error?: string }> {
-  const response = await apiClient.post<{ success: boolean; message?: string; error?: string }>(`/api/audits/action?audit_type=${auditType}&action_id=${actionId}`)
+export async function executeAuditAction(
+  auditType: string,
+  actionId: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const response = await apiClient.post<{ success: boolean; message?: string; error?: string }>(
+    `/api/audits/action?audit_type=${auditType}&action_id=${actionId}`
+  )
   return response.data
 }
 
@@ -184,8 +269,13 @@ export async function testMerchantCenterConnection(): Promise<ConnectionTestResu
   return response.data
 }
 
-export async function updateConfig(updates: Record<string, string>): Promise<{ success: boolean; message: string }> {
-  const response = await apiClient.put<{ success: boolean; message: string }>('/api/config', updates)
+export async function updateConfig(
+  updates: Record<string, string>
+): Promise<{ success: boolean; message: string }> {
+  const response = await apiClient.put<{ success: boolean; message: string }>(
+    '/api/config',
+    updates
+  )
   return response.data
 }
 

@@ -25,7 +25,9 @@ export function AuditResults({
       <ConnectionStatus connected={audit.ga4_connected} />
       <SummaryCards summary={audit.summary} />
 
-      {audit.tracking_coverage !== null && <TrackingCoverageChecklist coverage={audit.tracking_coverage} />}
+      {audit.tracking_coverage !== null && (
+        <TrackingCoverageChecklist coverage={audit.tracking_coverage} />
+      )}
       {audit.tracking_coverage === null && <CoverageSection audit={audit} />}
       {audit.collections_coverage.missing.length > 0 && audit.tracking_coverage === null && (
         <MissingCollections collections={audit.collections_coverage.missing} />
@@ -73,19 +75,41 @@ function ConnectionStatus({ connected }: { connected: boolean }): React.ReactEle
       <div className="flex items-center gap-3">
         <div className={`flex h-10 w-10 items-center justify-center rounded-full ${iconBg}`}>
           {connected ? (
-            <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="h-5 w-5 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           ) : (
-            <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="h-5 w-5 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           )}
         </div>
         <div>
           <p className={`font-medium ${textColor}`}>Google Analytics 4</p>
           <p className={`text-sm ${subtextColor}`}>
-            {connected ? 'Connecté et opérationnel' : 'Non connecté - configurez GA4 dans les paramètres'}
+            {connected
+              ? 'Connecté et opérationnel'
+              : 'Non connecté - configurez GA4 dans les paramètres'}
           </p>
         </div>
       </div>
@@ -137,7 +161,12 @@ function SummaryCard({
 function EventsIcon(): React.ReactElement {
   return (
     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
     </svg>
   )
 }
@@ -181,15 +210,37 @@ function PagesIcon(): React.ReactElement {
   )
 }
 
-function TrackingCoverageChecklist({ coverage }: { coverage: TrackingCoverage }): React.ReactElement {
+function TrackingCoverageChecklist({
+  coverage,
+}: {
+  coverage: TrackingCoverage
+}): React.ReactElement {
   return (
     <div className="mb-8 space-y-4">
       <h2 className="font-serif text-xl text-burgundy">Couverture du Tracking</h2>
-      <CoverageChecklistSection title="Événements E-commerce" icon={<EventsIcon />} section={coverage.events} showAll />
-      <CoverageChecklistSection title="Collections" icon={<CollectionsIcon />} section={coverage.collections} />
-      <CoverageChecklistSection title="Produits" icon={<ProductsIcon />} section={coverage.products} useSample />
+      <CoverageChecklistSection
+        title="Événements E-commerce"
+        icon={<EventsIcon />}
+        section={coverage.events}
+        showAll
+      />
+      <CoverageChecklistSection
+        title="Collections"
+        icon={<CollectionsIcon />}
+        section={coverage.collections}
+      />
+      <CoverageChecklistSection
+        title="Produits"
+        icon={<ProductsIcon />}
+        section={coverage.products}
+        useSample
+      />
       {coverage.pages !== undefined && (
-        <CoverageChecklistSection title="Pages Shopify" icon={<PagesIcon />} section={coverage.pages} />
+        <CoverageChecklistSection
+          title="Pages Shopify"
+          icon={<PagesIcon />}
+          section={coverage.pages}
+        />
       )}
     </div>
   )
@@ -206,17 +257,31 @@ function CoverageSection({ audit }: { audit: TrackingAuditData }): React.ReactEl
       <CoverageChart
         label="Transactions matchées"
         total={audit.transactions_match.shopify_orders}
-        tracked={Math.round(audit.transactions_match.shopify_orders * audit.transactions_match.match_rate)}
+        tracked={Math.round(
+          audit.transactions_match.shopify_orders * audit.transactions_match.match_rate
+        )}
       />
     </div>
   )
 }
 
-function CoverageChart({ tracked, total, label }: { tracked: number; total: number; label: string }): React.ReactElement {
+function CoverageChart({
+  tracked,
+  total,
+  label,
+}: {
+  tracked: number
+  total: number
+  label: string
+}): React.ReactElement {
   const percentage = total > 0 ? Math.round((tracked / total) * PERCENT_100) : 0
   const getColor = (): string => {
-    if (percentage >= GOOD_THRESHOLD) { return 'bg-green-500' }
-    if (percentage >= WARNING_THRESHOLD) { return 'bg-amber-500' }
+    if (percentage >= GOOD_THRESHOLD) {
+      return 'bg-green-500'
+    }
+    if (percentage >= WARNING_THRESHOLD) {
+      return 'bg-amber-500'
+    }
     return 'bg-red-500'
   }
 
@@ -227,9 +292,14 @@ function CoverageChart({ tracked, total, label }: { tracked: number; total: numb
         <span className="text-2xl font-bold text-gray-900">{String(percentage)}%</span>
       </div>
       <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-gray-100">
-        <div className={`h-3 rounded-full transition-all ${getColor()}`} style={{ width: `${String(percentage)}%` }} />
+        <div
+          className={`h-3 rounded-full transition-all ${getColor()}`}
+          style={{ width: `${String(percentage)}%` }}
+        />
       </div>
-      <p className="mt-2 text-sm text-gray-500">{String(tracked)} / {String(total)} trackés</p>
+      <p className="mt-2 text-sm text-gray-500">
+        {String(tracked)} / {String(total)} trackés
+      </p>
     </div>
   )
 }
@@ -250,7 +320,10 @@ function MissingCollections({ collections }: { collections: string[] }): React.R
       </h3>
       <div className="flex flex-wrap gap-2">
         {collections.map((collection) => (
-          <span key={collection} className="rounded-full bg-amber-100 px-3 py-1 text-sm text-amber-800">
+          <span
+            key={collection}
+            className="rounded-full bg-amber-100 px-3 py-1 text-sm text-amber-800"
+          >
             {collection}
           </span>
         ))}
@@ -292,14 +365,20 @@ function AuditCheckCard({ check }: { check: AuditCheck }): React.ReactElement {
           <h4 className="font-medium text-gray-900">{check.name}</h4>
           <p className="mt-1 text-sm text-gray-600">{check.message}</p>
         </div>
-        <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${badgeStyles[check.status]}`}>
+        <span
+          className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${badgeStyles[check.status]}`}
+        >
           {icons[check.status]} {check.status.toUpperCase()}
         </span>
       </div>
-      {check.details !== undefined && check.details.length > 0 && <CheckDetails details={check.details} />}
+      {check.details !== undefined && check.details.length > 0 && (
+        <CheckDetails details={check.details} />
+      )}
       {check.recommendation !== undefined && (
         <div className="mt-3 rounded-lg bg-blue-50 p-3">
-          <p className="text-xs text-blue-800"><strong>Recommandation:</strong> {check.recommendation}</p>
+          <p className="text-xs text-blue-800">
+            <strong>Recommandation:</strong> {check.recommendation}
+          </p>
         </div>
       )}
     </div>
@@ -318,7 +397,9 @@ function CheckDetails({ details }: { details: string[] }): React.ReactElement {
           </li>
         ))}
         {details.length > MAX_DETAILS_SHOWN && (
-          <li className="text-xs text-gray-400">+{String(details.length - MAX_DETAILS_SHOWN)} autres...</li>
+          <li className="text-xs text-gray-400">
+            +{String(details.length - MAX_DETAILS_SHOWN)} autres...
+          </li>
         )}
       </ul>
     </div>

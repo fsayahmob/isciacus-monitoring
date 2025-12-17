@@ -125,12 +125,27 @@ function ChecklistItem({ item }: { item: TrackingCoverageItem }): React.ReactEle
   return (
     <div className="flex items-center gap-2 rounded-lg bg-white/50 px-3 py-2">
       {item.tracked ? (
-        <svg className="h-4 w-4 flex-shrink-0 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="h-4 w-4 flex-shrink-0 text-green-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       ) : (
-        <svg className="h-4 w-4 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <svg
+          className="h-4 w-4 flex-shrink-0 text-red-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       )}
       <span className={`text-sm ${item.tracked ? 'text-gray-700' : 'text-gray-500'}`}>
@@ -143,7 +158,13 @@ function ChecklistItem({ item }: { item: TrackingCoverageItem }): React.ReactEle
   )
 }
 
-function ProgressBar({ rate, status }: { rate: number; status: 'ok' | 'warning' | 'error' }): React.ReactElement {
+function ProgressBar({
+  rate,
+  status,
+}: {
+  rate: number
+  status: 'ok' | 'warning' | 'error'
+}): React.ReactElement {
   return (
     <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-white/50">
       <div
@@ -176,7 +197,9 @@ function getDisplayItems(
   showAll: boolean,
   expanded: boolean
 ): TrackingCoverageItem[] | undefined {
-  if (showAll || expanded) { return items }
+  if (showAll || expanded) {
+    return items
+  }
   return items?.slice(0, MAX_ITEMS_COLLAPSED)
 }
 
@@ -207,7 +230,15 @@ export function CoverageChecklistSection({
       <SectionHeader title={title} icon={icon} section={section} />
       <ProgressBar rate={section.rate} status={section.status} />
       {hasDisplayItems && <ItemsList items={displayItems} />}
-      {hasMore && <ExpandToggleButton expanded={expanded} remainingCount={remainingCount} onToggle={() => { setExpanded(!expanded) }} />}
+      {hasMore && (
+        <ExpandToggleButton
+          expanded={expanded}
+          remainingCount={remainingCount}
+          onToggle={() => {
+            setExpanded(!expanded)
+          }}
+        />
+      )}
       {showMissing && <MissingItemsPreview missing={section.missing} />}
     </div>
   )

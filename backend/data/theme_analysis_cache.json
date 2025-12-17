@@ -1,0 +1,86 @@
+{
+  "ga4_configured": false,
+  "ga4_measurement_id": null,
+  "ga4_via_shopify_native": false,
+  "meta_pixel_configured": false,
+  "meta_pixel_id": null,
+  "gtm_configured": false,
+  "gtm_container_id": null,
+  "ga4_events_found": [],
+  "meta_events_found": [],
+  "issues": [
+    {
+      "issue_type": "missing_event",
+      "tracking_type": "ga4",
+      "event": "page_view",
+      "file_path": "",
+      "line_number": null,
+      "description": "\u00c9v\u00e9nement GA4 'page_view' non trouv\u00e9 dans le th\u00e8me",
+      "severity": "warning",
+      "fix_available": true,
+      "fix_code": "gtag('event', 'page_view', {\n  page_title: document.title,\n  page_location: window.location.href\n});"
+    },
+    {
+      "issue_type": "missing_event",
+      "tracking_type": "ga4",
+      "event": "view_item",
+      "file_path": "",
+      "line_number": null,
+      "description": "\u00c9v\u00e9nement GA4 'view_item' non trouv\u00e9 dans le th\u00e8me",
+      "severity": "warning",
+      "fix_available": true,
+      "fix_code": "gtag('event', 'view_item', {\n  currency: '{{ shop.currency }}',\n  value: {{ product.price | money_without_currency | remove: ',' }},\n  items: [{\n    item_id: '{{ product.id }}',\n    item_name: '{{ product.title | escape }}',\n    price: {{ product.price | money_without_currency | remove: ',' }},\n    quantity: 1\n  }]\n});"
+    },
+    {
+      "issue_type": "missing_event",
+      "tracking_type": "ga4",
+      "event": "view_item_list",
+      "file_path": "",
+      "line_number": null,
+      "description": "\u00c9v\u00e9nement GA4 'view_item_list' non trouv\u00e9 dans le th\u00e8me",
+      "severity": "warning",
+      "fix_available": true,
+      "fix_code": "gtag('event', 'view_item_list', {\n  item_list_id: '{{ collection.handle }}',\n  item_list_name: '{{ collection.title | escape }}',\n  items: [\n    {% for product in collection.products limit: 20 %}\n    {\n      item_id: '{{ product.id }}',\n      item_name: '{{ product.title | escape }}',\n      price: {{ product.price | money_without_currency | remove: ',' }},\n      index: {{ forloop.index }}\n    }{% unless forloop.last %},{% endunless %}\n    {% endfor %}\n  ]\n});"
+    },
+    {
+      "issue_type": "missing_event",
+      "tracking_type": "ga4",
+      "event": "add_to_cart",
+      "file_path": "",
+      "line_number": null,
+      "description": "\u00c9v\u00e9nement GA4 'add_to_cart' non trouv\u00e9 dans le th\u00e8me",
+      "severity": "error",
+      "fix_available": true,
+      "fix_code": "gtag('event', 'add_to_cart', {\n  currency: '{{ shop.currency }}',\n  value: productPrice,\n  items: [{\n    item_id: productId,\n    item_name: productTitle,\n    price: productPrice,\n    quantity: quantity\n  }]\n});"
+    },
+    {
+      "issue_type": "missing_event",
+      "tracking_type": "ga4",
+      "event": "begin_checkout",
+      "file_path": "",
+      "line_number": null,
+      "description": "\u00c9v\u00e9nement GA4 'begin_checkout' non trouv\u00e9 dans le th\u00e8me",
+      "severity": "warning",
+      "fix_available": true,
+      "fix_code": "gtag('event', 'begin_checkout', {\n  currency: '{{ cart.currency.iso_code }}',\n  value: {{ cart.total_price | money_without_currency | remove: ',' }},\n  items: [\n    {% for item in cart.items %}\n    {\n      item_id: '{{ item.product_id }}',\n      item_name: '{{ item.product.title | escape }}',\n      price: {{ item.price | money_without_currency | remove: ',' }},\n      quantity: {{ item.quantity }}\n    }{% unless forloop.last %},{% endunless %}\n    {% endfor %}\n  ]\n});"
+    },
+    {
+      "issue_type": "missing_event",
+      "tracking_type": "ga4",
+      "event": "purchase",
+      "file_path": "",
+      "line_number": null,
+      "description": "\u00c9v\u00e9nement GA4 'purchase' non trouv\u00e9 dans le th\u00e8me",
+      "severity": "error",
+      "fix_available": true,
+      "fix_code": "gtag('event', 'purchase', {\n  transaction_id: '{{ order.order_number }}',\n  currency: '{{ order.currency }}',\n  value: {{ order.total_price | money_without_currency | remove: ',' }},\n  tax: {{ order.tax_price | money_without_currency | remove: ',' }},\n  shipping: {{ order.shipping_price | money_without_currency | remove: ',' }},\n  items: [\n    {% for line_item in order.line_items %}\n    {\n      item_id: '{{ line_item.product_id }}',\n      item_name: '{{ line_item.title | escape }}',\n      price: {{ line_item.price | money_without_currency | remove: ',' }},\n      quantity: {{ line_item.quantity }}\n    }{% unless forloop.last %},{% endunless %}\n    {% endfor %}\n  ]\n});"
+    }
+  ],
+  "files_analyzed": [
+    "layout/theme.liquid",
+    "sections/main-product.liquid",
+    "snippets/product-meta.liquid",
+    "snippets/social-meta-tags.liquid"
+  ],
+  "analyzed_at": "2025-12-17T22:42:50.810791+00:00"
+}

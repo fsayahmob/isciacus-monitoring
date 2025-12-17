@@ -38,13 +38,13 @@ function CollectionRow({ collection, ga4Available }: CollectionRowProps): React.
           {hasVisitors ? collection.visitors.toLocaleString('fr-FR') : '-'}
         </td>
       ) : null}
-      <td className="py-2 text-right font-mono">
-        {collection.purchases.toLocaleString('fr-FR')}
-      </td>
+      <td className="py-2 text-right font-mono">{collection.purchases.toLocaleString('fr-FR')}</td>
       {ga4Available ? (
         <td className="py-2 text-right">
           {hasCVR ? (
-            <span className={`rounded px-2 py-0.5 font-mono ${getBenchmarkColor(collection.benchmark_status)}`}>
+            <span
+              className={`rounded px-2 py-0.5 font-mono ${getBenchmarkColor(collection.benchmark_status)}`}
+            >
               {collection.cvr.toFixed(2)}%
             </span>
           ) : (
@@ -101,14 +101,22 @@ export function CollectionAccordion({
             <thead>
               <tr className="border-b border-gray-200 text-left">
                 <th className="pb-2 font-medium text-gray-600">Collection</th>
-                {ga4Available ? <th className="pb-2 text-right font-medium text-blue-600">Visiteurs</th> : null}
+                {ga4Available ? (
+                  <th className="pb-2 text-right font-medium text-blue-600">Visiteurs</th>
+                ) : null}
                 <th className="pb-2 text-right font-medium text-gray-600">Achats</th>
-                {ga4Available ? <th className="pb-2 text-right font-medium text-green-600">CVR</th> : null}
+                {ga4Available ? (
+                  <th className="pb-2 text-right font-medium text-green-600">CVR</th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
               {collections.map((collection) => (
-                <CollectionRow key={collection.collection_id} collection={collection} ga4Available={ga4Available} />
+                <CollectionRow
+                  key={collection.collection_id}
+                  collection={collection}
+                  ga4Available={ga4Available}
+                />
               ))}
             </tbody>
           </table>

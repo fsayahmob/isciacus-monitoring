@@ -84,12 +84,10 @@ def create_audit_function() -> inngest.Function | None:
         )
 
         # Step 5: Generate final report
-        report = await step.run(
+        return await step.run(
             "generate-report",
             lambda: _generate_audit_report(comparison, transactions, period),
         )
-
-        return report
 
     return tracking_audit
 

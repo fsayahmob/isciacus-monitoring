@@ -8,6 +8,7 @@ and can apply automatic corrections.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -16,6 +17,9 @@ from pathlib import Path
 from typing import Any
 
 import requests
+
+
+logger = logging.getLogger(__name__)
 
 
 # Module-level cache for config (lazy loaded)
@@ -27,9 +31,16 @@ def _get_shopify_config() -> dict[str, str]:
     global _config_cache
     if _config_cache is None:
         from services.config_service import ConfigService
+
         config_service = ConfigService()
         _config_cache = config_service.get_shopify_values()
     return _config_cache
+
+
+def clear_theme_cache() -> None:
+    """Clear the module-level config cache."""
+    global _config_cache
+    _config_cache = None
 
 
 def _get_store_url() -> str:
@@ -138,7 +149,9 @@ class ThemeAnalyzerService:
 
     # GTM patterns
     GTM_PATTERN = re.compile(r"GTM-([A-Z0-9]+)")
-    DATALAYER_PUSH_PATTERN = re.compile(r"dataLayer\.push\s*\(\s*\{[^}]*['\"]event['\"]\s*:\s*['\"]([^'\"]+)['\"]")
+    DATALAYER_PUSH_PATTERN = re.compile(
+        r"dataLayer\.push\s*\(\s*\{[^}]*['\"]event['\"]\s*:\s*['\"]([^'\"]+)['\"]"
+    )
 
     # Required events for complete e-commerce tracking
     REQUIRED_GA4_EVENTS = [
@@ -162,6 +175,13 @@ class ThemeAnalyzerService:
         """Initialize the theme analyzer."""
         self._cache_file = Path(__file__).parent.parent / "data" / "theme_analysis_cache.json"
         self._themes_cache: dict[str, Any] = {}
+        self._graphql_url = f"{_get_store_url()}/admin/api/2024-01/graphql.json"
+
+    def clear_cache(self) -> None:
+        """Clear all caches to ensure fresh data on next audit."""
+        clear_theme_cache()  # Module-level config cache
+        self._themes_cache.clear()
+        # Re-initialize graphql_url in case config changed
         self._graphql_url = f"{_get_store_url()}/admin/api/2024-01/graphql.json"
 
     def _get_rest_headers(self) -> dict[str, str]:
@@ -220,9 +240,12 @@ class ThemeAnalyzerService:
                 if settings and "G-" in settings:
                     # Extract measurement ID from settings
                     import json as json_module
+
                     try:
                         settings_data = json_module.loads(settings)
-                        measurement_id = settings_data.get("measurementId") or settings_data.get("ga4_id")
+                        measurement_id = settings_data.get("measurementId") or settings_data.get(
+                            "ga4_id"
+                        )
                         if measurement_id and measurement_id.startswith("G-"):
                             return True, measurement_id
                     except (json.JSONDecodeError, TypeError):
@@ -233,7 +256,7 @@ class ThemeAnalyzerService:
 
             return False, None
         except Exception as e:
-            print(f"Error checking Shopify native GA4: {e}")
+            logger.warning("Error checking Shopify native GA4: %s", e)
             return False, None
 
     def _check_content_for_header_ga4(self, theme_id: str) -> tuple[bool, str | None]:
@@ -263,7 +286,7 @@ class ThemeAnalyzerService:
                     return str(theme.get("id"))
             return None
         except Exception as e:
-            print(f"Error getting active theme: {e}")
+            logger.warning("Error getting active theme: %s", e)
             return None
 
     def _get_theme_asset(self, theme_id: str, asset_key: str) -> str | None:
@@ -296,7 +319,7 @@ class ThemeAnalyzerService:
             resp.raise_for_status()
             return True
         except Exception as e:
-            print(f"Error updating theme asset: {e}")
+            logger.warning("Error updating theme asset: %s", e)
             return False
 
     def _list_theme_assets(self, theme_id: str) -> list[str]:
@@ -336,16 +359,18 @@ class ThemeAnalyzerService:
 
         theme_id = self._get_active_theme_id()
         if not theme_id:
-            analysis.issues.append(TrackingIssue(
-                issue_type="error",
-                tracking_type=TrackingType.GA4,
-                event="",
-                file_path="",
-                line_number=None,
-                description="Impossible d'accéder au thème Shopify actif",
-                severity="error",
-                fix_available=False,
-            ))
+            analysis.issues.append(
+                TrackingIssue(
+                    issue_type="error",
+                    tracking_type=TrackingType.GA4,
+                    event="",
+                    file_path="",
+                    line_number=None,
+                    description="Impossible d'accéder au thème Shopify actif",
+                    severity="error",
+                    fix_available=False,
+                )
+            )
             return analysis
 
         # Check if theme has content_for_header (required for native GA4 to work)
@@ -360,7 +385,10 @@ class ThemeAnalyzerService:
         # Also check for any liquid files that might contain tracking
         for asset in all_assets:
             if asset.endswith(".liquid") and asset not in files_to_check:
-                if any(kw in asset.lower() for kw in ["gtag", "google", "analytics", "pixel", "facebook", "meta", "track"]):
+                if any(
+                    kw in asset.lower()
+                    for kw in ["gtag", "google", "analytics", "pixel", "facebook", "meta", "track"]
+                ):
                     files_to_check.append(asset)
 
         for file_path in files_to_check:
@@ -377,7 +405,9 @@ class ThemeAnalyzerService:
 
         return analysis
 
-    def _analyze_file_content(self, content: str, file_path: str, analysis: TrackingAnalysis) -> None:
+    def _analyze_file_content(
+        self, content: str, file_path: str, analysis: TrackingAnalysis
+    ) -> None:
         """Analyze a file's content for tracking code."""
         lines = content.split("\n")
 
@@ -431,51 +461,61 @@ class ThemeAnalyzerService:
             # Find line number
             for i, line in enumerate(lines):
                 if "G-" in line and "settings." not in line:
-                    analysis.issues.append(TrackingIssue(
-                        issue_type="hardcoded_id",
-                        tracking_type=TrackingType.GA4,
-                        event="",
-                        file_path=file_path,
-                        line_number=i + 1,
-                        description="ID GA4 en dur dans le code au lieu d'utiliser les settings du thème",
-                        severity="warning",
-                        fix_available=False,
-                    ))
+                    analysis.issues.append(
+                        TrackingIssue(
+                            issue_type="hardcoded_id",
+                            tracking_type=TrackingType.GA4,
+                            event="",
+                            file_path=file_path,
+                            line_number=i + 1,
+                            description="ID GA4 en dur dans le code au lieu d'utiliser les settings du thème",
+                            severity="warning",
+                            fix_available=False,
+                        )
+                    )
                     break
 
         # Check for purchase event without required parameters
-        purchase_pattern = re.compile(r"gtag\s*\(\s*['\"]event['\"]\s*,\s*['\"]purchase['\"]([^)]+)\)", re.DOTALL)
+        purchase_pattern = re.compile(
+            r"gtag\s*\(\s*['\"]event['\"]\s*,\s*['\"]purchase['\"]([^)]+)\)", re.DOTALL
+        )
         purchase_matches = purchase_pattern.findall(content)
         for match in purchase_matches:
             if "transaction_id" not in match:
-                analysis.issues.append(TrackingIssue(
-                    issue_type="missing_params",
-                    tracking_type=TrackingType.GA4,
-                    event="purchase",
-                    file_path=file_path,
-                    line_number=None,
-                    description="L'événement purchase manque le paramètre transaction_id obligatoire",
-                    severity="error",
-                    fix_available=True,
-                    fix_code=self._generate_purchase_fix(),
-                ))
+                analysis.issues.append(
+                    TrackingIssue(
+                        issue_type="missing_params",
+                        tracking_type=TrackingType.GA4,
+                        event="purchase",
+                        file_path=file_path,
+                        line_number=None,
+                        description="L'événement purchase manque le paramètre transaction_id obligatoire",
+                        severity="error",
+                        fix_available=True,
+                        fix_code=self._generate_purchase_fix(),
+                    )
+                )
 
         # Check for view_item without item details
-        view_item_pattern = re.compile(r"gtag\s*\(\s*['\"]event['\"]\s*,\s*['\"]view_item['\"]([^)]+)\)", re.DOTALL)
+        view_item_pattern = re.compile(
+            r"gtag\s*\(\s*['\"]event['\"]\s*,\s*['\"]view_item['\"]([^)]+)\)", re.DOTALL
+        )
         view_item_matches = view_item_pattern.findall(content)
         for match in view_item_matches:
             if "items" not in match:
-                analysis.issues.append(TrackingIssue(
-                    issue_type="missing_params",
-                    tracking_type=TrackingType.GA4,
-                    event="view_item",
-                    file_path=file_path,
-                    line_number=None,
-                    description="L'événement view_item manque le paramètre items obligatoire",
-                    severity="error",
-                    fix_available=True,
-                    fix_code=self._generate_view_item_fix(),
-                ))
+                analysis.issues.append(
+                    TrackingIssue(
+                        issue_type="missing_params",
+                        tracking_type=TrackingType.GA4,
+                        event="view_item",
+                        file_path=file_path,
+                        line_number=None,
+                        description="L'événement view_item manque le paramètre items obligatoire",
+                        severity="error",
+                        fix_available=True,
+                        fix_code=self._generate_view_item_fix(),
+                    )
+                )
 
     def _check_missing_events(self, analysis: TrackingAnalysis) -> None:
         """Check for missing required events."""
@@ -501,33 +541,37 @@ class ThemeAnalyzerService:
                     severity = "error" if event in ["purchase", "add_to_cart"] else "warning"
                     description = f"Événement GA4 '{event}' non trouvé dans le thème"
 
-                analysis.issues.append(TrackingIssue(
-                    issue_type="missing_event",
-                    tracking_type=TrackingType.GA4,
-                    event=event,
-                    file_path="",
-                    line_number=None,
-                    description=description,
-                    severity=severity,
-                    fix_available=True,
-                    fix_code=self._generate_event_code(event, TrackingType.GA4),
-                ))
+                analysis.issues.append(
+                    TrackingIssue(
+                        issue_type="missing_event",
+                        tracking_type=TrackingType.GA4,
+                        event=event,
+                        file_path="",
+                        line_number=None,
+                        description=description,
+                        severity=severity,
+                        fix_available=True,
+                        fix_code=self._generate_event_code(event, TrackingType.GA4),
+                    )
+                )
 
         # Meta missing events (only if Meta Pixel is configured)
         if analysis.meta_pixel_configured:
             for event in self.REQUIRED_META_EVENTS:
                 if event not in analysis.meta_events_found:
-                    analysis.issues.append(TrackingIssue(
-                        issue_type="missing_event",
-                        tracking_type=TrackingType.META_PIXEL,
-                        event=event,
-                        file_path="",
-                        line_number=None,
-                        description=f"Événement Meta Pixel '{event}' non trouvé dans le thème",
-                        severity="error" if event == "Purchase" else "warning",
-                        fix_available=True,
-                        fix_code=self._generate_event_code(event, TrackingType.META_PIXEL),
-                    ))
+                    analysis.issues.append(
+                        TrackingIssue(
+                            issue_type="missing_event",
+                            tracking_type=TrackingType.META_PIXEL,
+                            event=event,
+                            file_path="",
+                            line_number=None,
+                            description=f"Événement Meta Pixel '{event}' non trouvé dans le thème",
+                            severity="error" if event == "Purchase" else "warning",
+                            fix_available=True,
+                            fix_code=self._generate_event_code(event, TrackingType.META_PIXEL),
+                        )
+                    )
 
     def _generate_event_code(self, event: str, tracking_type: TrackingType) -> str:
         """Generate the code to add a missing event."""
@@ -769,17 +813,19 @@ class ThemeAnalyzerService:
         )
 
         for issue_data in data.get("issues", []):
-            analysis.issues.append(TrackingIssue(
-                issue_type=issue_data.get("issue_type", ""),
-                tracking_type=TrackingType(issue_data.get("tracking_type", "ga4")),
-                event=issue_data.get("event", ""),
-                file_path=issue_data.get("file_path", ""),
-                line_number=issue_data.get("line_number"),
-                description=issue_data.get("description", ""),
-                severity=issue_data.get("severity", "warning"),
-                fix_available=issue_data.get("fix_available", False),
-                fix_code=issue_data.get("fix_code"),
-            ))
+            analysis.issues.append(
+                TrackingIssue(
+                    issue_type=issue_data.get("issue_type", ""),
+                    tracking_type=TrackingType(issue_data.get("tracking_type", "ga4")),
+                    event=issue_data.get("event", ""),
+                    file_path=issue_data.get("file_path", ""),
+                    line_number=issue_data.get("line_number"),
+                    description=issue_data.get("description", ""),
+                    severity=issue_data.get("severity", "warning"),
+                    fix_available=issue_data.get("fix_available", False),
+                    fix_code=issue_data.get("fix_code"),
+                )
+            )
 
         return analysis
 
@@ -801,12 +847,22 @@ class ThemeAnalyzerService:
                 "ga4": {
                     "found": analysis.ga4_events_found,
                     "required": self.REQUIRED_GA4_EVENTS,
-                    "missing": [e for e in self.REQUIRED_GA4_EVENTS if e not in analysis.ga4_events_found],
+                    "missing": [
+                        e for e in self.REQUIRED_GA4_EVENTS if e not in analysis.ga4_events_found
+                    ],
                 },
                 "meta": {
                     "found": analysis.meta_events_found,
                     "required": self.REQUIRED_META_EVENTS if analysis.meta_pixel_configured else [],
-                    "missing": [e for e in self.REQUIRED_META_EVENTS if e not in analysis.meta_events_found] if analysis.meta_pixel_configured else [],
+                    "missing": (
+                        [
+                            e
+                            for e in self.REQUIRED_META_EVENTS
+                            if e not in analysis.meta_events_found
+                        ]
+                        if analysis.meta_pixel_configured
+                        else []
+                    ),
                 },
             },
             "issues": {

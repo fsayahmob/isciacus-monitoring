@@ -48,7 +48,9 @@ function ServiceStatus({
   service: ServiceHealth
 }): React.ReactElement {
   return (
-    <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${getStatusBgColor(service.status)}`}>
+    <div
+      className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${getStatusBgColor(service.status)}`}
+    >
       <span className={`h-3 w-3 rounded-full ${getStatusColor(service.status)} animate-pulse`} />
       <div>
         <span className="font-medium text-gray-900">{name}</span>
@@ -59,7 +61,11 @@ function ServiceStatus({
 }
 
 export function HealthIndicator(): React.ReactElement {
-  const { data: health, isLoading, error } = useQuery({
+  const {
+    data: health,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['health-check'],
     queryFn: fetchHealthCheck,
     refetchInterval: HEALTH_CHECK_INTERVAL,
@@ -92,11 +98,13 @@ export function HealthIndicator(): React.ReactElement {
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-medium text-gray-900">État des services</h3>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-          health.overall_status === 'healthy'
-            ? 'bg-green-100 text-green-800'
-            : 'bg-amber-100 text-amber-800'
-        }`}>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            health.overall_status === 'healthy'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}
+        >
           {health.overall_status === 'healthy' ? 'Tous opérationnels' : 'Dégradé'}
         </span>
       </div>

@@ -47,7 +47,9 @@ function ProductRow({ product, rank, showViews }: ProductRowProps): React.ReactE
       <td className="py-2 text-center text-gray-500">{product.order_count}</td>
       {showViews ? (
         <>
-          <td className="py-2 text-center font-mono text-gray-600">{hasViews ? product.views : '-'}</td>
+          <td className="py-2 text-center font-mono text-gray-600">
+            {hasViews ? product.views : '-'}
+          </td>
           <td className="py-2 text-center font-mono">
             {hasCVR ? (
               <span className="rounded bg-green-100 px-2 py-0.5 text-green-700">
@@ -118,7 +120,13 @@ function SalesResultsSummary({ data }: { data: FilteredSalesAnalysis }): React.R
   )
 }
 
-function SalesResultsTable({ products, showViews }: { products: ProductSales[]; showViews: boolean }): React.ReactElement {
+function SalesResultsTable({
+  products,
+  showViews,
+}: {
+  products: ProductSales[]
+  showViews: boolean
+}): React.ReactElement {
   return (
     <table className="w-full text-sm">
       <thead>
@@ -137,14 +145,25 @@ function SalesResultsTable({ products, showViews }: { products: ProductSales[]; 
       </thead>
       <tbody>
         {products.map((product, index) => (
-          <ProductRow key={product.product_id} product={product} rank={index + 1} showViews={showViews} />
+          <ProductRow
+            key={product.product_id}
+            product={product}
+            rank={index + 1}
+            showViews={showViews}
+          />
         ))}
       </tbody>
     </table>
   )
 }
 
-function SalesResults({ data, isLoading }: { data: FilteredSalesAnalysis | undefined; isLoading: boolean }): React.ReactElement | null {
+function SalesResults({
+  data,
+  isLoading,
+}: {
+  data: FilteredSalesAnalysis | undefined
+  isLoading: boolean
+}): React.ReactElement | null {
   if (isLoading) {
     return <LoadingSkeleton />
   }
@@ -152,7 +171,11 @@ function SalesResults({ data, isLoading }: { data: FilteredSalesAnalysis | undef
     return null
   }
   if (data.products.length === 0) {
-    return <div className="py-8 text-center text-gray-500">Aucun produit vendu avec ce filtre sur la période.</div>
+    return (
+      <div className="py-8 text-center text-gray-500">
+        Aucun produit vendu avec ce filtre sur la période.
+      </div>
+    )
   }
 
   const filterLabel = data.filter_type === 'tag' ? 'Tag' : 'Collection'
@@ -163,7 +186,9 @@ function SalesResults({ data, isLoading }: { data: FilteredSalesAnalysis | undef
       <SalesResultsSummary data={data} />
       <SalesResultsTable products={data.products} showViews={hasViews} />
       <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
-        <span>Données: {filterLabel} &quot;{data.filter_value}&quot; • Période: {data.period}</span>
+        <span>
+          Données: {filterLabel} &quot;{data.filter_value}&quot; • Période: {data.period}
+        </span>
         <span>Sources: Shopify{hasViews ? ' + GA4' : ''}</span>
       </div>
       {!hasViews ? (
@@ -175,7 +200,13 @@ function SalesResults({ data, isLoading }: { data: FilteredSalesAnalysis | undef
   )
 }
 
-function FilterTypeSelector({ filterType, onChange }: { filterType: FilterType; onChange: (type: FilterType) => void }): React.ReactElement {
+function FilterTypeSelector({
+  filterType,
+  onChange,
+}: {
+  filterType: FilterType
+  onChange: (type: FilterType) => void
+}): React.ReactElement {
   const getButtonClass = (type: FilterType): string =>
     `px-4 py-2 text-sm ${filterType === type ? 'bg-burgundy text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`
 
@@ -183,10 +214,22 @@ function FilterTypeSelector({ filterType, onChange }: { filterType: FilterType; 
     <div className="mb-4 flex items-center gap-4">
       <span className="text-sm text-gray-600">Filtrer par:</span>
       <div className="flex rounded border border-gray-300">
-        <button className={getButtonClass('collection')} type="button" onClick={() => { onChange('collection') }}>
+        <button
+          className={getButtonClass('collection')}
+          type="button"
+          onClick={() => {
+            onChange('collection')
+          }}
+        >
           Collection
         </button>
-        <button className={getButtonClass('tag')} type="button" onClick={() => { onChange('tag') }}>
+        <button
+          className={getButtonClass('tag')}
+          type="button"
+          onClick={() => {
+            onChange('tag')
+          }}
+        >
           Tag
         </button>
       </div>
@@ -201,9 +244,15 @@ export function SalesAnalysisSection(): React.ReactElement {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [showAllCatalogTags, setShowAllCatalogTags] = useState(false)
 
-  const { data: filters, isLoading: filtersLoading } = useAvailableSalesFilters(period, filterType === 'tag' && showAllCatalogTags)
+  const { data: filters, isLoading: filtersLoading } = useAvailableSalesFilters(
+    period,
+    filterType === 'tag' && showAllCatalogTags
+  )
   const { data: tagData, isLoading: tagLoading } = useSalesByTag(selectedTag, period)
-  const { data: collectionData, isLoading: collectionLoading } = useSalesByCollection(selectedCollection, period)
+  const { data: collectionData, isLoading: collectionLoading } = useSalesByCollection(
+    selectedCollection,
+    period
+  )
 
   const handleFilterTypeChange = (type: FilterType): void => {
     setFilterType(type)
@@ -249,14 +298,19 @@ export function SalesAnalysisSection(): React.ReactElement {
             selectedTag={selectedTag}
             showAllCatalog={showAllCatalogTags}
             onChange={handleSelectionChange}
-            onToggleAllCatalog={() => { setShowAllCatalogTags(!showAllCatalogTags); setSelectedTag(null) }}
+            onToggleAllCatalog={() => {
+              setShowAllCatalogTags(!showAllCatalogTags)
+              setSelectedTag(null)
+            }}
           />
         </div>
 
         {hasSelection ? (
           <SalesResults data={currentData} isLoading={isLoading} />
         ) : (
-          <div className="py-8 text-center text-gray-400">Sélectionnez {placeholder} pour voir l&apos;analyse</div>
+          <div className="py-8 text-center text-gray-400">
+            Sélectionnez {placeholder} pour voir l&apos;analyse
+          </div>
         )}
       </div>
     </div>

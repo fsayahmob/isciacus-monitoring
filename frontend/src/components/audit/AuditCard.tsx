@@ -20,7 +20,9 @@ function getBorderColor(isSelected: boolean, status: AuditStepStatus | null): st
     running: 'border-blue-300 bg-blue-50',
   }
 
-  return status !== null ? (statusColors[status] ?? 'border-gray-200 bg-white') : 'border-gray-200 bg-white'
+  return status !== null
+    ? (statusColors[status] ?? 'border-gray-200 bg-white')
+    : 'border-gray-200 bg-white'
 }
 
 function LastRunLabel({ lastRun }: { lastRun: string | null }): React.ReactElement {

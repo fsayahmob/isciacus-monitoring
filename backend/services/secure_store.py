@@ -49,21 +49,25 @@ class SecureConfigStore:
     def _init_db(self) -> None:
         """Initialize SQLite database with config table."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS config (
                     key TEXT PRIMARY KEY,
                     value_encrypted BLOB NOT NULL,
                     is_secret INTEGER DEFAULT 0,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS service_accounts (
                     name TEXT PRIMARY KEY,
                     content_encrypted BLOB NOT NULL,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             conn.commit()
 
     def _encrypt(self, value: str) -> bytes:
@@ -77,10 +81,7 @@ class SecureConfigStore:
     def get(self, key: str) -> str | None:
         """Get a configuration value."""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT value_encrypted FROM config WHERE key = ?",
-                (key,)
-            )
+            cursor = conn.execute("SELECT value_encrypted FROM config WHERE key = ?", (key,))
             row = cursor.fetchone()
             if row:
                 return self._decrypt(row[0])
@@ -90,14 +91,17 @@ class SecureConfigStore:
         """Set a configuration value."""
         encrypted = self._encrypt(value)
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO config (key, value_encrypted, is_secret, updated_at)
                 VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(key) DO UPDATE SET
                     value_encrypted = excluded.value_encrypted,
                     is_secret = excluded.is_secret,
                     updated_at = CURRENT_TIMESTAMP
-            """, (key, encrypted, 1 if is_secret else 0))
+            """,
+                (key, encrypted, 1 if is_secret else 0),
+            )
             conn.commit()
 
     def delete(self, key: str) -> None:
@@ -129,21 +133,23 @@ class SecureConfigStore:
         json_str = json.dumps(content)
         encrypted = self._encrypt(json_str)
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO service_accounts (name, content_encrypted, updated_at)
                 VALUES (?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(name) DO UPDATE SET
                     content_encrypted = excluded.content_encrypted,
                     updated_at = CURRENT_TIMESTAMP
-            """, (name, encrypted))
+            """,
+                (name, encrypted),
+            )
             conn.commit()
 
     def get_service_account(self, name: str) -> dict[str, Any] | None:
         """Get a service account JSON content."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT content_encrypted FROM service_accounts WHERE name = ?",
-                (name,)
+                "SELECT content_encrypted FROM service_accounts WHERE name = ?", (name,)
             )
             row = cursor.fetchone()
             if row:
@@ -175,13 +181,17 @@ class SecureConfigStore:
 
         # Define which keys are secrets
         secret_keys = {
-            "SHOPIFY_API_KEY", "SHOPIFY_API_SECRET", "SHOPIFY_ACCESS_TOKEN",
+            "SHOPIFY_API_KEY",
+            "SHOPIFY_API_SECRET",
+            "SHOPIFY_ACCESS_TOKEN",
             "META_ACCESS_TOKEN",
             "GOOGLE_ADS_DEVELOPER_TOKEN",
-            "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN",
+            "TWILIO_ACCOUNT_SID",
+            "TWILIO_AUTH_TOKEN",
             "ANTHROPIC_API_KEY",
             "SERPAPI_KEY",
-            "INNGEST_SIGNING_KEY", "INNGEST_EVENT_KEY",
+            "INNGEST_SIGNING_KEY",
+            "INNGEST_EVENT_KEY",
         }
 
         with open(env_path) as f:

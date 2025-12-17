@@ -17,7 +17,10 @@ interface FilterDropdownProps {
   onToggleAllCatalog?: () => void
 }
 
-function getOptions(filterType: FilterType, filters: AvailableFilters | undefined): { key: string; value: string; label: string }[] {
+function getOptions(
+  filterType: FilterType,
+  filters: AvailableFilters | undefined
+): { key: string; value: string; label: string }[] {
   if (filters === undefined) {
     return []
   }
@@ -27,16 +30,30 @@ function getOptions(filterType: FilterType, filters: AvailableFilters | undefine
   return filters.collections.map((coll) => ({ key: coll.id, value: coll.id, label: coll.name }))
 }
 
-function TagInfo({ filters }: { filters: AvailableFilters | undefined }): React.ReactElement | null {
+function TagInfo({
+  filters,
+}: {
+  filters: AvailableFilters | undefined
+}): React.ReactElement | null {
   if (filters === undefined) {
     return null
   }
   const tagCount = filters.tags.length
   const sourceLabel = filters.source === 'catalog' ? 'catalogue complet' : 'produits vendus'
-  return <span className="text-xs text-gray-400">({tagCount} tags - {sourceLabel})</span>
+  return (
+    <span className="text-xs text-gray-400">
+      ({tagCount} tags - {sourceLabel})
+    </span>
+  )
 }
 
-function AllCatalogCheckbox({ showAllCatalog, onToggle }: { showAllCatalog: boolean; onToggle: () => void }): React.ReactElement {
+function AllCatalogCheckbox({
+  showAllCatalog,
+  onToggle,
+}: {
+  showAllCatalog: boolean
+  onToggle: () => void
+}): React.ReactElement {
   return (
     <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
       <input
@@ -64,7 +81,7 @@ export function FilterDropdown({
     return <div className="h-10 w-64 animate-pulse rounded bg-gray-200" />
   }
 
-  const currentValue = filterType === 'tag' ? selectedTag ?? '' : selectedCollection ?? ''
+  const currentValue = filterType === 'tag' ? (selectedTag ?? '') : (selectedCollection ?? '')
   const placeholder = filterType === 'tag' ? 'un tag' : 'une collection'
   const options = getOptions(filterType, filters)
   const isTag = filterType === 'tag'
@@ -76,16 +93,22 @@ export function FilterDropdown({
         <select
           className="w-full max-w-md rounded border border-gray-300 px-3 py-2 text-sm focus:border-burgundy focus:outline-none focus:ring-1 focus:ring-burgundy"
           value={currentValue}
-          onChange={(e) => { onChange(e.target.value) }}
+          onChange={(e) => {
+            onChange(e.target.value)
+          }}
         >
           <option value="">-- Sélectionnez {placeholder} --</option>
           {options.map((opt) => (
-            <option key={opt.key} value={opt.value}>{opt.label}</option>
+            <option key={opt.key} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
         {isTag ? <TagInfo filters={filters} /> : null}
       </div>
-      {showCheckbox ? <AllCatalogCheckbox showAllCatalog={showAllCatalog} onToggle={onToggleAllCatalog} /> : null}
+      {showCheckbox ? (
+        <AllCatalogCheckbox showAllCatalog={showAllCatalog} onToggle={onToggleAllCatalog} />
+      ) : null}
     </div>
   )
 }

@@ -75,7 +75,8 @@ class PermissionsReport:
     @property
     def critical_missing(self) -> list[PermissionCheckResult]:
         return [
-            r for r in self.results
+            r
+            for r in self.results
             if r.status != PermissionStatus.GRANTED
             and r.requirement.severity == PermissionSeverity.CRITICAL
         ]
@@ -83,7 +84,8 @@ class PermissionsReport:
     @property
     def warnings(self) -> list[PermissionCheckResult]:
         return [
-            r for r in self.results
+            r
+            for r in self.results
             if r.status != PermissionStatus.GRANTED
             and r.requirement.severity in [PermissionSeverity.HIGH, PermissionSeverity.MEDIUM]
         ]
@@ -287,6 +289,7 @@ class PermissionsCheckerService:
         """Initialize the permissions checker."""
         if config_service is None:
             from services.config_service import ConfigService
+
             config_service = ConfigService()
         self._config = config_service
 
@@ -451,7 +454,9 @@ class PermissionsCheckerService:
                 error_message=f"Erreur Meta: {e!s}",
             )
 
-    def check_merchant_center_permission(self, requirement: PermissionRequirement) -> PermissionCheckResult:
+    def check_merchant_center_permission(
+        self, requirement: PermissionRequirement
+    ) -> PermissionCheckResult:
         """Check Google Merchant Center API permission."""
         merchant_config = self._config.get_merchant_center_values()
         merchant_id = merchant_config.get("merchant_id", "")
@@ -479,7 +484,9 @@ class PermissionsCheckerService:
             error_message="Vérification Merchant Center non implémentée - configurez et testez manuellement",
         )
 
-    def check_search_console_permission(self, requirement: PermissionRequirement) -> PermissionCheckResult:
+    def check_search_console_permission(
+        self, requirement: PermissionRequirement
+    ) -> PermissionCheckResult:
         """Check Google Search Console API permission."""
         gsc_config = self._config.get_search_console_values()
         site_url = gsc_config.get("property_url", "")
@@ -644,15 +651,13 @@ class PermissionsCheckerService:
                 "total": len(report.results),
                 "granted": len([r for r in report.results if r.status == PermissionStatus.GRANTED]),
                 "denied": len([r for r in report.results if r.status == PermissionStatus.DENIED]),
-                "not_configured": len([r for r in report.results if r.status == PermissionStatus.NOT_CONFIGURED]),
+                "not_configured": len(
+                    [r for r in report.results if r.status == PermissionStatus.NOT_CONFIGURED]
+                ),
                 "unknown": len([r for r in report.results if r.status == PermissionStatus.UNKNOWN]),
             },
-            "critical_missing": [
-                result_to_dict(r) for r in report.critical_missing
-            ],
-            "warnings": [
-                result_to_dict(r) for r in report.warnings
-            ],
+            "critical_missing": [result_to_dict(r) for r in report.critical_missing],
+            "warnings": [result_to_dict(r) for r in report.warnings],
             "by_service": by_service,
             "checked_at": report.checked_at,
         }

@@ -34,11 +34,21 @@ class GA4AnalyticsService:
         self._cache_timestamps: dict[str, datetime] = {}
         self._cache_ttl_seconds = 300  # 5 minutes cache
 
+    def clear_cache(self) -> None:
+        """Clear all caches to ensure fresh data on next audit."""
+        self._cache.clear()
+        self._cache_timestamps.clear()
+        # Force reload of config on next call
+        self._property_id = None
+        self._credentials_path = None
+        self._client = None
+
     def _load_config(self) -> None:
         """Load configuration from ConfigService (SQLite)."""
         if self._config_service is None:
             # Lazy import to avoid circular imports
             from services.config_service import ConfigService
+
             self._config_service = ConfigService()
 
         # Get GA4 config from SQLite
@@ -299,9 +309,7 @@ class GA4AnalyticsService:
                     if len(parts) > 1:
                         handle = parts[1].split("/")[0].split("?")[0]
                         if handle:
-                            product_visitors[handle] = (
-                                product_visitors.get(handle, 0) + sessions
-                            )
+                            product_visitors[handle] = product_visitors.get(handle, 0) + sessions
 
             # Cache result
             self._cache[cache_key] = product_visitors
