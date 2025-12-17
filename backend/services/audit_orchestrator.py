@@ -1241,10 +1241,10 @@ class AuditOrchestrator:
             # Step 3: Feed Sync (compare with Shopify)
             self._update_step_status(result, "feed_sync", AuditStepStatus.RUNNING)
 
-            # Get Shopify products with details
+            # Get Shopify products with full details for GMC analysis
             from services.shopify_analytics import ShopifyAnalyticsService
             shopify = ShopifyAnalyticsService()
-            shopify_products_list = shopify._fetch_all_products(only_published=True)
+            shopify_products_list = shopify.fetch_products_for_gmc_audit()
             shopify_products = len(shopify_products_list)
 
             if shopify_products > 0 and total_products > 0:
@@ -1255,43 +1255,75 @@ class AuditOrchestrator:
                         result_data={"shopify": shopify_products, "gmc": total_products, "sync_rate": f"{sync_rate}%"},
                     )
                 else:
-                    # Analyze WHY products are not synced
+                    # Analyze product eligibility for GMC sync
                     missing = shopify_products - total_products
 
-                    # Analyze Shopify products for potential issues
+                    # Count products by eligibility criteria
                     no_price = 0
                     no_image = 0
                     no_description = 0
                     draft_products = 0
+                    eligible_products = 0  # Products with all required fields
 
                     for product in shopify_products_list:
-                        # Check for missing prices
+                        has_price = False
+                        has_image = bool(product.get("featuredImage"))
+                        has_description = bool(
+                            product.get("descriptionHtml") or product.get("description")
+                        )
+                        is_draft = product.get("status") == "DRAFT"
+
+                        # Check price from variants
                         variants = product.get("variants", {}).get("nodes", [])
-                        if not variants or all(float(v.get("price", 0) or 0) == 0 for v in variants):
+                        if variants:
+                            has_price = any(
+                                float(v.get("price", 0) or 0) > 0 for v in variants
+                            )
+
+                        # Count missing attributes
+                        if not has_price:
                             no_price += 1
-
-                        # Check for missing images
-                        if not product.get("featuredImage"):
+                        if not has_image:
                             no_image += 1
-
-                        # Check for missing description
-                        if not product.get("descriptionHtml") and not product.get("description"):
+                        if not has_description:
                             no_description += 1
-
-                        # Check for draft status
-                        if product.get("status") == "DRAFT":
+                        if is_draft:
                             draft_products += 1
+
+                        # Count eligible products (has price, image, description, not draft)
+                        if has_price and has_image and has_description and not is_draft:
+                            eligible_products += 1
+
+                    # Calculate ineligible products
+                    ineligible_products = shopify_products - eligible_products
 
                     # Build detailed analysis
                     analysis_details = []
+                    analysis_details.append(
+                        f"{eligible_products} produits éligibles GMC (avec prix, image, description)"
+                    )
+                    if ineligible_products > 0:
+                        analysis_details.append(
+                            f"{ineligible_products} produits non éligibles:"
+                        )
                     if no_price > 0:
-                        analysis_details.append(f"{no_price} produits sans prix")
+                        analysis_details.append(f"  • {no_price} sans prix")
                     if no_image > 0:
-                        analysis_details.append(f"{no_image} produits sans image")
+                        analysis_details.append(f"  • {no_image} sans image")
                     if no_description > 0:
-                        analysis_details.append(f"{no_description} produits sans description")
+                        analysis_details.append(f"  • {no_description} sans description")
                     if draft_products > 0:
-                        analysis_details.append(f"{draft_products} produits en brouillon")
+                        analysis_details.append(f"  • {draft_products} en brouillon")
+
+                    # Add sync gap analysis
+                    if total_products < eligible_products:
+                        gap = eligible_products - total_products
+                        analysis_details.append(
+                            f"\n⚠️ {gap} produits éligibles ne sont PAS dans GMC"
+                        )
+                        analysis_details.append(
+                            "Vérifiez le statut dans Shopify > Google & YouTube"
+                        )
 
                     self._update_step_status(
                         result, "feed_sync", AuditStepStatus.WARNING,
@@ -1299,6 +1331,8 @@ class AuditOrchestrator:
                             "shopify": shopify_products,
                             "gmc": total_products,
                             "sync_rate": f"{sync_rate}%",
+                            "eligible": eligible_products,
+                            "ineligible": ineligible_products,
                             "analysis": {
                                 "no_price": no_price,
                                 "no_image": no_image,
@@ -1308,17 +1342,32 @@ class AuditOrchestrator:
                         },
                     )
 
-                    # Create detailed issue
-                    description = f"Seulement {sync_rate}% des produits Shopify sont dans GMC."
-                    if analysis_details:
-                        description += f"\n\nCauses probables:\n• " + "\n• ".join(analysis_details)
-                    description += "\n\nVérifiez dans Shopify Admin > Google & YouTube > Produits"
+                    # Create detailed issue with both synced and unsynced analysis
+                    description = f"""Synchronisation GMC: {total_products}/{shopify_products} produits ({sync_rate}%)
+
+📊 Analyse des {shopify_products} produits Shopify publiés:
+• {eligible_products} éligibles GMC (ont prix + image + description)
+• {ineligible_products} non éligibles (données manquantes)
+
+🔍 Détail des données manquantes:
+• {no_price} produits sans prix (ou prix = 0)
+• {no_image} produits sans image principale
+• {no_description} produits sans description"""
+
+                    if total_products < eligible_products:
+                        gap = eligible_products - total_products
+                        description += f"""
+
+⚠️ ÉCART DÉTECTÉ: {gap} produits éligibles ne sont pas dans GMC!
+Ces produits ont toutes les données requises mais ne sont pas synchronisés.
+→ Vérifiez dans Shopify Admin > Google & YouTube > Produits
+→ Certains produits peuvent être exclus manuellement ou avoir des erreurs GMC"""
 
                     result.issues.append(AuditIssue(
                         id="gmc_sync_incomplete",
                         audit_type=AuditType.MERCHANT_CENTER,
                         severity="warning",
-                        title=f"{missing} produits non synchronisés",
+                        title=f"{total_products} produits synchronisés sur {eligible_products} éligibles",
                         description=description,
                         details=analysis_details[:MAX_DETAILS_ITEMS] if analysis_details else None,
                     ))

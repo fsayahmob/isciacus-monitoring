@@ -144,6 +144,33 @@ query getProducts($cursor: String) {
 }
 """
 
+# GraphQL query for GMC audit - includes all fields needed for sync analysis
+GMC_AUDIT_PRODUCTS_QUERY = """
+query getProductsForGMCAudit($cursor: String) {
+    products(first: 250, after: $cursor, query: "status:active") {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+            id
+            handle
+            title
+            status
+            publishedAt
+            descriptionHtml
+            featuredImage {
+                url
+            }
+            variants(first: 10) {
+                nodes {
+                    id
+                    price
+                    inventoryQuantity
+                }
+            }
+        }
+    }
+}
+"""
+
 # GraphQL query to get all collections with their publication status
 ALL_COLLECTIONS_QUERY = """
 query getCollections($cursor: String) {
@@ -574,6 +601,38 @@ class ShopifyAnalyticsService:
                 p for p in all_products
                 if p.get("publishedAt") is not None
             ]
+
+        return all_products
+
+    def fetch_products_for_gmc_audit(self) -> list[dict[str, Any]]:
+        """Fetch all published products with GMC-relevant fields.
+
+        Returns products with: id, handle, title, status, publishedAt,
+        descriptionHtml, featuredImage, variants (with price).
+        """
+        all_products: list[dict[str, Any]] = []
+        cursor = None
+
+        while True:
+            data = self._execute_graphql(GMC_AUDIT_PRODUCTS_QUERY, {"cursor": cursor})
+
+            if "errors" in data:
+                break
+
+            products_data = data.get("data", {}).get("products", {})
+            all_products.extend(products_data.get("nodes", []))
+
+            page_info = products_data.get("pageInfo", {})
+            if page_info.get("hasNextPage"):
+                cursor = page_info.get("endCursor")
+            else:
+                break
+
+        # Filter to only published products
+        all_products = [
+            p for p in all_products
+            if p.get("publishedAt") is not None
+        ]
 
         return all_products
 
