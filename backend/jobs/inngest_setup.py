@@ -62,15 +62,19 @@ def setup_inngest(app: FastAPI) -> bool:
     if INNGEST_SIGNING_KEY:
         serve_kwargs["signing_key"] = INNGEST_SIGNING_KEY
 
-    serve(
-        app,
-        inngest_client,
-        functions,
-        serve_path="/api/inngest",
-        **serve_kwargs,
-    )
-
-    return True
+    try:
+        serve(
+            app,
+            inngest_client,
+            functions,
+            serve_path="/api/inngest",
+            **serve_kwargs,
+        )
+        return True
+    except Exception:
+        # Inngest setup failed (e.g., missing signing key in CI)
+        print("Inngest setup skipped - missing configuration")
+        return False
 
 
 async def trigger_audit_job(period: int = 30) -> dict[str, str]:
