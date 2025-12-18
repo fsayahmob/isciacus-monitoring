@@ -1214,7 +1214,7 @@ async def get_latest_audit_session() -> dict[str, Any]:
 async def run_audit(
     audit_type: str,
     period: int = Query(default=30),
-    use_inngest: bool = Query(default=True),
+    use_inngest: bool = Query(default=False),
 ) -> dict[str, Any]:
     """Run a specific audit type.
 
@@ -1224,7 +1224,8 @@ async def run_audit(
     Args:
         audit_type: The type of audit to run
         period: Number of days to analyze (for GA4)
-        use_inngest: If True, uses Inngest for async execution (for supported audits)
+        use_inngest: If True, uses Inngest for async execution (for supported audits).
+                     Default is False due to SDK/dev-server version incompatibility.
     """
     try:
         audit_enum = AuditType(audit_type)
