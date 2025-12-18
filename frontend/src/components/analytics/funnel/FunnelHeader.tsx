@@ -46,7 +46,11 @@ function AuditStatusBadge(): React.ReactElement | null {
     setCurrentPage(PAGES.AUDIT)
   }
 
-  if (auditStatus?.last_audit === null) {
+  if (auditStatus === undefined) {
+    return null
+  }
+
+  if (auditStatus.last_audit === null) {
     return (
       <button
         className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-200"
