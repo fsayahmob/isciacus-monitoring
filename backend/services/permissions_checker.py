@@ -356,7 +356,8 @@ class PermissionsCheckerService:
             return PermissionCheckResult(
                 requirement=requirement,
                 status=PermissionStatus.DENIED,
-                error_message=error_msg or "Permission write_publications non accordée (Shopify Plus requis)",
+                error_message=error_msg
+                or "Permission write_publications non accordée (Shopify Plus requis)",
             )
 
         # Map scopes to test endpoints
@@ -695,9 +696,7 @@ class PermissionsCheckerService:
                 return True, None
 
             if resp.status_code == 403:
-                return False, (
-                    "Permission write_publications non accordée (Shopify Plus requis)"
-                )
+                return False, ("Permission write_publications non accordée (Shopify Plus requis)")
 
             return False, f"Erreur HTTP: {resp.status_code}"
 

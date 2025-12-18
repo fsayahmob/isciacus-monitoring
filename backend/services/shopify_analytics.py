@@ -779,14 +779,17 @@ class ShopifyAnalyticsService:
             # Check eligibility criteria
             has_image = bool(product.get("featuredImage"))
             has_description = bool(product.get("descriptionHtml"))
-            has_price = any(
-                float(v.get("price", 0) or 0) > 0 for v in variants
-            ) if variants else False
-            in_stock = any(
-                v.get("inventoryQuantity", 0) > 0 or
-                v.get("inventoryPolicy") == "CONTINUE"
-                for v in variants
-            ) if variants else False
+            has_price = (
+                any(float(v.get("price", 0) or 0) > 0 for v in variants) if variants else False
+            )
+            in_stock = (
+                any(
+                    v.get("inventoryQuantity", 0) > 0 or v.get("inventoryPolicy") == "CONTINUE"
+                    for v in variants
+                )
+                if variants
+                else False
+            )
 
             product_info = {
                 "id": product.get("id"),
@@ -886,14 +889,16 @@ class ShopifyAnalyticsService:
 
         for idx, product_id in enumerate(product_ids):
             alias = f"p{idx}"
-            mutation_parts.append(f"""
+            mutation_parts.append(
+                f"""
                 {alias}: publishablePublish(id: $id{idx}, input: [{{publicationId: $publicationId}}]) {{
                     publishable {{
                         ... on Product {{ id title }}
                     }}
                     userErrors {{ field message }}
                 }}
-            """)
+            """
+            )
             variables[f"id{idx}"] = product_id
 
         # Build variable declarations
@@ -915,14 +920,16 @@ class ShopifyAnalyticsService:
 
         if "errors" in data:
             # Complete failure - all products failed
-            details.extend([
-                {
-                    "success": False,
-                    "product_id": product_id,
-                    "error": str(data["errors"]),
-                }
-                for product_id in product_ids
-            ])
+            details.extend(
+                [
+                    {
+                        "success": False,
+                        "product_id": product_id,
+                        "error": str(data["errors"]),
+                    }
+                    for product_id in product_ids
+                ]
+            )
             return {"published": 0, "failed": len(product_ids), "details": details}
 
         result_data = data.get("data", {})
@@ -934,25 +941,27 @@ class ShopifyAnalyticsService:
 
             if user_errors:
                 failed += 1
-                details.append({
-                    "success": False,
-                    "product_id": product_id,
-                    "error": user_errors[0].get("message", "Unknown error"),
-                })
+                details.append(
+                    {
+                        "success": False,
+                        "product_id": product_id,
+                        "error": user_errors[0].get("message", "Unknown error"),
+                    }
+                )
             else:
                 published += 1
                 publishable = result.get("publishable", {})
-                details.append({
-                    "success": True,
-                    "product_id": product_id,
-                    "title": publishable.get("title", ""),
-                })
+                details.append(
+                    {
+                        "success": True,
+                        "product_id": product_id,
+                        "title": publishable.get("title", ""),
+                    }
+                )
 
         return {"published": published, "failed": failed, "details": details}
 
-    def _publish_single_product(
-        self, product_id: str, publication_id: str
-    ) -> dict[str, Any]:
+    def _publish_single_product(self, product_id: str, publication_id: str) -> dict[str, Any]:
         """Publish a single product to a publication channel."""
         mutation = """
         mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {

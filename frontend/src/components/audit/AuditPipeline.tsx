@@ -89,17 +89,33 @@ const AUDIT_STEPS: Record<string, { id: string; name: string; description: strin
   ],
   ga4_tracking: [
     { id: 'ga4_connection', name: 'Connexion GA4', description: 'Vérification de la connexion' },
-    { id: 'collections_coverage', name: 'Couverture Collections', description: 'Analyse des collections' },
+    {
+      id: 'collections_coverage',
+      name: 'Couverture Collections',
+      description: 'Analyse des collections',
+    },
     { id: 'products_coverage', name: 'Couverture Produits', description: 'Analyse des produits' },
-    { id: 'events_coverage', name: 'Événements E-commerce', description: 'Vérification des événements' },
-    { id: 'transactions_match', name: 'Match Transactions', description: 'Comparaison GA4 vs Shopify' },
+    {
+      id: 'events_coverage',
+      name: 'Événements E-commerce',
+      description: 'Vérification des événements',
+    },
+    {
+      id: 'transactions_match',
+      name: 'Match Transactions',
+      description: 'Comparaison GA4 vs Shopify',
+    },
   ],
   theme_code: [
     { id: 'theme_access', name: 'Accès Thème', description: 'Récupération des fichiers' },
     { id: 'ga4_code', name: 'Code GA4', description: 'Analyse du code GA4' },
     { id: 'meta_code', name: 'Code Meta Pixel', description: 'Analyse Meta Pixel' },
     { id: 'gtm_code', name: 'Google Tag Manager', description: 'Détection GTM' },
-    { id: 'issues_detection', name: 'Détection Erreurs', description: 'Identification des problèmes' },
+    {
+      id: 'issues_detection',
+      name: 'Détection Erreurs',
+      description: 'Identification des problèmes',
+    },
   ],
   merchant_center: [
     { id: 'gmc_connection', name: 'Connexion GMC', description: 'Connexion au Merchant Center' },

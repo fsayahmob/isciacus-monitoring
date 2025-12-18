@@ -1422,9 +1422,15 @@ class AuditOrchestrator:
             )
             # Add issues for missing events
             event_info = {
-                "PageView": {"description": "Tracke toutes les pages visitées", "severity": "warning"},
+                "PageView": {
+                    "description": "Tracke toutes les pages visitées",
+                    "severity": "warning",
+                },
                 "ViewContent": {"description": "Tracke les vues de produits", "severity": "high"},
-                "AddToCart": {"description": "Essentiel pour les campagnes", "severity": "critical"},
+                "AddToCart": {
+                    "description": "Essentiel pour les campagnes",
+                    "severity": "critical",
+                },
                 "InitiateCheckout": {"description": "Tracke le début d'achat", "severity": "high"},
                 "Purchase": {"description": "Indispensable pour le ROAS", "severity": "critical"},
             }

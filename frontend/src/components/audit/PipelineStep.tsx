@@ -39,7 +39,10 @@ function HorizontalPipelineStep({
           )}
         </div>
         {step.error_message !== null && (
-          <p className="mt-0.5 max-w-[100px] truncate text-[10px] text-red-600" title={step.error_message}>
+          <p
+            className="mt-0.5 max-w-[100px] truncate text-[10px] text-red-600"
+            title={step.error_message}
+          >
             {step.error_message}
           </p>
         )}

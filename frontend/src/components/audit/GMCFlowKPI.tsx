@@ -24,7 +24,14 @@ interface FlowStageProps {
   onClick?: () => void
 }
 
-function FlowStage({ icon, label, count, sublabel, color, onClick }: FlowStageProps): React.ReactElement {
+function FlowStage({
+  icon,
+  label,
+  count,
+  sublabel,
+  color,
+  onClick,
+}: FlowStageProps): React.ReactElement {
   return (
     <button
       type="button"
@@ -48,7 +55,12 @@ interface FlowArrowProps {
   onNavigateToIssue?: (issueId: string) => void
 }
 
-function FlowArrow({ loss, lossLabel, issueId, onNavigateToIssue }: FlowArrowProps): React.ReactElement {
+function FlowArrow({
+  loss,
+  lossLabel,
+  issueId,
+  onNavigateToIssue,
+}: FlowArrowProps): React.ReactElement {
   const hasLoss = loss > 0
 
   return (

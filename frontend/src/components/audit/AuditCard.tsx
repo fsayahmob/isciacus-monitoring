@@ -184,9 +184,7 @@ function OnboardingCard({
         </span>
         <button
           className={`rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors ${
-            isRunning
-              ? 'bg-blue-500 text-white'
-              : 'bg-burgundy text-white hover:bg-burgundy/90'
+            isRunning ? 'bg-blue-500 text-white' : 'bg-burgundy text-white hover:bg-burgundy/90'
           }`}
           disabled={isRunning}
           onClick={(e) => {

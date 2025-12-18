@@ -214,17 +214,13 @@ def _check_shopify_connection() -> dict[str, Any]:
             step["status"] = "success"
             step["result"] = {"shop_name": shop_name}
             step["completed_at"] = datetime.now(tz=UTC).isoformat()
-            step["duration_ms"] = int(
-                (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-            )
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
             return {"success": True, "step": step}
 
         step["status"] = "error"
         step["error_message"] = f"Token invalide (erreur {resp.status_code})"
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step["duration_ms"] = int(
-            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-        )
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
         return {
             "success": False,
             "step": step,
@@ -405,9 +401,7 @@ def _check_meta_config() -> dict[str, Any]:
             last_fired = pixel_data.get("last_fired_time", "")
             is_unavailable = pixel_data.get("is_unavailable", False)
 
-            duration_ms = int(
-                (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-            )
+            duration_ms = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
             if is_unavailable:
                 step["status"] = "warning"
                 step["result"] = {"pixel_id": pixel_id, "pixel_name": pixel_name}
@@ -449,9 +443,7 @@ def _check_meta_config() -> dict[str, Any]:
             step["completed_at"] = datetime.now(tz=UTC).isoformat()
             step["duration_ms"] = duration_ms
             return {"success": True, "step": step}  # Still configured
-        duration_ms = int(
-            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-        )
+        duration_ms = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
         step["status"] = "warning"
         step["error_message"] = "Token invalide ou expiré"
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
@@ -622,17 +614,20 @@ def _finalize_result(
 
     # Add completion message if all configured
     if services_configured == services_total:
-        result["issues"].insert(0, {
-            "id": "onboarding_complete",
-            "audit_type": "onboarding",
-            "severity": "info",
-            "title": "Configuration complète !",
-            "description": (
-                "Tous vos services Ads et SEO sont configurés. "
-                "Vous pouvez maintenant lancer les audits détaillés."
-            ),
-            "action_available": False,
-        })
+        result["issues"].insert(
+            0,
+            {
+                "id": "onboarding_complete",
+                "audit_type": "onboarding",
+                "severity": "info",
+                "title": "Configuration complète !",
+                "description": (
+                    "Tous vos services Ads et SEO sont configurés. "
+                    "Vous pouvez maintenant lancer les audits détaillés."
+                ),
+                "action_available": False,
+            },
+        )
 
     return result
 

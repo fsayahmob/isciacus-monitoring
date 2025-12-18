@@ -1313,6 +1313,7 @@ async def execute_audit_action(
     if async_mode:
         # Generate task ID and start background execution
         import uuid
+
         task_id = str(uuid.uuid4())
         _background_tasks_status[task_id] = {"status": "pending"}
         background_tasks.add_task(_run_action_in_background, task_id, audit_type, action_id)

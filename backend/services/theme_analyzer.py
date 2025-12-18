@@ -383,9 +383,7 @@ class ThemeAnalyzerService:
 
         # Scan ALL liquid and JS files in the theme to find tracking code
         # This ensures we detect GA4/Meta regardless of where it was added
-        files_to_check = [
-            asset for asset in all_assets if asset.endswith((".liquid", ".js"))
-        ]
+        files_to_check = [asset for asset in all_assets if asset.endswith((".liquid", ".js"))]
 
         for file_path in files_to_check:
             content = self._get_theme_asset(theme_id, file_path)
