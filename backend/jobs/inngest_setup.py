@@ -11,12 +11,15 @@ Dashboard available at: http://localhost:8288
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import inngest
 from inngest.fast_api import serve
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -73,7 +76,7 @@ def setup_inngest(app: FastAPI) -> bool:
         return True
     except Exception:
         # Inngest setup failed (e.g., missing signing key in CI)
-        print("Inngest setup skipped - missing configuration")
+        logger.warning("Inngest setup skipped - missing configuration")
         return False
 
 
