@@ -28,7 +28,7 @@
     {
       "name": "Couverture Produits",
       "status": "ok",
-      "message": "601/667 produits tracks (90%)",
+      "message": "606/665 produits tracks (91%)",
       "details": [
         "emeric-me",
         "boxer-w",
@@ -37,9 +37,9 @@
         "pull-rocket-chick-yellow",
         "short-saporitori-mili-camo",
         "veste-otto-chick-yellow",
-        "tropical-jacket-olive-poplin",
-        "fat-pant",
-        "jeans-lean-dean-dry-black-eyes"
+        "jeans-lean-dean-dry-black-eyes",
+        "jeans-lean-dean-worn-indigofera",
+        "pantalon-tuff-tony-faded-green"
       ],
       "recommendation": "Verifier le tracking des fiches produit"
     },
@@ -373,8 +373,8 @@
       ]
     },
     "products": {
-      "total": 667,
-      "tracked": 601,
+      "total": 665,
+      "tracked": 606,
       "missing": [
         "emeric-me",
         "boxer-w",
@@ -383,8 +383,6 @@
         "pull-rocket-chick-yellow",
         "short-saporitori-mili-camo",
         "veste-otto-chick-yellow",
-        "tropical-jacket-olive-poplin",
-        "fat-pant",
         "jeans-lean-dean-dry-black-eyes",
         "jeans-lean-dean-worn-indigofera",
         "pantalon-tuff-tony-faded-green",
@@ -393,11 +391,13 @@
         "porte-cles-cloche-lisse-bleu-fumee",
         "veste-sans-manches-kaki",
         "short-de-bain-malibu-navy",
-        "short-de-bain-malibu-red",
-        "chemise-chuck-bd-cream",
-        "chemise-goerge-les-vacances-off-white"
+        "chemise-goerge-les-vacances-off-white",
+        "short-d-pile-deep-lagoon",
+        "jean-breezy-britt-friendly-blue",
+        "jean-breezy-britt-black-word",
+        "sweat-fred-ivy-black"
       ],
-      "rate": 90.10494752623688,
+      "rate": 91.12781954887218,
       "status": "ok",
       "sample": [
         {
@@ -565,5 +565,5 @@
     "ga4_transactions": 16,
     "match_rate": 0.9411764705882353
   },
-  "last_audit": "2025-12-17T22:43:02.267219+00:00"
+  "last_audit": "2025-12-18T19:28:08.896452+00:00"
 }

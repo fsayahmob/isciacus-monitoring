@@ -139,9 +139,11 @@ class ThemeAnalyzerService:
         "assets/global.js",
     ]
 
-    # GA4 event patterns
+    # GA4 patterns
     GA4_CONFIG_PATTERN = re.compile(r"gtag\s*\(\s*['\"]config['\"]\s*,\s*['\"]([^'\"]+)['\"]")
     GA4_EVENT_PATTERN = re.compile(r"gtag\s*\(\s*['\"]event['\"]\s*,\s*['\"]([^'\"]+)['\"]")
+    # Direct GA4 Measurement ID pattern (G-XXXXXXXXX format)
+    GA4_MEASUREMENT_ID_PATTERN = re.compile(r"['\"]?(G-[A-Z0-9]{8,12})['\"]?")
 
     # Meta Pixel patterns
     META_INIT_PATTERN = re.compile(r"fbq\s*\(\s*['\"]init['\"]\s*,\s*['\"](\d+)['\"]")
@@ -379,17 +381,11 @@ class ThemeAnalyzerService:
         # Get list of all assets to find tracking-related files
         all_assets = self._list_theme_assets(theme_id)
 
-        # Analyze each tracking file
-        files_to_check = [f for f in self.TRACKING_FILES if f in all_assets]
-
-        # Also check for any liquid files that might contain tracking
-        for asset in all_assets:
-            if asset.endswith(".liquid") and asset not in files_to_check:
-                if any(
-                    kw in asset.lower()
-                    for kw in ["gtag", "google", "analytics", "pixel", "facebook", "meta", "track"]
-                ):
-                    files_to_check.append(asset)
+        # Scan ALL liquid and JS files in the theme to find tracking code
+        # This ensures we detect GA4/Meta regardless of where it was added
+        files_to_check = [
+            asset for asset in all_assets if asset.endswith((".liquid", ".js"))
+        ]
 
         for file_path in files_to_check:
             content = self._get_theme_asset(theme_id, file_path)
@@ -411,12 +407,22 @@ class ThemeAnalyzerService:
         """Analyze a file's content for tracking code."""
         lines = content.split("\n")
 
-        # Check for GA4 configuration
+        # Check for GA4 configuration via gtag('config', 'G-...')
         ga4_configs = self.GA4_CONFIG_PATTERN.findall(content)
         for config in ga4_configs:
             if config.startswith("G-"):
                 analysis.ga4_configured = True
                 analysis.ga4_measurement_id = config
+
+        # Also check for GA4 Measurement ID directly (G-XXXXXXXXX pattern)
+        # This catches cases where the ID is in a variable, include, or non-standard format
+        if not analysis.ga4_configured:
+            ga4_ids = self.GA4_MEASUREMENT_ID_PATTERN.findall(content)
+            for ga4_id in ga4_ids:
+                if ga4_id.startswith("G-"):
+                    analysis.ga4_configured = True
+                    analysis.ga4_measurement_id = ga4_id
+                    break
 
         # Check for GA4 events
         ga4_events = self.GA4_EVENT_PATTERN.findall(content)

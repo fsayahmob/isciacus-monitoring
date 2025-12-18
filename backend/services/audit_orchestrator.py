@@ -31,6 +31,7 @@ MS_PER_SECOND = 1000
 class AuditType(Enum):
     """Available audit types."""
 
+    ONBOARDING = "onboarding"  # Check all service configurations
     GA4_TRACKING = "ga4_tracking"
     META_PIXEL = "meta_pixel"
     MERCHANT_CENTER = "merchant_center"
@@ -88,6 +89,7 @@ class AuditIssue:
     action_id: str | None = None
     action_label: str | None = None
     action_status: ActionStatus = ActionStatus.NOT_AVAILABLE
+    action_url: str | None = None  # External URL for link-type actions
 
 
 @dataclass
@@ -321,6 +323,20 @@ class AuditOrchestrator:
 
         audits = [
             {
+                "type": AuditType.ONBOARDING.value,
+                "name": "🚀 Diagnostic Initial",
+                "description": (
+                    "Vérifiez que tous vos services Ads et SEO sont correctement "
+                    "configurés dans Shopify avant de lancer les audits détaillés"
+                ),
+                "icon": "rocket",
+                "available": True,  # Always available
+                "last_run": None,
+                "last_status": None,
+                "issues_count": 0,
+                "is_primary": True,  # Mark as primary audit
+            },
+            {
                 "type": AuditType.THEME_CODE.value,
                 "name": "Code Tracking Thème",
                 "description": theme_description,
@@ -495,9 +511,9 @@ class AuditOrchestrator:
                 description="Vérification des événements de conversion",
             ),
             AuditStep(
-                id="catalog_sync",
-                name="Catalogue Facebook",
-                description="Vérification de la synchronisation du catalogue",
+                id="pixel_status",
+                name="Statut Pixel Meta",
+                description="Vérification du pixel sur Meta (activité, état)",
             ),
         ]
 
@@ -851,47 +867,93 @@ class AuditOrchestrator:
             )
 
             if not analysis.ga4_configured:
-                # GA4 not detected at all (neither in theme nor via Shopify native)
-                # Offer to add via snippet (safe method)
-                ga4_id = self._get_ga4_measurement_id()
-                if ga4_id:
-                    description = (
-                        f"Aucun code GA4 détecté. "
-                        f"Option 1: Configurez {ga4_id} dans Shopify > Online Store > Preferences. "
-                        f"Option 2: Cliquez pour ajouter {ga4_id} via un snippet (réversible)."
-                    )
-                    action_available = True
-                else:
-                    description = (
-                        "Aucun code GA4 détecté et GA4_MEASUREMENT_ID non configuré dans Settings. "
-                        "Configurez GA4 dans Shopify > Online Store > Preferences ou dans Settings > GA4."
-                    )
-                    action_available = False
+                # GA4 not detected in theme code - check if data is being received anyway
+                # (could be via Custom Pixels, GTM, or Shopify native integration)
+                ga4_receiving_data = False
+                ga4_visitors = 0
 
-                result.issues.append(
-                    AuditIssue(
-                        id="ga4_not_in_theme",
-                        audit_type=AuditType.THEME_CODE,
-                        severity="critical",
-                        title="GA4 non configuré",
-                        description=description,
-                        action_available=action_available,
-                        action_id="add_ga4_base" if action_available else None,
-                        action_label="Ajouter via snippet" if action_available else None,
-                        action_status=(
-                            ActionStatus.AVAILABLE
-                            if action_available
-                            else ActionStatus.NOT_AVAILABLE
-                        ),
+                try:
+                    from services.ga4_analytics import GA4AnalyticsService
+
+                    ga4_service = GA4AnalyticsService(self._config_service)
+                    if ga4_service.is_available():
+                        metrics = ga4_service.get_funnel_metrics(days=7, force_refresh=True)
+                        ga4_visitors = metrics.get("visitors") or 0
+                        ga4_receiving_data = ga4_visitors > 0
+                except Exception:
+                    pass
+
+                if ga4_receiving_data:
+                    # GA4 is receiving data but not installed in theme
+                    # This means it's via Custom Pixels, GTM, or Shopify Checkout
+                    self._update_step_status(
+                        result,
+                        "ga4_code",
+                        AuditStepStatus.SUCCESS,
+                        result_data={
+                            "configured": True,
+                            "via_custom_pixels": True,
+                            "visitors_7d": ga4_visitors,
+                        },
                     )
-                )
+                    result.issues.append(
+                        AuditIssue(
+                            id="ga4_via_custom_pixels",
+                            audit_type=AuditType.THEME_CODE,
+                            severity="info",
+                            title="GA4 actif via Custom Pixels ou GTM",
+                            description=(
+                                f"GA4 n'est pas dans le thème mais reçoit des données "
+                                f"({ga4_visitors} visiteurs ces 7 derniers jours). "
+                                "Probablement installé via Shopify Customer Events (Custom Pixels) "
+                                "ou Google Tag Manager."
+                            ),
+                            action_available=False,
+                        )
+                    )
+                else:
+                    # GA4 really not configured anywhere
+                    ga4_id = self._get_ga4_measurement_id()
+                    if ga4_id:
+                        description = (
+                            f"Aucun code GA4 détecté et aucune donnée reçue. "
+                            f"Option 1: Configurez {ga4_id} dans Shopify > Online Store > Preferences. "
+                            f"Option 2: Utilisez Customer Events (Custom Pixels) dans Shopify. "
+                            f"Option 3: Cliquez pour ajouter {ga4_id} via un snippet (réversible)."
+                        )
+                        action_available = True
+                    else:
+                        description = (
+                            "Aucun code GA4 détecté et aucune donnée reçue. "
+                            "Configurez GA4 via Shopify Customer Events (Custom Pixels), "
+                            "Online Store > Preferences, ou dans Settings > GA4."
+                        )
+                        action_available = False
+
+                    result.issues.append(
+                        AuditIssue(
+                            id="ga4_not_in_theme",
+                            audit_type=AuditType.THEME_CODE,
+                            severity="critical",
+                            title="GA4 non configuré",
+                            description=description,
+                            action_available=action_available,
+                            action_id="add_ga4_base" if action_available else None,
+                            action_label="Ajouter via snippet" if action_available else None,
+                            action_status=(
+                                ActionStatus.AVAILABLE
+                                if action_available
+                                else ActionStatus.NOT_AVAILABLE
+                            ),
+                        )
+                    )
             elif analysis.ga4_via_shopify_native and not analysis.ga4_events_found:
                 # GA4 is configured via Shopify native - inform user it's OK
                 result.issues.append(
                     AuditIssue(
                         id="ga4_via_shopify_native",
                         audit_type=AuditType.THEME_CODE,
-                        severity="low",
+                        severity="info",
                         title="GA4 configuré via Shopify",
                         description=(
                             f"GA4 ({analysis.ga4_measurement_id or 'ID non visible'}) "
@@ -933,8 +995,22 @@ class AuditOrchestrator:
             # Step 5: Issues Detection
             self._update_step_status(result, "issues_detection", AuditStepStatus.RUNNING)
 
+            # Check if GA4/Meta are receiving data via Custom Pixels (not in theme)
+            # If so, skip the "missing event" issues since events are tracked elsewhere
+            ga4_via_custom_pixels = any(i.id == "ga4_via_custom_pixels" for i in result.issues)
+
             # Convert theme analyzer issues to audit issues
+            filtered_issues_count = 0
             for i, issue in enumerate(analysis.issues):
+                # Skip GA4 missing event issues if GA4 is active via Custom Pixels
+                if (
+                    ga4_via_custom_pixels
+                    and issue.tracking_type.value == "ga4"
+                    and issue.issue_type == "missing_event"
+                ):
+                    filtered_issues_count += 1
+                    continue
+
                 fixable = issue.fix_available
                 action_sts = ActionStatus.AVAILABLE if fixable else ActionStatus.NOT_AVAILABLE
                 event_name = issue.event or issue.issue_type
@@ -953,7 +1029,8 @@ class AuditOrchestrator:
                     )
                 )
 
-            has_issues = len(analysis.issues) > 0
+            reported_issues = len(analysis.issues) - filtered_issues_count
+            has_issues = reported_issues > 0
             issues_status = AuditStepStatus.WARNING if has_issues else AuditStepStatus.SUCCESS
             self._update_step_status(
                 result,
@@ -973,6 +1050,7 @@ class AuditOrchestrator:
                 "gtm_configured": analysis.gtm_configured,
                 "issues_count": len(analysis.issues),
                 "fixable_count": len([i for i in analysis.issues if i.fix_available]),
+                "files_analyzed": analysis.files_analyzed,
             }
 
         except Exception as e:
@@ -1001,67 +1079,121 @@ class AuditOrchestrator:
             self._config_service = ConfigService()
 
         meta_config = self._config_service.get_meta_values()
-        pixel_id = meta_config.get("pixel_id", "")
+        configured_pixel_id = meta_config.get("pixel_id", "")
         access_token = meta_config.get("access_token", "")
 
-        # Step 1: Meta Connection
+        # Step 1: Scan theme for Meta Pixel (detect any pixel, don't require config)
         self._update_step_status(result, "meta_connection", AuditStepStatus.RUNNING)
 
-        if not pixel_id:
-            self._update_step_status(
-                result,
-                "meta_connection",
-                AuditStepStatus.ERROR,
-                error_message="Meta Pixel ID non configuré. Allez dans Settings > Meta.",
-            )
-            for step in result.steps[1:]:
-                step.status = AuditStepStatus.SKIPPED
-            result.status = AuditStepStatus.ERROR
-            result.completed_at = datetime.now(tz=UTC).isoformat()
-            self._save_current_session()
-            return result
-
-        self._update_step_status(
-            result,
-            "meta_connection",
-            AuditStepStatus.SUCCESS,
-            result_data={"pixel_id": pixel_id, "has_token": bool(access_token)},
-        )
-
-        # Step 2: Pixel Configuration (check in theme)
-        self._update_step_status(result, "pixel_config", AuditStepStatus.RUNNING)
-
+        theme_pixel_id = None
         pixel_in_theme = False
+        analysis = None
+
         if self.theme_analyzer:
             analysis = self.theme_analyzer.analyze_theme()
             pixel_in_theme = analysis.meta_pixel_configured
             theme_pixel_id = analysis.meta_pixel_id
 
-        if pixel_in_theme:
-            if theme_pixel_id == pixel_id:
-                self._update_step_status(
-                    result,
-                    "pixel_config",
-                    AuditStepStatus.SUCCESS,
-                    result_data={"pixel_in_theme": True, "pixel_match": True},
+        if pixel_in_theme and theme_pixel_id:
+            # Pixel found in theme - this is the primary source of truth
+            self._update_step_status(
+                result,
+                "meta_connection",
+                AuditStepStatus.SUCCESS,
+                result_data={
+                    "pixel_in_theme": True,
+                    "theme_pixel_id": theme_pixel_id,
+                    "configured_pixel_id": configured_pixel_id or None,
+                },
+            )
+            # Use theme pixel as the effective pixel ID
+            effective_pixel_id = theme_pixel_id
+        elif configured_pixel_id:
+            # No pixel in theme but we have one configured
+            self._update_step_status(
+                result,
+                "meta_connection",
+                AuditStepStatus.WARNING,
+                result_data={
+                    "pixel_in_theme": False,
+                    "configured_pixel_id": configured_pixel_id,
+                },
+                error_message="Pixel configuré mais non détecté dans le thème",
+            )
+            effective_pixel_id = configured_pixel_id
+        else:
+            # No pixel anywhere
+            self._update_step_status(
+                result,
+                "meta_connection",
+                AuditStepStatus.ERROR,
+                error_message="Aucun Meta Pixel détecté dans le thème ni configuré",
+            )
+            for step in result.steps[1:]:
+                step.status = AuditStepStatus.SKIPPED
+            result.status = AuditStepStatus.ERROR
+            result.completed_at = datetime.now(tz=UTC).isoformat()
+            result.issues.append(
+                AuditIssue(
+                    id="meta_no_pixel",
+                    audit_type=AuditType.META_PIXEL,
+                    severity="critical",
+                    title="Aucun Meta Pixel",
+                    description=(
+                        "Aucun Meta Pixel n'est installé dans le thème Shopify. "
+                        "Le Pixel est nécessaire pour tracker les conversions Facebook/Instagram."
+                    ),
+                    action_available=True,
+                    action_label="Configurer Meta",
+                    action_url="https://business.facebook.com/events_manager",
+                    action_status=ActionStatus.AVAILABLE,
                 )
-            else:
+            )
+            self._save_current_session()
+            return result
+
+        # Step 2: Pixel Configuration (compare theme vs config if both exist)
+        self._update_step_status(result, "pixel_config", AuditStepStatus.RUNNING)
+
+        if pixel_in_theme:
+            if configured_pixel_id and theme_pixel_id != configured_pixel_id:
+                # Mismatch between theme and config - info only
                 self._update_step_status(
                     result,
                     "pixel_config",
                     AuditStepStatus.WARNING,
-                    result_data={"pixel_in_theme": True, "pixel_match": False},
+                    result_data={
+                        "theme_pixel_id": theme_pixel_id,
+                        "configured_pixel_id": configured_pixel_id,
+                        "match": False,
+                    },
                 )
                 result.issues.append(
                     AuditIssue(
                         id="meta_pixel_mismatch",
                         audit_type=AuditType.META_PIXEL,
-                        severity="warning",
-                        title="ID Pixel différent",
-                        description=f"Le Pixel dans le thème ({theme_pixel_id}) est différent de celui configuré ({pixel_id})",
+                        severity="info",
+                        title="Pixel ID différent de la config",
+                        description=(
+                            f"Le Pixel dans le thème ({theme_pixel_id}) est différent "
+                            f"de celui configuré dans les settings ({configured_pixel_id}). "
+                            "Mettez à jour la config si nécessaire."
+                        ),
                     )
                 )
+            else:
+                # Pixel in theme, matches config or no config
+                self._update_step_status(
+                    result,
+                    "pixel_config",
+                    AuditStepStatus.SUCCESS,
+                    result_data={
+                        "theme_pixel_id": theme_pixel_id,
+                        "status": "installed",
+                    },
+                )
         else:
+            # Pixel configured but not in theme
             self._update_step_status(
                 result,
                 "pixel_config",
@@ -1070,13 +1202,18 @@ class AuditOrchestrator:
             )
             result.issues.append(
                 AuditIssue(
-                    id="meta_pixel_not_installed",
+                    id="meta_pixel_not_in_theme",
                     audit_type=AuditType.META_PIXEL,
-                    severity="error",
-                    title="Meta Pixel non installé",
-                    description=f"Le Meta Pixel {pixel_id} n'est pas détecté dans le thème Shopify",
-                    action_available=False,
-                    action_label="Installer le Pixel",
+                    severity="high",
+                    title="Meta Pixel non installé dans le thème",
+                    description=(
+                        f"Le Pixel {configured_pixel_id} est configuré mais n'est pas "
+                        "détecté dans le code du thème Shopify. Vérifiez l'installation."
+                    ),
+                    action_available=True,
+                    action_label="Guide d'installation",
+                    action_url="https://www.facebook.com/business/help/952192354843755",
+                    action_status=ActionStatus.AVAILABLE,
                 )
             )
 
@@ -1086,12 +1223,183 @@ class AuditOrchestrator:
         meta_events_found = []
         required_events = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"]
 
-        if self.theme_analyzer:
+        if analysis:
             meta_events_found = analysis.meta_events_found
 
         missing_events = [e for e in required_events if e not in meta_events_found]
 
-        if not missing_events:
+        # We'll update events_check status later, after checking Meta API
+        # to detect if pixel is active via Custom Pixels
+
+        # Step 4: Verify pixel status on Meta
+        self._update_step_status(result, "pixel_status", AuditStepStatus.RUNNING)
+
+        pixel_active_on_meta = False
+        pixel_name = ""
+        last_fired = None
+
+        if not access_token:
+            self._update_step_status(
+                result,
+                "pixel_status",
+                AuditStepStatus.SKIPPED,
+                error_message="Pas de token Meta - impossible de vérifier le statut du pixel",
+            )
+        else:
+            # Query Meta API to check the pixel status
+            try:
+                import requests
+
+                pixel_url = f"https://graph.facebook.com/v19.0/{effective_pixel_id}"
+                pixel_resp = requests.get(
+                    pixel_url,
+                    params={
+                        "access_token": access_token,
+                        "fields": "id,name,last_fired_time,is_unavailable,owner_business",
+                    },
+                    timeout=10,
+                )
+
+                if pixel_resp.status_code == 200:
+                    pixel_data = pixel_resp.json()
+                    pixel_name = pixel_data.get("name", "")
+                    last_fired = pixel_data.get("last_fired_time")
+                    is_unavailable = pixel_data.get("is_unavailable", False)
+                    owner_business = pixel_data.get("owner_business", {})
+
+                    if is_unavailable:
+                        self._update_step_status(
+                            result,
+                            "pixel_status",
+                            AuditStepStatus.WARNING,
+                            result_data={
+                                "pixel_name": pixel_name,
+                                "status": "unavailable",
+                                "owner_business": owner_business.get("name", ""),
+                            },
+                            error_message=f"Pixel '{pixel_name}' désactivé sur Meta",
+                        )
+                        result.issues.append(
+                            AuditIssue(
+                                id="meta_pixel_disabled",
+                                audit_type=AuditType.META_PIXEL,
+                                severity="high",
+                                title=f"Pixel '{pixel_name}' désactivé",
+                                description=(
+                                    f"Le pixel {effective_pixel_id} existe sur Meta mais est "
+                                    "marqué comme indisponible. Vérifiez dans Events Manager."
+                                ),
+                                action_available=True,
+                                action_label="Ouvrir Events Manager",
+                                action_url=f"https://business.facebook.com/events_manager2/list/pixel/{effective_pixel_id}",
+                                action_status=ActionStatus.AVAILABLE,
+                            )
+                        )
+                    elif last_fired:
+                        # Pixel is active and receiving data
+                        pixel_active_on_meta = True
+                        self._update_step_status(
+                            result,
+                            "pixel_status",
+                            AuditStepStatus.SUCCESS,
+                            result_data={
+                                "pixel_name": pixel_name,
+                                "last_fired": last_fired,
+                                "status": "active",
+                                "owner_business": owner_business.get("name", ""),
+                                "owner_business_id": owner_business.get("id", ""),
+                            },
+                        )
+                    else:
+                        self._update_step_status(
+                            result,
+                            "pixel_status",
+                            AuditStepStatus.WARNING,
+                            result_data={
+                                "pixel_name": pixel_name,
+                                "status": "no_activity",
+                                "owner_business": owner_business.get("name", ""),
+                            },
+                            error_message=f"Pixel '{pixel_name}' sans activité récente",
+                        )
+                        result.issues.append(
+                            AuditIssue(
+                                id="meta_pixel_no_activity",
+                                audit_type=AuditType.META_PIXEL,
+                                severity="warning",
+                                title="Pixel sans activité récente",
+                                description=(
+                                    f"Le pixel '{pixel_name}' ({effective_pixel_id}) existe "
+                                    "mais n'a pas reçu de données récemment."
+                                ),
+                                action_available=True,
+                                action_label="Tester avec Pixel Helper",
+                                action_url="https://chrome.google.com/webstore/detail/meta-pixel-helper/fdgfkebogiimcoedlicjlajpkdmockpc",
+                                action_status=ActionStatus.AVAILABLE,
+                            )
+                        )
+                elif pixel_resp.status_code == 400:
+                    error_msg = ""
+                    try:
+                        error_data = pixel_resp.json()
+                        error_msg = error_data.get("error", {}).get("message", "")
+                    except Exception:
+                        pass
+                    self._update_step_status(
+                        result,
+                        "pixel_status",
+                        AuditStepStatus.WARNING,
+                        error_message=f"Pixel {effective_pixel_id} non accessible sur Meta",
+                    )
+                else:
+                    self._update_step_status(
+                        result,
+                        "pixel_status",
+                        AuditStepStatus.WARNING,
+                        error_message=f"Erreur API Meta ({pixel_resp.status_code})",
+                    )
+            except Exception as e:
+                self._update_step_status(
+                    result,
+                    "pixel_status",
+                    AuditStepStatus.ERROR,
+                    error_message=str(e),
+                )
+
+        # Now update events_check based on what we found
+        # If pixel is active on Meta but not in theme = Custom Pixels installation
+        meta_via_custom_pixels = pixel_active_on_meta and not pixel_in_theme
+
+        if meta_via_custom_pixels:
+            # Pixel active via Custom Pixels - don't report missing events as errors
+            self._update_step_status(
+                result,
+                "events_check",
+                AuditStepStatus.SUCCESS,
+                result_data={
+                    "via_custom_pixels": True,
+                    "last_fired": last_fired,
+                    "coverage": "via Custom Pixels",
+                },
+            )
+            # Remove the "not in theme" issue we added earlier
+            result.issues = [i for i in result.issues if i.id != "meta_pixel_not_in_theme"]
+            # Add info issue instead
+            result.issues.append(
+                AuditIssue(
+                    id="meta_via_custom_pixels",
+                    audit_type=AuditType.META_PIXEL,
+                    severity="info",
+                    title="Meta Pixel actif via Custom Pixels",
+                    description=(
+                        f"Le pixel '{pixel_name}' ({effective_pixel_id}) n'est pas dans le thème "
+                        f"mais est actif sur Meta (dernière activité: {last_fired}). "
+                        "Installation via l'app Shopify Facebook ou Custom Pixels détectée."
+                    ),
+                    action_available=False,
+                )
+            )
+        elif not missing_events:
             self._update_step_status(
                 result,
                 "events_check",
@@ -1106,17 +1414,30 @@ class AuditOrchestrator:
                 result,
                 "events_check",
                 AuditStepStatus.WARNING,
-                result_data={"events_found": meta_events_found, "coverage": f"{coverage}%"},
+                result_data={
+                    "events_found": meta_events_found,
+                    "missing_events": missing_events,
+                    "coverage": f"{coverage}%",
+                },
             )
+            # Add issues for missing events
+            event_info = {
+                "PageView": {"description": "Tracke toutes les pages visitées", "severity": "warning"},
+                "ViewContent": {"description": "Tracke les vues de produits", "severity": "high"},
+                "AddToCart": {"description": "Essentiel pour les campagnes", "severity": "critical"},
+                "InitiateCheckout": {"description": "Tracke le début d'achat", "severity": "high"},
+                "Purchase": {"description": "Indispensable pour le ROAS", "severity": "critical"},
+            }
             for event in missing_events:
-                severity = "error" if event in ["Purchase", "AddToCart"] else "warning"
+                info = event_info.get(event, {})
                 result.issues.append(
                     AuditIssue(
                         id=f"meta_missing_{event.lower()}",
                         audit_type=AuditType.META_PIXEL,
-                        severity=severity,
+                        severity=info.get("severity", "warning"),
                         title=f"Événement {event} manquant",
-                        description=f"L'événement Meta '{event}' n'est pas tracké",
+                        description=info.get("description", ""),
+                        action_available=False,
                     )
                 )
         else:
@@ -1132,76 +1453,33 @@ class AuditOrchestrator:
                     audit_type=AuditType.META_PIXEL,
                     severity="critical",
                     title="Aucun événement Meta détecté",
-                    description="Aucun événement de conversion n'est tracké avec le Meta Pixel",
+                    description=(
+                        "Aucun événement de conversion n'est tracké dans le thème. "
+                        "Si vous utilisez l'app Shopify Facebook, vérifiez qu'elle est bien configurée."
+                    ),
+                    details=[
+                        "📋 Événements requis: PageView, ViewContent, AddToCart, InitiateCheckout, Purchase",
+                        "💡 Utilisez l'app Shopify 'Facebook' pour une installation simplifiée",
+                    ],
+                    action_available=True,
+                    action_label="Installer via Shopify",
+                    action_url="https://apps.shopify.com/facebook",
+                    action_status=ActionStatus.AVAILABLE,
                 )
             )
-
-        # Step 4: Catalog Sync (requires access token)
-        self._update_step_status(result, "catalog_sync", AuditStepStatus.RUNNING)
-
-        if not access_token:
-            self._update_step_status(
-                result,
-                "catalog_sync",
-                AuditStepStatus.SKIPPED,
-                error_message="META_ACCESS_TOKEN non configuré - synchronisation catalogue non vérifiable",
-            )
-            result.issues.append(
-                AuditIssue(
-                    id="meta_no_token",
-                    audit_type=AuditType.META_PIXEL,
-                    severity="medium",
-                    title="Token Meta manquant",
-                    description="Configurez META_ACCESS_TOKEN pour vérifier la synchronisation du catalogue Facebook",
-                )
-            )
-        else:
-            # Try to check catalog via Meta API
-            try:
-                import requests
-
-                ad_account_id = meta_config.get("ad_account_id", "")
-                if ad_account_id:
-                    url = f"https://graph.facebook.com/v18.0/act_{ad_account_id}/product_catalogs"
-                    resp = requests.get(url, params={"access_token": access_token}, timeout=10)
-                    if resp.status_code == 200:
-                        catalogs = resp.json().get("data", [])
-                        self._update_step_status(
-                            result,
-                            "catalog_sync",
-                            AuditStepStatus.SUCCESS,
-                            result_data={"catalogs_count": len(catalogs)},
-                        )
-                    else:
-                        self._update_step_status(
-                            result,
-                            "catalog_sync",
-                            AuditStepStatus.WARNING,
-                            error_message=f"Erreur API Meta: {resp.status_code}",
-                        )
-                else:
-                    self._update_step_status(
-                        result,
-                        "catalog_sync",
-                        AuditStepStatus.SKIPPED,
-                        error_message="META_AD_ACCOUNT_ID non configuré",
-                    )
-            except Exception as e:
-                self._update_step_status(
-                    result,
-                    "catalog_sync",
-                    AuditStepStatus.ERROR,
-                    error_message=str(e),
-                )
 
         # Finalize
         result.status = self._overall_status(result.steps)
         result.completed_at = datetime.now(tz=UTC).isoformat()
         result.summary = {
-            "pixel_id": pixel_id,
+            "pixel_id": effective_pixel_id,
+            "theme_pixel_id": theme_pixel_id,
+            "configured_pixel_id": configured_pixel_id or None,
             "pixel_in_theme": pixel_in_theme,
+            "pixel_active_on_meta": pixel_active_on_meta,
+            "via_custom_pixels": meta_via_custom_pixels,
             "events_found": meta_events_found,
-            "events_missing": missing_events,
+            "events_missing": missing_events if not meta_via_custom_pixels else [],
             "issues_count": len(result.issues),
         }
 
@@ -1298,32 +1576,141 @@ class AuditOrchestrator:
                 self._save_current_session()
                 return result
 
-            # Step 2: Products Status
+            # Step 1b: Get Account Status (account-level issues that may block products)
+            account_issues: list[dict] = []
+            try:
+                account_status_resp = requests.get(
+                    f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/accountstatuses/{merchant_id}",
+                    headers=headers,
+                    timeout=30,
+                )
+                if account_status_resp.status_code == 200:
+                    account_data = account_status_resp.json()
+                    account_issues = account_data.get("accountLevelIssues", [])
+            except Exception:
+                pass  # Non-blocking, continue audit
+
+            # Step 2: Products Status - Use productstatuses API for detailed status
             self._update_step_status(result, "products_status", AuditStepStatus.RUNNING)
 
-            products_resp = requests.get(
-                f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/products",
-                headers=headers,
-                timeout=30,
-            )
+            # Get product statuses with item-level issues (rejection reasons)
+            # Fetch ALL productstatuses with pagination
+            gmc_products: list[dict] = []
+            gmc_products_by_id: dict[str, dict] = {}
+            approved = 0
+            disapproved = 0
+            pending = 0
 
-            if products_resp.status_code == 200:
-                products_data = products_resp.json()
-                products = products_data.get("resources", [])
-                total_products = len(products)
+            # Collect rejection reasons
+            rejection_reasons: dict[str, list[dict]] = {}  # reason_code -> list of products
 
-                # Count by status
-                approved = sum(
-                    1
-                    for p in products
-                    if p.get("destinations", [{}])[0].get("status") == "approved"
-                )
-                disapproved = sum(
-                    1
-                    for p in products
-                    if p.get("destinations", [{}])[0].get("status") == "disapproved"
-                )
-                pending = total_products - approved - disapproved
+            # Paginate through all products
+            next_page_token = None
+            page_count = 0
+            max_pages = 50  # Safety limit
+
+            while page_count < max_pages:
+                page_count += 1
+                url = f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/productstatuses?maxResults=250"
+                if next_page_token:
+                    url += f"&pageToken={next_page_token}"
+
+                statuses_resp = requests.get(url, headers=headers, timeout=60)
+
+                if statuses_resp.status_code != 200:
+                    break
+
+                statuses_data = statuses_resp.json()
+                page_products = statuses_data.get("resources", [])
+                gmc_products.extend(page_products)
+
+                # Check for more pages
+                next_page_token = statuses_data.get("nextPageToken")
+                if not next_page_token:
+                    break
+
+            total_products = len(gmc_products)
+
+            # Track products with disapproved issues (for detailed reporting)
+            products_with_issues: list[dict] = []
+
+            if total_products > 0:
+                for product in gmc_products:
+                    product_id = product.get("productId", "")
+                    title = product.get("title", "Sans titre")
+
+                    # Extract Shopify ID from GMC product ID (format: shopify_FR_123456_789)
+                    shopify_id = None
+                    if "shopify_" in product_id:
+                        parts = product_id.split("_")
+                        if len(parts) >= 4:
+                            shopify_id = parts[3]  # The product ID part
+                    gmc_products_by_id[shopify_id or product_id] = product
+
+                    # Check destination status for France (FR)
+                    # destinationStatuses contains approvedCountries, pendingCountries, disapprovedCountries
+                    dest_statuses = product.get("destinationStatuses", [])
+                    product_status = "pending"
+                    for dest in dest_statuses:
+                        # Check all Google destinations
+                        dest_name = dest.get("destination", "")
+                        if "SurfacesAcrossGoogle" in dest_name or "Shopping" in dest_name:
+                            approved_countries = dest.get("approvedCountries", [])
+                            disapproved_countries = dest.get("disapprovedCountries", [])
+                            pending_countries = dest.get("pendingCountries", [])
+
+                            if "FR" in approved_countries:
+                                product_status = "approved"
+                            elif "FR" in disapproved_countries:
+                                product_status = "disapproved"
+                            elif "FR" in pending_countries:
+                                product_status = "pending"
+
+                    if product_status == "approved":
+                        approved += 1
+                    elif product_status == "disapproved":
+                        disapproved += 1
+                    else:
+                        pending += 1
+
+                    # Extract item-level issues (rejection reasons)
+                    # servability: "disapproved" = blocks serving, "demoted" = reduced visibility, "unaffected" = warning only
+                    item_issues = product.get("itemLevelIssues", [])
+                    product_issues_seen: set[str] = set()
+                    product_disapproved_issues: list[dict] = []
+
+                    for issue in item_issues:
+                        servability = issue.get("servability", "")
+                        # Only count disapproved issues (blocks serving) - not demoted or unaffected
+                        if servability == "disapproved":
+                            reason_code = issue.get("code", "unknown")
+                            reason_desc = issue.get("description", reason_code)
+
+                            # Only add this product once per reason code
+                            if reason_code not in product_issues_seen:
+                                product_issues_seen.add(reason_code)
+                                if reason_code not in rejection_reasons:
+                                    rejection_reasons[reason_code] = []
+                                issue_info = {
+                                    "product_id": product_id,
+                                    "title": title,
+                                    "description": reason_desc,
+                                    "attribute": issue.get("attributeName", ""),
+                                    "detail": issue.get("detail", ""),
+                                    "documentation": issue.get("documentation", ""),
+                                }
+                                rejection_reasons[reason_code].append(issue_info)
+                                product_disapproved_issues.append(issue_info)
+
+                    if product_disapproved_issues:
+                        products_with_issues.append(
+                            {
+                                "product_id": product_id,
+                                "title": title,
+                                "status": product_status,
+                                "issues": product_disapproved_issues,
+                            }
+                        )
 
                 if disapproved > 0:
                     self._update_step_status(
@@ -1337,15 +1724,6 @@ class AuditOrchestrator:
                             "pending": pending,
                         },
                     )
-                    result.issues.append(
-                        AuditIssue(
-                            id="gmc_disapproved_products",
-                            audit_type=AuditType.MERCHANT_CENTER,
-                            severity="error",
-                            title=f"{disapproved} produits rejetés",
-                            description=f"{disapproved} produits sont rejetés par Google Merchant Center",
-                        )
-                    )
                 else:
                     self._update_step_status(
                         result,
@@ -1354,7 +1732,7 @@ class AuditOrchestrator:
                         result_data={
                             "total": total_products,
                             "approved": approved,
-                            "disapproved": 0,
+                            "disapproved": disapproved,
                             "pending": pending,
                         },
                     )
@@ -1363,223 +1741,379 @@ class AuditOrchestrator:
                     result,
                     "products_status",
                     AuditStepStatus.ERROR,
-                    error_message=f"Erreur lecture produits: {products_resp.status_code}",
+                    error_message=f"Erreur lecture produits: {statuses_resp.status_code}",
                 )
 
-            # Step 3: Feed Sync (compare with Shopify)
+            # Step 3: Feed Sync - NEW APPROACH: Start from GMC, cross-reference with Shopify
             self._update_step_status(result, "feed_sync", AuditStepStatus.RUNNING)
 
-            # Get Shopify products with full details for GMC analysis
+            # Get Shopify products and Google channel publication status
             from services.shopify_analytics import ShopifyAnalyticsService
 
             shopify = ShopifyAnalyticsService()
-            shopify_products_list = shopify.fetch_products_for_gmc_audit()
-            shopify_products = len(shopify_products_list)
-
-            # Get Google Shopping publication status from Shopify
             google_pub_status = shopify.fetch_products_google_shopping_status()
+            google_channel_found = google_pub_status.get("google_channel_found", False)
+            published_to_google = google_pub_status.get("published_to_google", 0)
+            not_published_to_google = google_pub_status.get("not_published_to_google", 0)
+            products_not_published = google_pub_status.get("products_not_published", [])
+            products_published = google_pub_status.get("products_published", [])
+            # New: eligible products not published (could be activated)
+            products_not_published_eligible = google_pub_status.get(
+                "products_not_published_eligible", []
+            )
 
-            if shopify_products > 0 and total_products > 0:
-                sync_rate = int((total_products / shopify_products) * 100)
-                if sync_rate >= 90:
-                    self._update_step_status(
-                        result,
-                        "feed_sync",
-                        AuditStepStatus.SUCCESS,
-                        result_data={
-                            "shopify": shopify_products,
-                            "gmc": total_products,
-                            "sync_rate": f"{sync_rate}%",
-                        },
-                    )
+            # Analyze products published to Google channel for quality issues
+            # These could explain why they don't appear in GMC
+            published_no_image: list[dict] = []
+            published_no_price: list[dict] = []
+            published_no_description: list[dict] = []
+            published_out_of_stock: list[dict] = []
+            published_ok: list[dict] = []
+
+            for product in products_published:
+                # Data now comes pre-analyzed from the service
+                has_image = product.get("has_image", False)
+                has_description = product.get("has_description", False)
+                has_price = product.get("has_price", False)
+                in_stock = product.get("in_stock", False)
+
+                product_info = {
+                    "title": product.get("title", "Sans titre"),
+                    "handle": product.get("handle", ""),
+                }
+
+                if not has_image:
+                    published_no_image.append(product_info)
+                elif not has_price:
+                    published_no_price.append(product_info)
+                elif not has_description:
+                    published_no_description.append(product_info)
+                elif not in_stock:
+                    published_out_of_stock.append(product_info)
                 else:
-                    # Analyze product eligibility for GMC sync
-                    missing = shopify_products - total_products
+                    published_ok.append(product_info)
 
-                    # Count products by eligibility criteria
-                    no_price = 0
-                    no_image = 0
-                    no_description = 0
-                    draft_products = 0
-                    eligible_products = 0  # Products with all required fields
+            # Build GMC-first analysis
+            # 1. What's IN GMC (we have: total_products, approved, disapproved, pending)
+            # 2. What's rejected and WHY (rejection_reasons from productstatuses API)
+            # 3. What's missing and why (cross-reference with Shopify Google channel)
 
-                    for product in shopify_products_list:
-                        has_price = False
-                        has_image = bool(product.get("featuredImage"))
-                        has_description = bool(
-                            product.get("descriptionHtml") or product.get("description")
+            self._update_step_status(
+                result,
+                "feed_sync",
+                AuditStepStatus.SUCCESS if total_products > 0 else AuditStepStatus.WARNING,
+                result_data={
+                    "gmc_total": total_products,
+                    "gmc_approved": approved,
+                    "gmc_disapproved": disapproved,
+                    "gmc_pending": pending,
+                    "shopify_published_to_google": published_to_google,
+                    "shopify_not_published": not_published_to_google,
+                },
+            )
+
+            # Calculate totals for KPI summary
+            # Total products in Shopify store (published + not published to Google)
+            total_shopify_products = published_to_google + not_published_to_google
+
+            # GMC counts variants, Shopify counts parent products
+            # Calculate approval rate based on GMC data
+            approval_rate = round((approved / total_products * 100), 1) if total_products > 0 else 0
+
+            # ISSUE 0: KPI SUMMARY - Overview of the full flow
+            # Shopify Store → Shopify Google Channel → GMC Received → GMC Approved
+            kpi_severity = "info"
+            if disapproved > 0 or approval_rate < 90:
+                kpi_severity = "high"
+            elif pending > 0 or approval_rate < 95:
+                kpi_severity = "warning"
+
+            kpi_details = [
+                "═══════════════════════════════════════",
+                "        FLUX PRODUITS GOOGLE SHOPPING",
+                "═══════════════════════════════════════",
+                "",
+                f"🛍️  SHOPIFY:      {total_shopify_products} produits",
+                "         ↓",
+                f"📤  CANAL GOOGLE: {published_to_google} publiés",
+                f"         ↓        ({not_published_to_google} non publiés)",
+                f"📥  GMC REÇUS:    {total_products} variantes reçues",
+                "         ↓",
+                f"✅  APPROUVÉS:    {approved} ({approval_rate}%)",
+                "",
+                "───────────────────────────────────────",
+                f"⏳  En attente:   {pending}",
+                f"❌  Rejetés:      {disapproved}",
+                "═══════════════════════════════════════",
+                "",
+                "i  GMC compte les variantes (taille, couleur...)",
+                "    Shopify compte les produits parents",
+            ]
+
+            result.issues.append(
+                AuditIssue(
+                    id="kpi_summary",
+                    audit_type=AuditType.MERCHANT_CENTER,
+                    severity=kpi_severity,
+                    title=f"📊 GMC: {approved}/{total_products} approuvés ({approval_rate}%)",
+                    description=f"Shopify {total_shopify_products} produits → Canal Google {published_to_google} → GMC {total_products} variantes → {approved} approuvées",
+                    details=kpi_details,
+                )
+            )
+
+            # ISSUE 1b: Account-level issues (can block entire feed)
+            if account_issues:
+                critical_issues = [i for i in account_issues if i.get("severity") == "critical"]
+                error_issues = [i for i in account_issues if i.get("severity") == "error"]
+
+                if critical_issues or error_issues:
+                    account_details = []
+                    for issue in account_issues:
+                        severity = issue.get("severity", "unknown")
+                        title = issue.get("title", "Problème inconnu")
+                        detail = issue.get("detail", "")
+
+                        severity_icon = (
+                            "🔴"
+                            if severity == "critical"
+                            else "🟠" if severity == "error" else "🟡"
                         )
-                        is_draft = product.get("status") == "DRAFT"
+                        account_details.append(f"{severity_icon} [{severity.upper()}] {title}")
+                        if detail:
+                            account_details.append(f"   → {detail[:100]}")
 
-                        # Check price from variants
-                        variants = product.get("variants", {}).get("nodes", [])
-                        if variants:
-                            has_price = any(float(v.get("price", 0) or 0) > 0 for v in variants)
-
-                        # Count missing attributes
-                        if not has_price:
-                            no_price += 1
-                        if not has_image:
-                            no_image += 1
-                        if not has_description:
-                            no_description += 1
-                        if is_draft:
-                            draft_products += 1
-
-                        # Count eligible products (has price, image, description, not draft)
-                        if has_price and has_image and has_description and not is_draft:
-                            eligible_products += 1
-
-                    # Calculate ineligible products
-                    ineligible_products = shopify_products - eligible_products
-
-                    # Build detailed analysis
-                    analysis_details = []
-                    analysis_details.append(
-                        f"{eligible_products} produits éligibles GMC (avec prix, image, description)"
-                    )
-                    if ineligible_products > 0:
-                        analysis_details.append(f"{ineligible_products} produits non éligibles:")
-                    if no_price > 0:
-                        analysis_details.append(f"  • {no_price} sans prix")
-                    if no_image > 0:
-                        analysis_details.append(f"  • {no_image} sans image")
-                    if no_description > 0:
-                        analysis_details.append(f"  • {no_description} sans description")
-                    if draft_products > 0:
-                        analysis_details.append(f"  • {draft_products} en brouillon")
-
-                    # Add Google Shopping publication status from Shopify API
-                    google_channel_found = google_pub_status.get("google_channel_found", False)
-                    published_to_google = google_pub_status.get("published_to_google", 0)
-                    not_published_to_google = google_pub_status.get("not_published_to_google", 0)
-
-                    if google_channel_found:
-                        analysis_details.append("\n📡 Publication Google Shopping (Shopify):")
-                        analysis_details.append(
-                            f"  • {published_to_google} produits publiés sur le canal Google"
-                        )
-                        analysis_details.append(
-                            f"  • {not_published_to_google} produits NON publiés"
-                        )
-
-                    # Add sync gap analysis
-                    if total_products < eligible_products:
-                        gap = eligible_products - total_products
-                        analysis_details.append(
-                            f"\n⚠️ {gap} produits éligibles ne sont PAS dans GMC"
-                        )
-                        if google_channel_found and not_published_to_google > 0:
-                            analysis_details.append(
-                                f"→ {not_published_to_google} ne sont pas publiés sur le canal Google dans Shopify"
-                            )
-                        analysis_details.append(
-                            "Vérifiez le statut dans Shopify > Google & YouTube > Produits"
-                        )
-
-                    self._update_step_status(
-                        result,
-                        "feed_sync",
-                        AuditStepStatus.WARNING,
-                        result_data={
-                            "shopify": shopify_products,
-                            "gmc": total_products,
-                            "sync_rate": f"{sync_rate}%",
-                            "eligible": eligible_products,
-                            "ineligible": ineligible_products,
-                            "analysis": {
-                                "no_price": no_price,
-                                "no_image": no_image,
-                                "no_description": no_description,
-                                "draft": draft_products,
-                            },
-                            "google_channel": {
-                                "found": google_channel_found,
-                                "published": published_to_google,
-                                "not_published": not_published_to_google,
-                            },
-                        },
-                    )
-
-                    # Create detailed issue with both synced and unsynced analysis
-                    description = f"""Synchronisation GMC: {total_products}/{shopify_products} produits ({sync_rate}%)
-
-📊 Analyse des {shopify_products} produits Shopify publiés:
-• {eligible_products} éligibles GMC (ont prix + image + description)
-• {ineligible_products} non éligibles (données manquantes)
-
-🔍 Détail des données manquantes:
-• {no_price} produits sans prix (ou prix = 0)
-• {no_image} produits sans image principale
-• {no_description} produits sans description"""
-
-                    # Add Google Shopping publication info
-                    if google_channel_found:
-                        description += f"""
-
-📡 Statut publication Google Shopping (API Shopify):
-• {published_to_google} produits publiés sur le canal Google
-• {not_published_to_google} produits NON publiés sur le canal"""
-
-                    if total_products < eligible_products:
-                        gap = eligible_products - total_products
-                        description += f"""
-
-⚠️ ÉCART DÉTECTÉ: {gap} produits éligibles ne sont pas dans GMC!"""
-                        if google_channel_found and not_published_to_google > 0:
-                            description += f"""
-→ {not_published_to_google} ne sont pas publiés sur le canal Google dans Shopify
-→ Activez-les dans Shopify Admin > Google & YouTube > Produits"""
-                        else:
-                            description += """
-→ Vérifiez dans Shopify Admin > Google & YouTube > Produits
-→ Certains produits peuvent être exclus ou avoir des erreurs GMC"""
+                    account_details.append("🔧 Action: GMC > Diagnostics > Problèmes de compte")
 
                     result.issues.append(
                         AuditIssue(
-                            id="gmc_sync_incomplete",
+                            id="gmc_account_issues",
                             audit_type=AuditType.MERCHANT_CENTER,
-                            severity="warning",
-                            title=f"{total_products} produits synchronisés sur {eligible_products} éligibles",
-                            description=description,
-                            details=(
-                                analysis_details[:MAX_DETAILS_ITEMS] if analysis_details else None
-                            ),
+                            severity="critical" if critical_issues else "high",
+                            title=f"🚨 {len(account_issues)} problème(s) de compte GMC",
+                            description="Ces problèmes peuvent bloquer la synchronisation",
+                            details=account_details,
                         )
                     )
-            else:
-                self._update_step_status(
-                    result,
-                    "feed_sync",
-                    AuditStepStatus.WARNING,
-                    result_data={"shopify": shopify_products, "gmc": total_products},
+
+            # ISSUE 2: GMC Rejection Reasons (THE KEY INFO - from GMC API)
+            # Note: products_with_issues contains unique variants that have at least one disapproved issue
+            # rejection_reasons groups issues by reason code - a variant can appear in MULTIPLE reasons
+            # So sum of all reasons > number of variants with issues (variants can have multiple problems)
+            total_variants_with_issues = len(products_with_issues)
+
+            if rejection_reasons and total_variants_with_issues > 0:
+                # Add summary issue showing total variants affected
+                reason_summary = [
+                    f"📊 {total_variants_with_issues} variantes GMC avec au moins 1 problème",
+                    f"   (= {disapproved} variantes rejetées pour la France)",
+                    "─" * 40,
+                    "Détail par type de problème:",
+                    "(⚠️ Une variante peut avoir plusieurs problèmes)",
+                ]
+                for reason_code, products_list in sorted(
+                    rejection_reasons.items(), key=lambda x: -len(x[1])
+                ):
+                    desc = products_list[0]["description"] if products_list else reason_code
+                    reason_summary.append(f"• {desc[:40]}: {len(products_list)} variante(s)")
+
+                result.issues.append(
+                    AuditIssue(
+                        id="gmc_issues_summary",
+                        audit_type=AuditType.MERCHANT_CENTER,
+                        severity="high",
+                        title=f"⚠️ {total_variants_with_issues} variante(s) GMC avec problèmes",
+                        description=f"{total_variants_with_issues} variantes ont des issues bloquantes. Une variante peut avoir plusieurs problèmes.",
+                        details=reason_summary[:15] + (["..."] if len(reason_summary) > 15 else []),
+                    )
                 )
 
-            # Step 4: Issues Check
-            self._update_step_status(result, "issues_check", AuditStepStatus.RUNNING)
+                # Then create detailed issues per rejection reason
+                for reason_code, products_list in sorted(
+                    rejection_reasons.items(), key=lambda x: -len(x[1])
+                ):
+                    count = len(products_list)
+                    # Get description from first variant
+                    desc = products_list[0]["description"] if products_list else reason_code
 
-            # Get product issues from GMC
-            issues_resp = requests.get(
-                f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/productstatuses",
-                headers=headers,
-                timeout=30,
+                    # Create separate issue for each major rejection reason
+                    if count >= 1:
+                        # Get detail/fix info from first variant
+                        detail_info = products_list[0].get("detail", "")
+                        attribute = products_list[0].get("attribute", "")
+                        doc_url = products_list[0].get("documentation", "")
+
+                        # Build details list with variant names
+                        rejection_details = []
+                        if attribute:
+                            rejection_details.append(f"📋 Attribut: {attribute}")
+                        if detail_info:
+                            rejection_details.append(f"💡 Détail: {detail_info}")
+                        if doc_url:
+                            rejection_details.append(f"📖 Doc: {doc_url}")
+                        rejection_details.append("🔧 Correction: GMC > Produits > Diagnostics")
+                        rejection_details.append("─" * 30)
+                        rejection_details.append("Variantes concernées:")
+                        rejection_details.extend([f"  • {p['title']}" for p in products_list[:15]])
+                        if len(products_list) > 15:
+                            rejection_details.append(f"  ... et {len(products_list) - 15} autres")
+
+                        # Build GMC diagnostics URL
+                        gmc_diagnostics_url = (
+                            f"https://merchants.google.com/mc/products/diagnostics?a={merchant_id}"
+                        )
+
+                        result.issues.append(
+                            AuditIssue(
+                                id=f"gmc_rejection_{reason_code}",
+                                audit_type=AuditType.MERCHANT_CENTER,
+                                severity="high" if count > 5 else "medium",
+                                title=f"❌ {count} variante(s) rejetée(s): {desc[:50]}",
+                                description=f"Raison Google: {desc}",
+                                details=rejection_details,
+                                action_available=True,
+                                action_id="open_gmc_diagnostics",
+                                action_label="Ouvrir GMC",
+                                action_status=ActionStatus.AVAILABLE,
+                                action_url=gmc_diagnostics_url,
+                            )
+                        )
+
+            # ISSUE 3: Products not published to Google channel in Shopify
+            # Combine both issues into one clear breakdown
+            if google_channel_found and not_published_to_google > 0:
+                eligible_count = len(products_not_published_eligible)
+                not_eligible_count = not_published_to_google - eligible_count
+
+                not_pub_details = [
+                    f"📊 {not_published_to_google} produits non publiés sur Google & YouTube",
+                    "═" * 40,
+                ]
+
+                if eligible_count > 0:
+                    not_pub_details.append(f"✅ {eligible_count} ÉLIGIBLES (prêts à publier):")
+                    not_pub_details.append("   → Ont image + prix + stock")
+                    not_pub_details.extend(
+                        f"   • {p['title']}" for p in products_not_published_eligible[:10]
+                    )
+                    if eligible_count > 10:
+                        not_pub_details.append(f"   ... et {eligible_count - 10} autres")
+
+                if not_eligible_count > 0:
+                    not_pub_details.append("─" * 40)
+                    not_pub_details.append(f"⚠️ {not_eligible_count} NON ÉLIGIBLES:")
+                    not_pub_details.append("   → Manque image, prix ou stock")
+                    # Show non-eligible products (those in products_not_published but not in eligible)
+                    eligible_titles = {p["title"] for p in products_not_published_eligible}
+                    non_eligible = [
+                        p for p in products_not_published if p["title"] not in eligible_titles
+                    ]
+                    not_pub_details.extend(f"   • {p['title']}" for p in non_eligible[:10])
+                    if len(non_eligible) > 10:
+                        not_pub_details.append(f"   ... et {len(non_eligible) - 10} autres")
+
+                not_pub_details.append("═" * 40)
+                if eligible_count > 0:
+                    not_pub_details.append("🔧 Cliquez 'Publier' pour activer les éligibles")
+
+                result.issues.append(
+                    AuditIssue(
+                        id="gmc_not_published_google",
+                        audit_type=AuditType.MERCHANT_CENTER,
+                        severity="high" if eligible_count > 0 else "medium",
+                        title=f"🚫 {not_published_to_google} produits NON publiés ({eligible_count} éligibles)",
+                        description=f"{eligible_count} prêts à publier, {not_eligible_count} manquent des données",
+                        details=not_pub_details,
+                        action_available=eligible_count > 0,
+                        action_id="publish_eligible_to_google" if eligible_count > 0 else None,
+                        action_label=(
+                            f"Publier {eligible_count} éligibles" if eligible_count > 0 else None
+                        ),
+                        action_status=(
+                            ActionStatus.AVAILABLE
+                            if eligible_count > 0
+                            else ActionStatus.NOT_AVAILABLE
+                        ),
+                    )
+                )
+
+            # ISSUE 4: Quality issues analysis - Explain the gap
+            # Products published to Google but with quality issues
+            # Shopify Google feed filters products missing: image, price, stock
+            gap = (
+                published_to_google - total_products if total_products < published_to_google else 0
             )
 
-            issues_count = 0
-            if issues_resp.status_code == 200:
-                statuses = issues_resp.json().get("resources", [])
-                for status in statuses:
-                    item_issues = status.get("itemLevelIssues", [])
-                    issues_count += len(
-                        [i for i in item_issues if i.get("servability") == "disapproved"]
+            if gap > 0 and google_channel_found:
+                total_quality_issues = (
+                    len(published_no_image)
+                    + len(published_no_price)
+                    + len(published_no_description)
+                    + len(published_out_of_stock)
+                )
+                remaining = gap - total_quality_issues
+
+                # Build details list - Shopify feed filtering criteria
+                quality_details = [
+                    f"Écart: {gap} produits publiés Shopify → absents GMC",
+                    "═" * 35,
+                    "FILTRÉS PAR SHOPIFY (non envoyés à GMC):",
+                ]
+                if published_no_image:
+                    quality_details.append(f"  🖼️ {len(published_no_image)} sans image (requis)")
+                if published_no_price:
+                    quality_details.append(f"  💰 {len(published_no_price)} sans prix (requis)")
+                if published_out_of_stock:
+                    quality_details.append(
+                        f"  📦 {len(published_out_of_stock)} rupture stock (requis)"
                     )
+                if published_no_description:
+                    quality_details.append(f"  📝 {len(published_no_description)} sans description")
+
+                quality_details.append("─" * 35)
+                quality_details.append(f"Total filtrés par Shopify: {total_quality_issues}")
+
+                if remaining > 0:
+                    quality_details.extend(
+                        [
+                            "─" * 35,
+                            f"⏳ {remaining} en attente sync Google (24-72h)",
+                        ]
+                    )
+
+                quality_details.extend(
+                    [
+                        "═" * 35,
+                        "🔧 Corrigez image/prix/stock pour sync",
+                    ]
+                )
+
+                if total_quality_issues > 0 or remaining > 0:
+                    result.issues.append(
+                        AuditIssue(
+                            id="gmc_quality_gap_analysis",
+                            audit_type=AuditType.MERCHANT_CENTER,
+                            severity="high" if total_quality_issues > 50 else "medium",
+                            title=f"🔍 {total_quality_issues} produits filtrés par Shopify (non envoyés à GMC)",
+                            description="Le flux Shopify ne transmet pas ces produits car il manque des données requises",
+                            details=quality_details,
+                        )
+                    )
+
+            # Step 4: Issues Check - Use already fetched data from productstatuses
+            self._update_step_status(result, "issues_check", AuditStepStatus.RUNNING)
+
+            # Count total rejection issues from already fetched data
+            issues_count = sum(len(products) for products in rejection_reasons.values())
 
             if issues_count > 0:
                 self._update_step_status(
                     result,
                     "issues_check",
                     AuditStepStatus.WARNING,
-                    result_data={"issues_count": issues_count},
+                    result_data={
+                        "issues_count": issues_count,
+                        "rejection_reasons": len(rejection_reasons),
+                    },
                 )
             else:
                 self._update_step_status(
@@ -1597,11 +2131,22 @@ class AuditOrchestrator:
                 "total_products": total_products,
                 "approved": approved,
                 "disapproved": disapproved,
+                "pending": pending,
                 "issues_count": len(result.issues),
                 "google_channel": {
                     "found": google_pub_status.get("google_channel_found", False),
                     "published": google_pub_status.get("published_to_google", 0),
                     "not_published": google_pub_status.get("not_published_to_google", 0),
+                },
+                # Structured KPI data for frontend visualization
+                "kpi": {
+                    "shopify_total": total_shopify_products,
+                    "google_channel_published": published_to_google,
+                    "google_channel_not_published": not_published_to_google,
+                    "gmc_received": total_products,
+                    "gmc_approved": approved,
+                    "gmc_pending": pending,
+                    "gmc_disapproved": disapproved,
                 },
             }
 
@@ -1926,6 +2471,556 @@ class AuditOrchestrator:
         self._save_current_session()
         return result
 
+    def run_onboarding_audit(self) -> AuditResult:
+        """Run the onboarding audit - checks all service configurations.
+
+        This audit verifies that all necessary Ads and SEO services are properly
+        configured in Shopify before users can run detailed audits.
+        """
+        result = self.start_audit(AuditType.ONBOARDING)
+
+        # Define steps for onboarding
+        result.steps = [
+            AuditStep(
+                id="shopify_connection",
+                name="Connexion Shopify",
+                description="Vérification de l'accès à votre boutique Shopify",
+            ),
+            AuditStep(
+                id="ga4_config",
+                name="Google Analytics 4",
+                description="Vérification de la configuration GA4",
+            ),
+            AuditStep(
+                id="meta_config",
+                name="Meta Pixel",
+                description="Vérification de la configuration Meta/Facebook",
+            ),
+            AuditStep(
+                id="gmc_config",
+                name="Merchant Center",
+                description="Vérification de la configuration GMC",
+            ),
+            AuditStep(
+                id="gsc_config",
+                name="Search Console",
+                description="Vérification de la configuration GSC",
+            ),
+        ]
+        self._save_current_session()
+
+        services_configured = 0
+        services_total = 5
+
+        # Step 1: Shopify Connection
+        self._update_step_status(result, "shopify_connection", AuditStepStatus.RUNNING)
+
+        if self._config_service is None:
+            from services.config_service import ConfigService
+
+            self._config_service = ConfigService()
+
+        shopify_config = self._config_service.get_shopify_values()
+        shopify_ok = bool(shopify_config.get("store_url") and shopify_config.get("access_token"))
+
+        if shopify_ok:
+            # Test actual connection
+            try:
+                import requests
+
+                store_url = shopify_config["store_url"]
+                # Remove protocol prefix if present
+                store_url = store_url.replace("https://", "").replace("http://", "").rstrip("/")
+                token = shopify_config["access_token"]
+                resp = requests.get(
+                    f"https://{store_url}/admin/api/2024-01/shop.json",
+                    headers={"X-Shopify-Access-Token": token},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    shop_name = resp.json().get("shop", {}).get("name", "")
+                    self._update_step_status(
+                        result,
+                        "shopify_connection",
+                        AuditStepStatus.SUCCESS,
+                        result_data={"shop_name": shop_name},
+                    )
+                    services_configured += 1
+                else:
+                    self._update_step_status(
+                        result,
+                        "shopify_connection",
+                        AuditStepStatus.ERROR,
+                        error_message=f"Token invalide (erreur {resp.status_code})",
+                    )
+                    result.issues.append(
+                        AuditIssue(
+                            id="shopify_invalid_token",
+                            audit_type=AuditType.ONBOARDING,
+                            severity="critical",
+                            title="Token Shopify invalide",
+                            description=(
+                                "Le token d'accès Shopify est invalide ou expiré. "
+                                "Régénérez-le dans Shopify Admin > Apps > Développer des apps."
+                            ),
+                            action_available=True,
+                            action_id="configure_shopify",
+                            action_label="Configurer",
+                            action_status=ActionStatus.AVAILABLE,
+                            action_url="/settings",
+                        )
+                    )
+            except Exception as e:
+                self._update_step_status(
+                    result,
+                    "shopify_connection",
+                    AuditStepStatus.ERROR,
+                    error_message=str(e),
+                )
+        else:
+            self._update_step_status(
+                result,
+                "shopify_connection",
+                AuditStepStatus.ERROR,
+                error_message="Non configuré",
+            )
+            result.issues.append(
+                AuditIssue(
+                    id="shopify_not_configured",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="critical",
+                    title="Shopify non configuré",
+                    description=(
+                        "Configurez l'accès à votre boutique Shopify pour activer "
+                        "tous les audits. Vous aurez besoin de l'URL de la boutique "
+                        "et d'un token d'accès Admin API."
+                    ),
+                    details=[
+                        "1. Allez dans Shopify Admin > Apps > Développer des apps",
+                        "2. Créez une app avec les permissions nécessaires",
+                        "3. Copiez l'Admin API access token",
+                    ],
+                    action_available=True,
+                    action_id="configure_shopify",
+                    action_label="Configurer",
+                    action_status=ActionStatus.AVAILABLE,
+                    action_url="/settings",
+                )
+            )
+
+        # Step 2: GA4 Configuration
+        self._update_step_status(result, "ga4_config", AuditStepStatus.RUNNING)
+
+        ga4_config = self._config_service.get_ga4_values()
+        ga4_measurement_id = ga4_config.get("measurement_id", "")
+
+        # If not configured, try to detect from theme
+        detected_ga4_id = None
+        ga4_via_custom_pixels = False
+        ga4_visitors = 0
+        if not ga4_measurement_id and self.theme_analyzer:
+            try:
+                analysis = self.theme_analyzer.analyze_theme()
+                if analysis.ga4_configured and analysis.ga4_measurement_id:
+                    detected_ga4_id = analysis.ga4_measurement_id
+            except Exception:
+                pass
+
+        # If still not found, check if GA4 is receiving data via Custom Pixels/GTM
+        if not ga4_measurement_id and not detected_ga4_id:
+            try:
+                from services.ga4_analytics import GA4AnalyticsService
+
+                ga4_service = GA4AnalyticsService(self._config_service)
+                if ga4_service.is_available():
+                    metrics = ga4_service.get_funnel_metrics(days=7, force_refresh=True)
+                    ga4_visitors = metrics.get("visitors") or 0
+                    if ga4_visitors > 0:
+                        ga4_via_custom_pixels = True
+            except Exception:
+                pass
+
+        if ga4_measurement_id and ga4_measurement_id.startswith("G-"):
+            self._update_step_status(
+                result,
+                "ga4_config",
+                AuditStepStatus.SUCCESS,
+                result_data={"measurement_id": ga4_measurement_id},
+            )
+            services_configured += 1
+        elif detected_ga4_id:
+            # Found GA4 in theme but not configured in our system
+            self._update_step_status(
+                result,
+                "ga4_config",
+                AuditStepStatus.WARNING,
+                result_data={"detected_in_theme": detected_ga4_id},
+                error_message=f"Détecté: {detected_ga4_id}",
+            )
+            result.issues.append(
+                AuditIssue(
+                    id="ga4_detected_not_configured",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="low",
+                    title=f"GA4 détecté dans le thème: {detected_ga4_id}",
+                    description=(
+                        f"Un ID GA4 ({detected_ga4_id}) a été trouvé dans votre thème Shopify. "
+                        "Ajoutez-le dans Configuration pour activer les audits de tracking avancés."
+                    ),
+                    details=[
+                        f"ID détecté: {detected_ga4_id}",
+                        "Pour activer les audits GA4 détaillés, ajoutez cet ID dans Configuration > GA4",
+                    ],
+                    action_available=True,
+                    action_id="configure_ga4",
+                    action_label="Ajouter",
+                    action_status=ActionStatus.AVAILABLE,
+                    action_url="/settings",
+                )
+            )
+            services_configured += 1  # Count as partially configured
+        elif ga4_via_custom_pixels:
+            # GA4 is receiving data via Custom Pixels or GTM (not in theme)
+            self._update_step_status(
+                result,
+                "ga4_config",
+                AuditStepStatus.SUCCESS,
+                result_data={"via_custom_pixels": True, "visitors_7d": ga4_visitors},
+            )
+            result.issues.append(
+                AuditIssue(
+                    id="ga4_via_custom_pixels",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="info",
+                    title="GA4 actif via Custom Pixels",
+                    description=(
+                        f"GA4 n'est pas dans le thème mais reçoit des données "
+                        f"({ga4_visitors} visiteurs ces 7 derniers jours). "
+                        "Installation via Shopify Customer Events ou GTM détectée."
+                    ),
+                    action_available=False,
+                )
+            )
+            services_configured += 1
+        else:
+            self._update_step_status(
+                result,
+                "ga4_config",
+                AuditStepStatus.WARNING,
+                error_message="Non configuré",
+            )
+            result.issues.append(
+                AuditIssue(
+                    id="ga4_not_configured",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="high",
+                    title="GA4 non configuré",
+                    description=(
+                        "Google Analytics 4 permet de suivre le comportement des visiteurs "
+                        "et les conversions. Configurez-le pour activer les audits de tracking."
+                    ),
+                    details=[
+                        "1. Créez une propriété GA4 sur analytics.google.com",
+                        "2. Récupérez le Measurement ID (format: G-XXXXXXXXX)",
+                        "3. Installez le tag dans votre thème Shopify ou via GTM",
+                        "4. Ajoutez l'ID dans Configuration > GA4",
+                    ],
+                    action_available=True,
+                    action_id="configure_ga4",
+                    action_label="Configurer",
+                    action_status=ActionStatus.AVAILABLE,
+                    action_url="/settings",
+                )
+            )
+
+        # Step 3: Meta Pixel Configuration
+        self._update_step_status(result, "meta_config", AuditStepStatus.RUNNING)
+
+        meta_config = self._config_service.get_meta_values()
+        meta_pixel_id = meta_config.get("pixel_id", "")
+        meta_access_token = meta_config.get("access_token", "")
+
+        if meta_pixel_id and meta_access_token:
+            # Test Meta API connection and check pixel activity
+            try:
+                import requests
+
+                resp = requests.get(
+                    f"https://graph.facebook.com/v19.0/{meta_pixel_id}",
+                    params={
+                        "fields": "id,name,is_unavailable,last_fired_time",
+                        "access_token": meta_access_token,
+                    },
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    pixel_data = resp.json()
+                    pixel_name = pixel_data.get("name", "")
+                    last_fired = pixel_data.get("last_fired_time", "")
+                    is_unavailable = pixel_data.get("is_unavailable", False)
+
+                    if is_unavailable:
+                        self._update_step_status(
+                            result,
+                            "meta_config",
+                            AuditStepStatus.WARNING,
+                            result_data={"pixel_id": meta_pixel_id, "pixel_name": pixel_name},
+                            error_message="Pixel désactivé",
+                        )
+                        result.issues.append(
+                            AuditIssue(
+                                id="meta_pixel_disabled",
+                                audit_type=AuditType.ONBOARDING,
+                                severity="high",
+                                title="Meta Pixel désactivé",
+                                description=(
+                                    f"Le pixel '{pixel_name}' existe mais est marqué comme "
+                                    "indisponible. Vérifiez sa configuration dans Meta Business Suite."
+                                ),
+                                action_available=True,
+                                action_id="open_meta_events",
+                                action_label="Ouvrir Meta Events",
+                                action_status=ActionStatus.AVAILABLE,
+                                action_url="https://business.facebook.com/events_manager",
+                            )
+                        )
+                    elif last_fired:
+                        # Pixel is active and firing
+                        self._update_step_status(
+                            result,
+                            "meta_config",
+                            AuditStepStatus.SUCCESS,
+                            result_data={
+                                "pixel_id": meta_pixel_id,
+                                "pixel_name": pixel_name,
+                                "last_fired": last_fired,
+                            },
+                        )
+                        services_configured += 1
+                    else:
+                        # Pixel exists but no recent activity
+                        self._update_step_status(
+                            result,
+                            "meta_config",
+                            AuditStepStatus.WARNING,
+                            result_data={"pixel_id": meta_pixel_id, "pixel_name": pixel_name},
+                            error_message="Aucune activité récente",
+                        )
+                        result.issues.append(
+                            AuditIssue(
+                                id="meta_pixel_inactive",
+                                audit_type=AuditType.ONBOARDING,
+                                severity="medium",
+                                title="Meta Pixel inactif",
+                                description=(
+                                    f"Le pixel '{pixel_name}' est configuré mais n'a pas "
+                                    "reçu d'événements récemment. Vérifiez qu'il est bien "
+                                    "installé sur votre site."
+                                ),
+                                action_available=True,
+                                action_id="open_meta_events",
+                                action_label="Diagnostiquer",
+                                action_status=ActionStatus.AVAILABLE,
+                                action_url="https://business.facebook.com/events_manager",
+                            )
+                        )
+                        services_configured += 1  # Still count as configured
+                else:
+                    self._update_step_status(
+                        result,
+                        "meta_config",
+                        AuditStepStatus.WARNING,
+                        error_message="Token invalide ou expiré",
+                    )
+                    result.issues.append(
+                        AuditIssue(
+                            id="meta_invalid_token",
+                            audit_type=AuditType.ONBOARDING,
+                            severity="high",
+                            title="Token Meta invalide",
+                            description=(
+                                "Le META_ACCESS_TOKEN est invalide ou expiré. "
+                                "Régénérez-le dans Meta Business Suite > Paramètres > "
+                                "Utilisateurs > Tokens d'accès système."
+                            ),
+                            action_available=True,
+                            action_id="configure_meta",
+                            action_label="Configurer",
+                            action_status=ActionStatus.AVAILABLE,
+                            action_url="/settings",
+                        )
+                    )
+            except Exception as e:
+                self._update_step_status(
+                    result,
+                    "meta_config",
+                    AuditStepStatus.WARNING,
+                    error_message=f"Erreur: {str(e)[:50]}",
+                )
+        else:
+            self._update_step_status(
+                result,
+                "meta_config",
+                AuditStepStatus.WARNING,
+                error_message="Non configuré",
+            )
+            result.issues.append(
+                AuditIssue(
+                    id="meta_not_configured",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="high",
+                    title="Meta Pixel non configuré",
+                    description=(
+                        "Le Meta Pixel permet de tracker les conversions Facebook/Instagram "
+                        "et d'optimiser vos campagnes publicitaires."
+                    ),
+                    details=[
+                        "1. Récupérez votre Pixel ID depuis Meta Business Suite > Events Manager",
+                        "2. Générez un Access Token dans Paramètres > Tokens d'accès système",
+                        "3. Ajoutez ces valeurs dans Configuration > Meta",
+                        "Note: Le pixel peut déjà être installé via Shopify, il suffit de le connecter ici",
+                    ],
+                    action_available=True,
+                    action_id="configure_meta",
+                    action_label="Configurer",
+                    action_status=ActionStatus.AVAILABLE,
+                    action_url="/settings",
+                )
+            )
+
+        # Step 4: Google Merchant Center Configuration
+        self._update_step_status(result, "gmc_config", AuditStepStatus.RUNNING)
+
+        gmc_config = self._config_service.get_merchant_center_values()
+        gmc_merchant_id = gmc_config.get("merchant_id", "")
+
+        if gmc_merchant_id:
+            self._update_step_status(
+                result,
+                "gmc_config",
+                AuditStepStatus.SUCCESS,
+                result_data={"merchant_id": gmc_merchant_id},
+            )
+            services_configured += 1
+        else:
+            self._update_step_status(
+                result,
+                "gmc_config",
+                AuditStepStatus.WARNING,
+                error_message="Non configuré",
+            )
+            result.issues.append(
+                AuditIssue(
+                    id="gmc_not_configured",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="medium",
+                    title="Google Merchant Center non configuré",
+                    description=(
+                        "GMC permet de diffuser vos produits sur Google Shopping "
+                        "et dans les résultats de recherche (listings gratuits et payants)."
+                    ),
+                    details=[
+                        "1. Créez un compte sur merchants.google.com",
+                        "2. Connectez votre boutique via l'app Google Channel dans Shopify",
+                        "3. Vérifiez que vos produits sont synchronisés",
+                        "Note: L'app Google & YouTube de Shopify simplifie cette configuration",
+                    ],
+                    action_available=True,
+                    action_id="configure_gmc",
+                    action_label="Configurer",
+                    action_status=ActionStatus.AVAILABLE,
+                    action_url="/settings",
+                )
+            )
+
+        # Step 5: Google Search Console Configuration
+        self._update_step_status(result, "gsc_config", AuditStepStatus.RUNNING)
+
+        gsc_config = self._config_service.get_search_console_values()
+        gsc_property_url = gsc_config.get("property_url", "")
+
+        if gsc_property_url:
+            self._update_step_status(
+                result,
+                "gsc_config",
+                AuditStepStatus.SUCCESS,
+                result_data={"property_url": gsc_property_url},
+            )
+            services_configured += 1
+        else:
+            self._update_step_status(
+                result,
+                "gsc_config",
+                AuditStepStatus.WARNING,
+                error_message="Non configuré",
+            )
+            result.issues.append(
+                AuditIssue(
+                    id="gsc_not_configured",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="medium",
+                    title="Google Search Console non configuré",
+                    description=(
+                        "GSC permet de suivre votre visibilité dans les résultats de recherche "
+                        "Google et d'identifier les problèmes d'indexation."
+                    ),
+                    details=[
+                        "1. Ajoutez votre site sur search.google.com/search-console",
+                        "2. Vérifiez la propriété via DNS ou fichier HTML",
+                        "3. Soumettez votre sitemap (sitemap.xml)",
+                        "Note: Shopify génère automatiquement un sitemap",
+                    ],
+                    action_available=True,
+                    action_id="configure_gsc",
+                    action_label="Configurer",
+                    action_status=ActionStatus.AVAILABLE,
+                    action_url="/settings",
+                )
+            )
+
+        # Finalize
+        result.status = self._overall_status(result.steps)
+        result.completed_at = datetime.now(tz=UTC).isoformat()
+
+        # Build summary with available audits based on configuration
+        available_audits = []
+        if shopify_ok:
+            if ga4_measurement_id:
+                available_audits.extend(["theme_code", "ga4_tracking"])
+            if meta_pixel_id and meta_access_token:
+                available_audits.append("meta_pixel")
+            if gmc_merchant_id:
+                available_audits.append("merchant_center")
+            if gsc_property_url:
+                available_audits.append("search_console")
+
+        result.summary = {
+            "services_configured": services_configured,
+            "services_total": services_total,
+            "completion_rate": int((services_configured / services_total) * 100),
+            "available_audits": available_audits,
+            "issues_count": len(result.issues),
+        }
+
+        # Add completion message issue if all configured
+        if services_configured == services_total:
+            result.issues.insert(
+                0,
+                AuditIssue(
+                    id="onboarding_complete",
+                    audit_type=AuditType.ONBOARDING,
+                    severity="info",
+                    title="🎉 Configuration complète !",
+                    description=(
+                        "Tous vos services Ads et SEO sont configurés. "
+                        "Vous pouvez maintenant lancer les audits détaillés."
+                    ),
+                ),
+            )
+
+        self._save_current_session()
+        return result
+
     def execute_action(self, audit_type: str, action_id: str) -> dict[str, Any]:
         """Execute a correction action on an audit issue.
 
@@ -1998,6 +3093,12 @@ class AuditOrchestrator:
                     f"'{event_name}' non encore implémentée"
                 )
                 return {"success": False, "error": error_msg}
+
+            if action_id == "publish_to_google":
+                return self._execute_publish_to_google(issue)
+
+            if action_id == "publish_eligible_to_google":
+                return self._execute_publish_eligible_to_google(issue)
 
             issue.action_status = ActionStatus.FAILED
             self._save_current_session()
@@ -2260,6 +3361,7 @@ class AuditOrchestrator:
                     "action_id": i.action_id,
                     "action_label": i.action_label,
                     "action_status": i.action_status.value,
+                    "action_url": i.action_url,
                 }
                 for i in result.issues
             ],
@@ -2320,7 +3422,172 @@ class AuditOrchestrator:
                     action_id=issue_data.get("action_id"),
                     action_label=issue_data.get("action_label"),
                     action_status=ActionStatus(issue_data.get("action_status", "not_available")),
+                    action_url=issue_data.get("action_url"),
                 )
             )
 
         return result
+
+    def _execute_publish_to_google(self, issue: AuditIssue) -> dict[str, Any]:
+        """Execute publish products to Google Shopping channel.
+
+        This uses the Shopify publishablePublish mutation to add unpublished
+        products to the Google & YouTube sales channel.
+        Requires write_publications scope (Shopify Plus).
+        """
+        # Check write_publications permission first
+        from services.permissions_checker import PermissionsCheckerService
+
+        permissions_checker = PermissionsCheckerService(self._config_service)
+        has_permission, error_msg = permissions_checker.has_write_publications_permission()
+
+        if not has_permission:
+            issue.action_status = ActionStatus.FAILED
+            self._save_current_session()
+            return {
+                "success": False,
+                "error": error_msg
+                or (
+                    "Permission write_publications manquante (Shopify Plus requis). "
+                    "Allez dans Shopify > Apps > Votre app > Configuration API > "
+                    "Ajoutez le scope 'write_publications' et réinstallez l'app."
+                ),
+            }
+
+        # Get list of products not published to Google
+        from services.shopify_analytics import ShopifyAnalyticsService
+
+        shopify = ShopifyAnalyticsService()
+        google_status = shopify.fetch_products_google_shopping_status()
+
+        if not google_status.get("google_channel_found"):
+            issue.action_status = ActionStatus.FAILED
+            self._save_current_session()
+            return {
+                "success": False,
+                "error": "Canal Google & YouTube non trouvé dans Shopify. Installez l'app Google & YouTube.",
+            }
+
+        products_to_publish = google_status.get("products_not_published", [])
+        if not products_to_publish:
+            issue.action_status = ActionStatus.COMPLETED
+            self._save_current_session()
+            return {
+                "success": True,
+                "message": "Tous les produits sont déjà publiés sur Google!",
+            }
+
+        # Extract product IDs
+        product_ids = [p.get("id") for p in products_to_publish if p.get("id")]
+
+        # Publish products
+        result = shopify.publish_products_to_google(product_ids)
+
+        if result.get("success"):
+            issue.action_status = ActionStatus.COMPLETED
+            self._save_current_session()
+            return {
+                "success": True,
+                "message": f"{result.get('published_count', 0)} produits publiés sur Google Shopping!",
+            }
+
+        # Partial success or failure
+        published = result.get("published_count", 0)
+        failed = result.get("failed_count", 0)
+
+        if published > 0:
+            issue.action_status = ActionStatus.COMPLETED
+            self._save_current_session()
+            return {
+                "success": True,
+                "message": f"{published} produits publiés, {failed} échecs.",
+            }
+
+        issue.action_status = ActionStatus.FAILED
+        self._save_current_session()
+        return {
+            "success": False,
+            "error": result.get("error", f"Échec de la publication ({failed} erreurs)"),
+        }
+
+    def _execute_publish_eligible_to_google(self, issue: AuditIssue) -> dict[str, Any]:
+        """Publish only ELIGIBLE products to Google Shopping channel.
+
+        Only publishes products that have image, price, and stock.
+        These are the products most likely to be approved by GMC.
+        """
+        # Check write_publications permission first
+        from services.permissions_checker import PermissionsCheckerService
+
+        permissions_checker = PermissionsCheckerService(self._config_service)
+        has_permission, error_msg = permissions_checker.has_write_publications_permission()
+
+        if not has_permission:
+            issue.action_status = ActionStatus.FAILED
+            self._save_current_session()
+            return {
+                "success": False,
+                "error": error_msg
+                or (
+                    "Permission write_publications manquante (Shopify Plus requis). "
+                    "Allez dans Shopify > Apps > Votre app > Configuration API > "
+                    "Ajoutez le scope 'write_publications' et réinstallez l'app."
+                ),
+            }
+
+        # Get list of eligible products not published to Google
+        from services.shopify_analytics import ShopifyAnalyticsService
+
+        shopify = ShopifyAnalyticsService()
+        google_status = shopify.fetch_products_google_shopping_status()
+
+        if not google_status.get("google_channel_found"):
+            issue.action_status = ActionStatus.FAILED
+            self._save_current_session()
+            return {
+                "success": False,
+                "error": "Canal Google & YouTube non trouvé dans Shopify.",
+            }
+
+        # Get only eligible products (have image, price, stock)
+        products_to_publish = google_status.get("products_not_published_eligible", [])
+        if not products_to_publish:
+            issue.action_status = ActionStatus.COMPLETED
+            self._save_current_session()
+            return {
+                "success": True,
+                "message": "Aucun produit éligible à publier (tous déjà publiés ou aucun éligible).",
+            }
+
+        # Extract product IDs
+        product_ids = [p.get("id") for p in products_to_publish if p.get("id")]
+
+        # Publish products
+        result = shopify.publish_products_to_google(product_ids)
+
+        if result.get("success"):
+            issue.action_status = ActionStatus.COMPLETED
+            self._save_current_session()
+            return {
+                "success": True,
+                "message": f"{result.get('published_count', 0)} produits éligibles publiés sur Google!",
+            }
+
+        # Partial success or failure
+        published = result.get("published_count", 0)
+        failed = result.get("failed_count", 0)
+
+        if published > 0:
+            issue.action_status = ActionStatus.COMPLETED
+            self._save_current_session()
+            return {
+                "success": True,
+                "message": f"{published} produits éligibles publiés, {failed} échecs.",
+            }
+
+        issue.action_status = ActionStatus.FAILED
+        self._save_current_session()
+        return {
+            "success": False,
+            "error": result.get("error", f"Échec de la publication ({failed} erreurs)"),
+        }

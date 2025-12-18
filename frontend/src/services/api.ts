@@ -205,21 +205,104 @@ export async function fetchLatestAuditSession(): Promise<{ session: AuditSession
   return response.data
 }
 
-export async function runAudit(auditType: string, period = 30): Promise<{ result: AuditResult }> {
-  const response = await apiClient.post<{ result: AuditResult }>(
+// Response types for runAudit
+interface SyncAuditResponse {
+  result: AuditResult
+}
+
+interface AsyncAuditResponse {
+  async: true
+  run_id: string
+  audit_type: string
+  status: 'triggered'
+  message: string
+}
+
+type RunAuditResponse = SyncAuditResponse | AsyncAuditResponse
+
+export async function runAudit(
+  auditType: string,
+  period = 30
+): Promise<{ result: AuditResult } | { async: true; run_id: string; audit_type: string }> {
+  const response = await apiClient.post<RunAuditResponse>(
     `/api/audits/run/${auditType}?period=${String(period)}`
   )
-  return response.data
+
+  const { data } = response
+
+  // If async response, return the run_id for polling
+  if ('async' in data) {
+    return {
+      async: true,
+      run_id: data.run_id,
+      audit_type: data.audit_type,
+    }
+  }
+
+  // Sync response - return result directly
+  return { result: data.result }
+}
+
+// Types for async action responses
+interface AsyncActionResponse {
+  async: true
+  task_id: string
+  status: 'pending' | 'running'
+}
+
+interface SyncActionResponse {
+  success: boolean
+  message?: string
+  error?: string
+}
+
+interface ActionStatusResponse {
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  result?: { success: boolean; message?: string; error?: string }
+}
+
+type ActionResponse = AsyncActionResponse | SyncActionResponse
+
+const POLL_INTERVAL_MS = 1000
+const MAX_POLL_ATTEMPTS = 120 // 2 minutes max
+
+async function pollActionStatus(taskId: string): Promise<SyncActionResponse> {
+  for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+    const response = await apiClient.get<ActionStatusResponse>(
+      `/api/audits/action/status?task_id=${taskId}`
+    )
+    const { data } = response
+
+    if (data.status === 'completed' || data.status === 'failed') {
+      return data.result ?? { success: data.status === 'completed' }
+    }
+
+    // Wait before next poll
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+  }
+
+  return { success: false, error: 'Action timed out after 2 minutes' }
 }
 
 export async function executeAuditAction(
   auditType: string,
-  actionId: string
+  actionId: string,
+  asyncMode = true
 ): Promise<{ success: boolean; message?: string; error?: string }> {
-  const response = await apiClient.post<{ success: boolean; message?: string; error?: string }>(
-    `/api/audits/action?audit_type=${auditType}&action_id=${actionId}`
+  const asyncParam = asyncMode ? '&async_mode=true' : ''
+  const response = await apiClient.post<ActionResponse>(
+    `/api/audits/action?audit_type=${auditType}&action_id=${actionId}${asyncParam}`
   )
-  return response.data
+
+  const { data } = response
+
+  // If async response, poll for result
+  if ('async' in data) {
+    return pollActionStatus(data.task_id)
+  }
+
+  // Sync response
+  return data
 }
 
 // Permissions API

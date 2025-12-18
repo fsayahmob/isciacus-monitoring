@@ -14,7 +14,7 @@ from typing import Any
 
 import requests
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -1211,18 +1211,49 @@ async def get_latest_audit_session() -> dict[str, Any]:
 
 
 @app.post("/api/audits/run/{audit_type}")
-async def run_audit(audit_type: str, period: int = Query(default=30)) -> dict[str, Any]:
+async def run_audit(
+    audit_type: str,
+    period: int = Query(default=30),
+    use_inngest: bool = Query(default=True),
+) -> dict[str, Any]:
     """Run a specific audit type.
 
     Returns the audit result with steps (pipeline-style) and issues.
     Actions on issues are NOT executed automatically - use /api/audits/action.
+
+    Args:
+        audit_type: The type of audit to run
+        period: Number of days to analyze (for GA4)
+        use_inngest: If True, uses Inngest for async execution (for supported audits)
     """
     try:
         audit_enum = AuditType(audit_type)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unknown audit type: {audit_type}")
 
-    if audit_enum == AuditType.GA4_TRACKING:
+    # Onboarding audit uses Inngest
+    if audit_enum == AuditType.ONBOARDING and use_inngest:
+        from jobs.inngest_setup import trigger_onboarding_audit
+
+        trigger_result = await trigger_onboarding_audit()
+        if trigger_result.get("status") == "error":
+            # Fallback to sync if Inngest fails
+            result = audit_orchestrator.run_onboarding_audit()
+            return {"result": audit_orchestrator._result_to_dict(result)}
+
+        # Return async response - frontend will poll /api/audits/session
+        return {
+            "async": True,
+            "run_id": trigger_result.get("run_id"),
+            "audit_type": audit_type,
+            "status": "triggered",
+            "message": "Audit started via Inngest. Poll /api/audits/session for results.",
+        }
+
+    # Other audits still use sync execution (will migrate later)
+    if audit_enum == AuditType.ONBOARDING:
+        result = audit_orchestrator.run_onboarding_audit()
+    elif audit_enum == AuditType.GA4_TRACKING:
         result = audit_orchestrator.run_ga4_audit(period)
     elif audit_enum == AuditType.THEME_CODE:
         result = audit_orchestrator.run_theme_audit()
@@ -1242,22 +1273,77 @@ async def run_audit(audit_type: str, period: int = Query(default=30)) -> dict[st
     }
 
 
+# Background task storage for async actions
+_background_tasks_status: dict[str, dict[str, Any]] = {}
+
+
+def _run_action_in_background(task_id: str, audit_type: str, action_id: str) -> None:
+    """Execute an audit action in background and store result."""
+    try:
+        _background_tasks_status[task_id]["status"] = "running"
+        result = audit_orchestrator.execute_action(audit_type, action_id)
+        _background_tasks_status[task_id] = {
+            "status": "completed" if result.get("success") else "failed",
+            "result": result,
+        }
+    except Exception as e:
+        _background_tasks_status[task_id] = {
+            "status": "failed",
+            "result": {"success": False, "error": str(e)},
+        }
+
+
 @app.post("/api/audits/action")
 async def execute_audit_action(
+    background_tasks: BackgroundTasks,
     audit_type: str = Query(...),
     action_id: str = Query(...),
+    async_mode: bool = Query(default=False),
 ) -> dict[str, Any]:
     """Execute a correction action on an audit issue.
 
     This is ONLY triggered by explicit user action (button click).
     The action must have been identified in a previous audit run.
+
+    Args:
+        audit_type: The type of audit (e.g., "merchant_center")
+        action_id: The specific action to execute (e.g., "publish_to_google")
+        async_mode: If True, run in background and return task_id for polling
     """
+    if async_mode:
+        # Generate task ID and start background execution
+        import uuid
+        task_id = str(uuid.uuid4())
+        _background_tasks_status[task_id] = {"status": "pending"}
+        background_tasks.add_task(_run_action_in_background, task_id, audit_type, action_id)
+        return {"async": True, "task_id": task_id, "status": "pending"}
+
+    # Synchronous execution (for quick actions)
     result = audit_orchestrator.execute_action(audit_type, action_id)
 
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "Action failed"))
 
     return result
+
+
+@app.get("/api/audits/action/status")
+async def get_action_status(task_id: str = Query(...)) -> dict[str, Any]:
+    """Get the status of an async action.
+
+    Returns the task status and result when completed.
+    """
+    if task_id not in _background_tasks_status:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task_data = _background_tasks_status[task_id]
+
+    # Clean up completed tasks after returning (keep for 5 min max)
+    if task_data["status"] in ("completed", "failed"):
+        # Don't delete immediately - let frontend fetch result
+        pass
+
+    return task_data
 
 
 @app.get("/")

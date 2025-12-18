@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import inngest
 from inngest.fast_api import serve
@@ -41,12 +42,20 @@ def setup_inngest(app: FastAPI) -> bool:
         return False
 
     from .audit_workflow import audit_function, inngest_client
+    from .workflows.onboarding import onboarding_audit_function
 
-    if inngest_client is None or audit_function is None:
+    if inngest_client is None:
         return False
 
-    # Register the Inngest serve endpoint
-    functions = [audit_function]
+    # Collect all available functions
+    functions = []
+    if audit_function is not None:
+        functions.append(audit_function)
+    if onboarding_audit_function is not None:
+        functions.append(onboarding_audit_function)
+
+    if not functions:
+        return False
 
     # Only add signing key if provided (required in production)
     serve_kwargs: dict[str, str] = {}
@@ -66,7 +75,7 @@ def setup_inngest(app: FastAPI) -> bool:
 
 async def trigger_audit_job(period: int = 30) -> dict[str, str]:
     """
-    Trigger the audit workflow.
+    Trigger the GA4 tracking audit workflow.
 
     Returns job info or error message.
     """
@@ -86,5 +95,33 @@ async def trigger_audit_job(period: int = 30) -> dict[str, str]:
             )
         )
         return {"status": "triggered", "message": "Audit job started"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+async def trigger_onboarding_audit() -> dict[str, str]:
+    """
+    Trigger the onboarding audit workflow via Inngest.
+
+    Returns run_id for polling status.
+    """
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .workflows.onboarding import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/onboarding.requested",
+                data={"run_id": run_id},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id}
     except Exception as e:
         return {"status": "error", "message": str(e)}

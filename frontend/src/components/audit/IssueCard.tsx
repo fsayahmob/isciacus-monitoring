@@ -89,11 +89,13 @@ function ActionButton({
   actionStatus,
   actionLabel,
   actionPending,
+  actionUrl,
   onExecuteAction,
 }: {
   actionStatus: string
   actionLabel: string
   actionPending: boolean
+  actionUrl: string | null
   onExecuteAction: () => void
 }): React.ReactElement {
   const actionStatusColors: Record<string, string> = {
@@ -105,6 +107,28 @@ function ActionButton({
   }
 
   const buttonLabel = getActionButtonLabel(actionStatus, actionLabel, actionPending)
+
+  // If action_url is provided, render as external link
+  if (actionUrl !== null && actionUrl !== '' && actionStatus === 'available') {
+    return (
+      <a
+        href={actionUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`flex flex-shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${actionStatusColors[actionStatus]}`}
+      >
+        {actionLabel}
+        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+          />
+        </svg>
+      </a>
+    )
+  }
 
   return (
     <button
@@ -132,6 +156,8 @@ export function IssueCard({
     high: 'border-l-orange-500 bg-orange-50',
     medium: 'border-l-amber-500 bg-amber-50',
     low: 'border-l-blue-500 bg-blue-50',
+    warning: 'border-l-yellow-500 bg-yellow-50',
+    info: 'border-l-green-500 bg-green-50',
   }
 
   const severityBadge: Record<string, string> = {
@@ -139,10 +165,15 @@ export function IssueCard({
     high: 'bg-orange-100 text-orange-800',
     medium: 'bg-amber-100 text-amber-800',
     low: 'bg-blue-100 text-blue-800',
+    warning: 'bg-yellow-100 text-yellow-800',
+    info: 'bg-green-100 text-green-800',
   }
 
   return (
-    <div className={`rounded-lg border-l-4 p-4 ${severityColors[issue.severity]}`}>
+    <div
+      id={`issue-${issue.id}`}
+      className={`rounded-lg border-l-4 p-4 transition-all ${severityColors[issue.severity]}`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -165,6 +196,7 @@ export function IssueCard({
             actionStatus={issue.action_status}
             actionLabel={issue.action_label}
             actionPending={actionPending}
+            actionUrl={issue.action_url ?? null}
             onExecuteAction={onExecuteAction}
           />
         )}
@@ -218,7 +250,9 @@ export function IssuesPanel({
               key={issue.id}
               issue={issue}
               onExecuteAction={() => {
-                if (issue.action_id !== null) {
+                // Only call backend action if there's no external URL
+                const hasNoUrl = issue.action_url === null || issue.action_url === ''
+                if (issue.action_id !== null && hasNoUrl) {
                   onExecuteAction(auditType, issue.action_id)
                 }
               }}

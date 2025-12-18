@@ -209,6 +209,23 @@ class PermissionsCheckerService:
 """,
             doc_url="https://shopify.dev/docs/api/admin-rest/2024-01/resources/report",
         ),
+        PermissionRequirement(
+            id="shopify_write_publications",
+            name="Gestion des canaux de vente",
+            description="Publier/dépublier des produits sur les canaux (Google, Facebook, etc.)",
+            service="shopify",
+            scope="write_publications",
+            severity=PermissionSeverity.MEDIUM,
+            required_for=["Publication auto sur Google Shopping", "Sync canaux de vente"],
+            how_to_grant="""
+1. Allez dans Shopify Admin > Apps > Développer des apps
+2. Sélectionnez votre app privée
+3. Dans "Configuration de l'API Admin", ajoutez le scope "write_publications"
+4. Sauvegardez et réinstallez l'app si nécessaire
+⚠️ Ce scope est disponible uniquement sur Shopify Plus
+""",
+            doc_url="https://shopify.dev/docs/api/admin-graphql/latest/mutations/publishablepublish",
+        ),
     ]
 
     EXTERNAL_PERMISSIONS: list[PermissionRequirement] = [
@@ -326,6 +343,20 @@ class PermissionsCheckerService:
                 requirement=requirement,
                 status=PermissionStatus.DENIED,
                 error_message=error_msg or "Permission write_themes non accordée",
+            )
+
+        # Special case for write_publications - test via GraphQL
+        if requirement.scope == "write_publications":
+            has_perm, error_msg = self.has_write_publications_permission()
+            if has_perm:
+                return PermissionCheckResult(
+                    requirement=requirement,
+                    status=PermissionStatus.GRANTED,
+                )
+            return PermissionCheckResult(
+                requirement=requirement,
+                status=PermissionStatus.DENIED,
+                error_message=error_msg or "Permission write_publications non accordée (Shopify Plus requis)",
             )
 
         # Map scopes to test endpoints
@@ -615,6 +646,60 @@ class PermissionsCheckerService:
             # 422 or other error means we have permission but something else failed
             # This is OK - permission is granted
             return True, None
+
+        except requests.exceptions.RequestException as e:
+            return False, f"Erreur de connexion: {e!s}"
+
+    def has_write_publications_permission(self) -> tuple[bool, str | None]:
+        """Check if write_publications permission is available.
+
+        Returns (True, None) if granted, (False, error_message) if denied.
+        This tests by querying publications via GraphQL (read is needed for write).
+        """
+        if not self._store_url or not self._access_token:
+            return False, "Shopify non configuré"
+
+        try:
+            # Test by querying publications - if we can read them, we likely have the scope
+            graphql_url = f"{self._store_url}/admin/api/2024-01/graphql.json"
+            query = """
+            query {
+                publications(first: 1) {
+                    nodes {
+                        id
+                        name
+                    }
+                }
+            }
+            """
+            resp = requests.post(
+                graphql_url,
+                headers=self._get_shopify_headers(),
+                json={"query": query},
+                timeout=10,
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                if "errors" in data:
+                    errors = data.get("errors", [])
+                    if any("access" in str(e).lower() for e in errors):
+                        return False, (
+                            "Permission write_publications non accordée. "
+                            "Ce scope nécessite Shopify Plus. "
+                            "Allez dans Apps > Votre app > Configuration API > "
+                            "Ajoutez le scope 'write_publications'."
+                        )
+                    return False, f"Erreur GraphQL: {errors}"
+                # Success - we can at least read publications
+                return True, None
+
+            if resp.status_code == 403:
+                return False, (
+                    "Permission write_publications non accordée (Shopify Plus requis)"
+                )
+
+            return False, f"Erreur HTTP: {resp.status_code}"
 
         except requests.exceptions.RequestException as e:
             return False, f"Erreur de connexion: {e!s}"

@@ -20,15 +20,20 @@ import inngest
 # Dev mode by default (no keys required for local dev server)
 IS_DEV = os.getenv("INNGEST_DEV", "true").lower() in ("true", "1")
 INNGEST_EVENT_KEY = os.getenv("INNGEST_EVENT_KEY", "")
+INNGEST_API_BASE_URL = os.getenv("INNGEST_API_BASE_URL", "")
 INNGEST_ENABLED = IS_DEV or bool(INNGEST_EVENT_KEY)
 
 inngest_client: inngest.Inngest | None = None
 
 if INNGEST_ENABLED:
     # In dev mode, no event_key needed (uses local dev server)
-    client_kwargs: dict[str, str] = {"app_id": "isciacus-monitoring"}
+    client_kwargs: dict[str, Any] = {"app_id": "isciacus-monitoring"}
     if INNGEST_EVENT_KEY:
         client_kwargs["event_key"] = INNGEST_EVENT_KEY
+    # In dev mode with Docker, we need to specify both API URLs
+    if IS_DEV and INNGEST_API_BASE_URL:
+        client_kwargs["api_base_url"] = INNGEST_API_BASE_URL
+        client_kwargs["event_api_base_url"] = INNGEST_API_BASE_URL
 
     inngest_client = inngest.Inngest(**client_kwargs)
 

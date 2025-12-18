@@ -17,8 +17,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Default path for service account in Docker container
-DEFAULT_SERVICE_ACCOUNT_PATH = "/app/credentials/google-service-account.json"
+# Default path for service account - check local dev path first, then Docker path
+_LOCAL_CREDENTIALS_PATH = (
+    Path(__file__).parent.parent / "credentials" / "google-service-account.json"
+)
+_DOCKER_CREDENTIALS_PATH = Path("/app/credentials/google-service-account.json")
+DEFAULT_SERVICE_ACCOUNT_PATH = str(
+    _LOCAL_CREDENTIALS_PATH if _LOCAL_CREDENTIALS_PATH.exists() else _DOCKER_CREDENTIALS_PATH
+)
 
 
 class GA4AnalyticsService:
@@ -54,7 +60,12 @@ class GA4AnalyticsService:
         # Get GA4 config from SQLite
         ga4_config = self._config_service.get_ga4_values()
         self._property_id = ga4_config.get("property_id", "")
-        self._credentials_path = ga4_config.get("credentials_path") or DEFAULT_SERVICE_ACCOUNT_PATH
+        # Use configured path, but fallback to default if path doesn't exist
+        configured_path = ga4_config.get("credentials_path") or ""
+        if configured_path and Path(configured_path).exists():
+            self._credentials_path = configured_path
+        else:
+            self._credentials_path = DEFAULT_SERVICE_ACCOUNT_PATH
 
     def _get_client(self) -> BetaAnalyticsDataClient | None:
         """Get or create the GA4 client."""

@@ -66,7 +66,7 @@ export interface AuditStep {
 export interface AuditIssue {
   id: string
   audit_type: string
-  severity: 'critical' | 'high' | 'medium' | 'low'
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'warning' | 'info'
   title: string
   description: string
   details: string[] | null
@@ -74,6 +74,7 @@ export interface AuditIssue {
   action_id: string | null
   action_label: string | null
   action_status: ActionStatus
+  action_url: string | null // External URL for link-type actions
 }
 
 export interface AuditResult {

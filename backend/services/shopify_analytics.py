@@ -208,15 +208,26 @@ query getPublications {
 """
 
 # GraphQL query to get products with their publication status for a specific channel
+# Uses "published_status:published" to match the same products as fetch_products_for_gmc_audit
 PRODUCTS_PUBLICATION_STATUS_QUERY = """
 query getProductsPublicationStatus($cursor: String, $publicationId: ID!) {
-    products(first: 250, after: $cursor, query: "status:active") {
+    products(first: 250, after: $cursor, query: "status:active AND published_status:published") {
         pageInfo { hasNextPage endCursor }
         nodes {
             id
             handle
             title
+            status
             publishedOnPublication(publicationId: $publicationId)
+            featuredImage { url }
+            descriptionHtml
+            variants(first: 10) {
+                nodes {
+                    price
+                    inventoryQuantity
+                    inventoryPolicy
+                }
+            }
         }
     }
 }
@@ -756,21 +767,44 @@ class ShopifyAnalyticsService:
             else:
                 break
 
-        # Categorize products
+        # Categorize products with eligibility analysis
         published = []
         not_published = []
+        not_published_eligible = []  # Products that could be published
 
         for product in all_products:
             is_published = product.get("publishedOnPublication", False)
+            variants = product.get("variants", {}).get("nodes", [])
+
+            # Check eligibility criteria
+            has_image = bool(product.get("featuredImage"))
+            has_description = bool(product.get("descriptionHtml"))
+            has_price = any(
+                float(v.get("price", 0) or 0) > 0 for v in variants
+            ) if variants else False
+            in_stock = any(
+                v.get("inventoryQuantity", 0) > 0 or
+                v.get("inventoryPolicy") == "CONTINUE"
+                for v in variants
+            ) if variants else False
+
             product_info = {
                 "id": product.get("id"),
                 "handle": product.get("handle"),
                 "title": product.get("title"),
+                "has_image": has_image,
+                "has_description": has_description,
+                "has_price": has_price,
+                "in_stock": in_stock,
             }
+
             if is_published:
                 published.append(product_info)
             else:
                 not_published.append(product_info)
+                # Check if product is eligible (has all required fields)
+                if has_image and has_price and in_stock:
+                    not_published_eligible.append(product_info)
 
         return {
             "google_channel_found": True,
@@ -781,6 +815,191 @@ class ShopifyAnalyticsService:
             "not_published_to_google": len(not_published),
             "products_published": published,
             "products_not_published": not_published,
+            "products_not_published_eligible": not_published_eligible,
+        }
+
+    def publish_products_to_google(
+        self, product_ids: list[str], *, batch_size: int = 10
+    ) -> dict[str, Any]:
+        """Publish products to Google Shopping channel using bulk mutation.
+
+        Uses the publishablePublishToCurrentChannel mutation in bulk to add products
+        to the Google & YouTube sales channel. Requires write_publications scope.
+
+        Args:
+            product_ids: List of product GIDs (e.g., "gid://shopify/Product/123")
+            batch_size: Number of products per bulk mutation (default 10, max ~50)
+
+        Returns:
+            dict with success count, failure count, and error details
+        """
+        import time
+
+        # First, find Google Shopping publication ID
+        google_pub_id = self._find_google_publication_id()
+        if not google_pub_id:
+            return {
+                "success": False,
+                "error": "Canal Google & YouTube non trouvé dans Shopify",
+                "published_count": 0,
+                "failed_count": len(product_ids),
+                "details": [],
+            }
+
+        published_count = 0
+        failed_count = 0
+        details: list[dict[str, Any]] = []
+
+        # Process in batches using bulk mutation
+        for i in range(0, len(product_ids), batch_size):
+            batch = product_ids[i : i + batch_size]
+            batch_result = self._publish_batch_products(batch, google_pub_id)
+
+            published_count += batch_result["published"]
+            failed_count += batch_result["failed"]
+            details.extend(batch_result["details"])
+
+            # Small delay between batches to respect rate limits
+            if i + batch_size < len(product_ids):
+                time.sleep(0.3)
+
+        return {
+            "success": failed_count == 0,
+            "published_count": published_count,
+            "failed_count": failed_count,
+            "details": details,
+        }
+
+    def _publish_batch_products(
+        self, product_ids: list[str], publication_id: str
+    ) -> dict[str, Any]:
+        """Publish a batch of products to a publication channel in one API call.
+
+        Uses a single GraphQL request with multiple mutations (aliases) for efficiency.
+        """
+        if not product_ids:
+            return {"published": 0, "failed": 0, "details": []}
+
+        # Build a bulk mutation with aliases for each product
+        mutation_parts = []
+        variables: dict[str, Any] = {"publicationId": publication_id}
+
+        for idx, product_id in enumerate(product_ids):
+            alias = f"p{idx}"
+            mutation_parts.append(f"""
+                {alias}: publishablePublish(id: $id{idx}, input: [{{publicationId: $publicationId}}]) {{
+                    publishable {{
+                        ... on Product {{ id title }}
+                    }}
+                    userErrors {{ field message }}
+                }}
+            """)
+            variables[f"id{idx}"] = product_id
+
+        # Build variable declarations
+        var_decls = ["$publicationId: ID!"]
+        var_decls.extend(f"$id{idx}: ID!" for idx in range(len(product_ids)))
+
+        mutation = f"""
+        mutation bulkPublish({", ".join(var_decls)}) {{
+            {"".join(mutation_parts)}
+        }}
+        """
+
+        data = self._execute_graphql(mutation, variables)
+
+        # Parse results
+        published = 0
+        failed = 0
+        details = []
+
+        if "errors" in data:
+            # Complete failure - all products failed
+            details.extend([
+                {
+                    "success": False,
+                    "product_id": product_id,
+                    "error": str(data["errors"]),
+                }
+                for product_id in product_ids
+            ])
+            return {"published": 0, "failed": len(product_ids), "details": details}
+
+        result_data = data.get("data", {})
+
+        for idx, product_id in enumerate(product_ids):
+            alias = f"p{idx}"
+            result = result_data.get(alias, {})
+            user_errors = result.get("userErrors", [])
+
+            if user_errors:
+                failed += 1
+                details.append({
+                    "success": False,
+                    "product_id": product_id,
+                    "error": user_errors[0].get("message", "Unknown error"),
+                })
+            else:
+                published += 1
+                publishable = result.get("publishable", {})
+                details.append({
+                    "success": True,
+                    "product_id": product_id,
+                    "title": publishable.get("title", ""),
+                })
+
+        return {"published": published, "failed": failed, "details": details}
+
+    def _publish_single_product(
+        self, product_id: str, publication_id: str
+    ) -> dict[str, Any]:
+        """Publish a single product to a publication channel."""
+        mutation = """
+        mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+            publishablePublish(id: $id, input: $input) {
+                publishable {
+                    ... on Product {
+                        id
+                        title
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+
+        variables = {
+            "id": product_id,
+            "input": [{"publicationId": publication_id}],
+        }
+
+        data = self._execute_graphql(mutation, variables)
+
+        if "errors" in data:
+            return {
+                "success": False,
+                "product_id": product_id,
+                "error": str(data["errors"]),
+            }
+
+        result = data.get("data", {}).get("publishablePublish", {})
+        user_errors = result.get("userErrors", [])
+
+        if user_errors:
+            return {
+                "success": False,
+                "product_id": product_id,
+                "error": user_errors[0].get("message", "Unknown error"),
+            }
+
+        publishable = result.get("publishable", {})
+        return {
+            "success": True,
+            "product_id": product_id,
+            "title": publishable.get("title", ""),
         }
 
     def _fetch_all_collections(self, *, only_with_products: bool = True) -> list[dict[str, Any]]:
