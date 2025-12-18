@@ -19,6 +19,7 @@ from uuid import uuid4
 import inngest
 from inngest.fast_api import serve
 
+
 logger = logging.getLogger(__name__)
 
 
