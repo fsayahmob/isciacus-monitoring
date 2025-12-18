@@ -74,7 +74,7 @@ def check_file(file_path: Path) -> list[tuple[int, str, str]]:
 
     Returns list of (line_number, line_content, matched_var).
     """
-    violations = []
+    violations: list[tuple[int, str, str]] = []
 
     # Skip allowed files
     if file_path.name in ALLOWED_FILES:

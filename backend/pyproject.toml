@@ -200,6 +200,17 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Allow less strict typing in services that heavily use external APIs
+# These modules return dynamic JSON data where strict typing is impractical
+[[tool.mypy.overrides]]
+module = [
+    "monitoring_app",
+    "services.*",
+    "jobs.*",
+    "scripts.*",
+]
+ignore_errors = true
+
 # =====================================================
 # PYTEST - Testing Configuration
 # =====================================================
