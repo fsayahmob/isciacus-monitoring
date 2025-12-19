@@ -63,8 +63,6 @@ def _init_result(run_id: str) -> dict[str, Any]:
         "steps": [],
         "issues": [],
         "summary": {},
-        "current_step": 0,
-        "total_steps": len(STEPS),
     }
 
 
@@ -378,7 +376,6 @@ def create_gsc_audit_function() -> inngest.Function | None:
         creds_path = gsc_config.get("service_account_key_path", "")
 
         # Step 1: Check connection
-        result["current_step"] = 1
         _save_progress(result)
         step1_result = await ctx.step.run(
             "check-gsc-connection",
@@ -402,7 +399,6 @@ def create_gsc_audit_function() -> inngest.Function | None:
         token = step1_result["token"]
 
         # Step 2: Check indexation
-        result["current_step"] = 2
         _save_progress(result)
         step2_result = await ctx.step.run("check-indexation", lambda: _step_2_check_indexation(site_url, token))
         result["steps"].append(step2_result["step"])
@@ -410,7 +406,6 @@ def create_gsc_audit_function() -> inngest.Function | None:
         _save_progress(result)
 
         # Step 3: Check errors
-        result["current_step"] = 3
         _save_progress(result)
         step3_result = await ctx.step.run("check-errors", lambda: _step_3_check_errors(site_url, token))
         result["steps"].append(step3_result["step"])
@@ -418,7 +413,6 @@ def create_gsc_audit_function() -> inngest.Function | None:
         _save_progress(result)
 
         # Step 4: Check sitemaps
-        result["current_step"] = 4
         _save_progress(result)
         step4_result = await ctx.step.run("check-sitemaps", lambda: _step_4_check_sitemaps(site_url, token))
         result["steps"].append(step4_result["step"])

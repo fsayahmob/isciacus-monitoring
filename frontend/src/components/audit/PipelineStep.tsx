@@ -49,39 +49,6 @@ function ExecutionModeBadge({ mode }: { mode: ExecutionMode | undefined }): Reac
   )
 }
 
-/**
- * Progress indicator for real-time step tracking
- */
-function ProgressIndicator({
-  currentStep,
-  totalSteps,
-  isRunning,
-}: {
-  currentStep: number
-  totalSteps: number
-  isRunning: boolean
-}): React.ReactElement | null {
-  if (!isRunning || totalSteps === 0) {
-    return null
-  }
-
-  const progress = Math.round((currentStep / totalSteps) * 100)
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full bg-blue-500 transition-all duration-300"
-          style={{ width: `${String(progress)}%` }}
-        />
-      </div>
-      <span className="text-xs text-gray-500">
-        {String(currentStep)}/{String(totalSteps)}
-      </span>
-    </div>
-  )
-}
-
 function HorizontalPipelineStep({
   step,
   isLast,
@@ -122,14 +89,10 @@ export function PipelineStepsPanel({
   steps,
   isRunning,
   executionMode,
-  currentStep,
-  totalSteps,
 }: {
   steps: AuditStep[]
   isRunning: boolean
   executionMode?: ExecutionMode
-  currentStep?: number
-  totalSteps?: number
 }): React.ReactElement {
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-6 py-4">
@@ -138,18 +101,11 @@ export function PipelineStepsPanel({
           <h2 className="text-sm font-medium text-gray-900">Pipeline d'audit</h2>
           <ExecutionModeBadge mode={executionMode} />
         </div>
-        <div className="flex items-center gap-3">
-          <ProgressIndicator
-            currentStep={currentStep ?? 0}
-            totalSteps={totalSteps ?? 0}
-            isRunning={isRunning}
-          />
-          {isRunning && (
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-              En cours...
-            </span>
-          )}
-        </div>
+        {isRunning && (
+          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
+            En cours...
+          </span>
+        )}
       </div>
 
       <div className="flex items-start">

@@ -62,8 +62,6 @@ def _init_result(run_id: str) -> dict[str, Any]:
         "steps": [],
         "issues": [],
         "summary": {},
-        "current_step": 0,
-        "total_steps": len(STEPS),
     }
 
 
@@ -376,7 +374,6 @@ def create_theme_audit_function() -> inngest.Function | None:
             return result
 
         # Step 1: Theme access
-        result["current_step"] = 1
         _save_progress(result)
         step1_result = await ctx.step.run("access-theme", _step_1_theme_access)
         result["steps"].append(step1_result["step"])
@@ -405,7 +402,6 @@ def create_theme_audit_function() -> inngest.Function | None:
         analysis = step1_result["analysis"]
 
         # Step 2: GA4 code
-        result["current_step"] = 2
         _save_progress(result)
         step2_result = await ctx.step.run(
             "analyze-ga4-code",
@@ -416,7 +412,6 @@ def create_theme_audit_function() -> inngest.Function | None:
         _save_progress(result)
 
         # Step 3: Meta code
-        result["current_step"] = 3
         _save_progress(result)
         step3_result = await ctx.step.run("analyze-meta-code", lambda: _step_3_meta_code(analysis))
         result["steps"].append(step3_result["step"])
@@ -424,14 +419,12 @@ def create_theme_audit_function() -> inngest.Function | None:
         _save_progress(result)
 
         # Step 4: GTM code
-        result["current_step"] = 4
         _save_progress(result)
         step4_result = await ctx.step.run("analyze-gtm-code", lambda: _step_4_gtm_code(analysis))
         result["steps"].append(step4_result["step"])
         _save_progress(result)
 
         # Step 5: Issues detection
-        result["current_step"] = 5
         _save_progress(result)
         step5_result = await ctx.step.run("detect-issues", lambda: _step_5_issues_detection(analysis))
         result["steps"].append(step5_result["step"])

@@ -65,8 +65,6 @@ def _init_result(run_id: str) -> dict[str, Any]:
         "steps": [],
         "issues": [],
         "summary": {},
-        "current_step": 0,
-        "total_steps": len(STEPS),
     }
 
 
@@ -337,8 +335,6 @@ def create_ga4_audit_function() -> inngest.Function | None:
         measurement_id = ga4_config.get("measurement_id", "")
 
         # Step 1: Check connection
-        result["current_step"] = 1
-        _save_progress(result)
         step1_result = await ctx.step.run(
             "check-ga4-connection",
             lambda: _step_1_check_connection(measurement_id),
@@ -365,8 +361,6 @@ def create_ga4_audit_function() -> inngest.Function | None:
             return result
 
         # Step 2-5: Run full audit
-        result["current_step"] = 2
-        _save_progress(result)
         audit_result = await ctx.step.run(
             "run-full-ga4-audit",
             lambda: _step_2_run_full_audit(period),
@@ -390,8 +384,7 @@ def create_ga4_audit_function() -> inngest.Function | None:
 
         # Add coverage steps
         coverage_steps = _build_coverage_steps(full_audit)
-        for i, step in enumerate(coverage_steps):
-            result["current_step"] = 2 + i
+        for step in coverage_steps:
             result["steps"].append(step)
             _save_progress(result)
 

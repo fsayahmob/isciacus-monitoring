@@ -90,8 +90,6 @@ export interface AuditResult {
   summary: Record<string, unknown>
   raw_data: Record<string, unknown> | null
   execution_mode?: ExecutionMode // "sync" or "inngest" - indicates how audit was executed
-  current_step?: number // Current step being processed (for progress tracking)
-  total_steps?: number // Total number of steps (for progress tracking)
 }
 
 export interface AvailableAudit {

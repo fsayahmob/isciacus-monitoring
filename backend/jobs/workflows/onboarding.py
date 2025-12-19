@@ -47,8 +47,6 @@ def _init_audit_result(run_id: str) -> dict[str, Any]:
         "steps": [],
         "issues": [],
         "summary": {},
-        "current_step": 0,
-        "total_steps": 5,
     }
 
 
@@ -71,35 +69,30 @@ def create_onboarding_function() -> inngest.Function | None:
         _save_progress(result)
 
         # Step 1: Check Shopify connection
-        result["current_step"] = 1
         _save_progress(result)
         step_result = await ctx.step.run("check-shopify", _check_shopify_connection)
         if _process_step_result(result, step_result):
             services_configured += 1
 
         # Step 2: Check GA4 configuration
-        result["current_step"] = 2
         _save_progress(result)
         step_result = await ctx.step.run("check-ga4", _check_ga4_config)
         if _process_step_result(result, step_result):
             services_configured += 1
 
         # Step 3: Check Meta Pixel configuration
-        result["current_step"] = 3
         _save_progress(result)
         step_result = await ctx.step.run("check-meta", _check_meta_config)
         if _process_step_result(result, step_result):
             services_configured += 1
 
         # Step 4: Check Google Merchant Center
-        result["current_step"] = 4
         _save_progress(result)
         step_result = await ctx.step.run("check-gmc", _check_gmc_config)
         if _process_step_result(result, step_result):
             services_configured += 1
 
         # Step 5: Check Google Search Console
-        result["current_step"] = 5
         _save_progress(result)
         step_result = await ctx.step.run("check-gsc", _check_gsc_config)
         if _process_step_result(result, step_result):

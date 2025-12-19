@@ -90,7 +90,5 @@ export function createRunningResult(auditType: string, isAsync = true): AuditRes
     raw_data: null,
     // Default to async (Inngest) mode - will be confirmed by API response
     execution_mode: isAsync ? 'inngest' : 'sync',
-    current_step: 1,
-    total_steps: stepDefs.length,
   }
 }

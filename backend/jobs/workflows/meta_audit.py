@@ -62,8 +62,6 @@ def _init_result(run_id: str) -> dict[str, Any]:
         "steps": [],
         "issues": [],
         "summary": {},
-        "current_step": 0,
-        "total_steps": len(STEPS),
     }
 
 
@@ -336,7 +334,6 @@ def create_meta_audit_function() -> inngest.Function | None:
         access_token = meta_config.get("access_token", "")
 
         # Step 1: Detect pixel
-        result["current_step"] = 1
         _save_progress(result)
         step1_result = await ctx.step.run("detect-meta-pixel", lambda: _step_1_detect_pixel(configured_pixel_id))
         result["steps"].append(step1_result["step"])
@@ -371,7 +368,6 @@ def create_meta_audit_function() -> inngest.Function | None:
         meta_events_found = step1_result["meta_events_found"]
 
         # Step 2: Check config
-        result["current_step"] = 2
         _save_progress(result)
         step2_result = await ctx.step.run(
             "check-pixel-config",
@@ -382,7 +378,6 @@ def create_meta_audit_function() -> inngest.Function | None:
         _save_progress(result)
 
         # Step 3: Check events
-        result["current_step"] = 3
         _save_progress(result)
         step3_result = await ctx.step.run("check-meta-events", lambda: _step_3_check_events(meta_events_found))
         result["steps"].append(step3_result["step"])
@@ -390,7 +385,6 @@ def create_meta_audit_function() -> inngest.Function | None:
         _save_progress(result)
 
         # Step 4: Check status
-        result["current_step"] = 4
         _save_progress(result)
         step4_result = await ctx.step.run(
             "check-pixel-status",

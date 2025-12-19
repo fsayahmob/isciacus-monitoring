@@ -203,8 +203,6 @@ function AuditResultPanel({
         steps={result.steps}
         isRunning={isRunning}
         executionMode={result.execution_mode}
-        currentStep={result.current_step}
-        totalSteps={result.total_steps}
       />
 
       {/* GMC Flow KPI Visualization - only show for merchant_center audit when complete */}

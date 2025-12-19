@@ -62,8 +62,6 @@ def _init_result(run_id: str) -> dict[str, Any]:
         "steps": [],
         "issues": [],
         "summary": {},
-        "current_step": 0,
-        "total_steps": len(STEPS),
     }
 
 
@@ -521,7 +519,6 @@ def create_gmc_audit_function() -> inngest.Function | None:
         creds_path = gmc_config.get("service_account_key_path", "")
 
         # Step 1: Check connection
-        result["current_step"] = 1
         _save_progress(result)
         step1_result = await ctx.step.run(
             "check-gmc-connection",
@@ -553,7 +550,6 @@ def create_gmc_audit_function() -> inngest.Function | None:
         account_issues = step1_result["account_issues"]
 
         # Step 2: Products status
-        result["current_step"] = 2
         _save_progress(result)
         step2_result = await ctx.step.run(
             "fetch-products-status",
@@ -572,7 +568,6 @@ def create_gmc_audit_function() -> inngest.Function | None:
         }
 
         # Step 3: Feed sync
-        result["current_step"] = 3
         _save_progress(result)
         step3_result = await ctx.step.run(
             "analyze-feed-sync",

@@ -106,8 +106,6 @@ class AuditResult:
     completed_at: str | None = None
     raw_data: dict[str, Any] | None = None
     execution_mode: str = "sync"  # "sync" or "inngest" - indicates how audit was executed
-    current_step: int = 0  # Current step being processed (for progress tracking)
-    total_steps: int = 0  # Total number of steps (for progress tracking)
 
 
 @dataclass
@@ -3333,11 +3331,11 @@ class AuditOrchestrator:
             "id": session.id,
             "created_at": session.created_at,
             "updated_at": session.updated_at,
-            "audits": {k: self._result_to_dict(v) for k, v in session.audits.items()},
+            "audits": {k: self.result_to_dict(v) for k, v in session.audits.items()},
         }
 
-    def _result_to_dict(self, result: AuditResult) -> dict[str, Any]:
-        """Convert audit result to dict."""
+    def result_to_dict(self, result: AuditResult) -> dict[str, Any]:
+        """Convert audit result to dict (public method for Inngest workflows)."""
         return {
             "id": result.id,
             "audit_type": result.audit_type.value,
@@ -3377,8 +3375,6 @@ class AuditOrchestrator:
             "summary": result.summary,
             "raw_data": result.raw_data,
             "execution_mode": result.execution_mode,
-            "current_step": result.current_step,
-            "total_steps": result.total_steps,
         }
 
     def _dict_to_session(self, data: dict[str, Any]) -> AuditSession:
@@ -3405,8 +3401,6 @@ class AuditOrchestrator:
             summary=data.get("summary", {}),
             raw_data=data.get("raw_data"),
             execution_mode=data.get("execution_mode", "sync"),
-            current_step=data.get("current_step", 0),
-            total_steps=data.get("total_steps", 0),
         )
 
         for step_data in data.get("steps", []):
