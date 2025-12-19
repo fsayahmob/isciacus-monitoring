@@ -106,9 +106,7 @@ def create_onboarding_function() -> inngest.Function | None:
             services_configured += 1
 
         # Finalize - pass a copy of result to avoid closure issues
-        final_result = _finalize_result(
-            dict(result), services_configured, 5
-        )
+        final_result = _finalize_result(dict(result), services_configured, 5)
         _save_audit_session(final_result)
 
         return final_result
