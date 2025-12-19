@@ -23,6 +23,35 @@ from jobs.audit_workflow import inngest_client
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
+def _process_step_result(
+    result: dict[str, Any],
+    step_result: dict[str, Any],
+) -> bool:
+    """Process a step result: append step, handle issues, return success status."""
+    result["steps"].append(step_result["step"])
+    if step_result.get("issue"):
+        result["issues"].append(step_result["issue"])
+    _save_progress(result)
+    return step_result["success"]
+
+
+def _init_audit_result(run_id: str) -> dict[str, Any]:
+    """Initialize the audit result structure."""
+    return {
+        "id": run_id,
+        "audit_type": "onboarding",
+        "status": "running",
+        "execution_mode": "inngest",
+        "started_at": datetime.now(tz=UTC).isoformat(),
+        "completed_at": None,
+        "steps": [],
+        "issues": [],
+        "summary": {},
+        "current_step": 0,
+        "total_steps": 5,
+    }
+
+
 def create_onboarding_function() -> inngest.Function | None:
     """Create the onboarding audit function if Inngest is enabled."""
     if inngest_client is None:
@@ -33,128 +62,55 @@ def create_onboarding_function() -> inngest.Function | None:
         trigger=inngest.TriggerEvent(event="audit/onboarding.requested"),
         retries=1,
     )
-    async def onboarding_audit(
-        ctx: inngest.Context,
-    ) -> dict[str, Any]:
-        """
-        Run onboarding audit - checks all service configurations.
-
-        Steps:
-        1. Check Shopify connection
-        2. Check GA4 configuration
-        3. Check Meta Pixel configuration
-        4. Check Google Merchant Center configuration
-        5. Check Google Search Console configuration
-        """
+    async def onboarding_audit(ctx: inngest.Context) -> dict[str, Any]:
+        """Run onboarding audit - checks all service configurations."""
         run_id = ctx.event.data.get("run_id", str(uuid4())[:8])
-
-        # Initialize result structure with execution mode indicator
-        result = {
-            "id": run_id,
-            "audit_type": "onboarding",
-            "status": "running",
-            "execution_mode": "inngest",  # Indicates async Inngest execution
-            "started_at": datetime.now(tz=UTC).isoformat(),
-            "completed_at": None,
-            "steps": [],
-            "issues": [],
-            "summary": {},
-            "current_step": 0,
-            "total_steps": 5,
-        }
-
+        result = _init_audit_result(run_id)
         services_configured = 0
-        services_total = 5
 
-        # Save initial progress (running state)
         _save_progress(result)
 
         # Step 1: Check Shopify connection
         result["current_step"] = 1
-        _save_progress(result)  # Show we're starting step 1
-
-        shopify_result = await ctx.step.run(
-            "check-shopify",
-            lambda: _check_shopify_connection(),
-        )
-        result["steps"].append(shopify_result["step"])
-        if shopify_result.get("issue"):
-            result["issues"].append(shopify_result["issue"])
-        if shopify_result["success"]:
+        _save_progress(result)
+        step_result = await ctx.step.run("check-shopify", _check_shopify_connection)
+        if _process_step_result(result, step_result):
             services_configured += 1
-        _save_progress(result)  # Save progress after step 1
 
         # Step 2: Check GA4 configuration
         result["current_step"] = 2
         _save_progress(result)
-
-        ga4_result = await ctx.step.run(
-            "check-ga4",
-            lambda: _check_ga4_config(),
-        )
-        result["steps"].append(ga4_result["step"])
-        if ga4_result.get("issue"):
-            result["issues"].append(ga4_result["issue"])
-        if ga4_result["success"]:
+        step_result = await ctx.step.run("check-ga4", _check_ga4_config)
+        if _process_step_result(result, step_result):
             services_configured += 1
-        _save_progress(result)
 
         # Step 3: Check Meta Pixel configuration
         result["current_step"] = 3
         _save_progress(result)
-
-        meta_result = await ctx.step.run(
-            "check-meta",
-            lambda: _check_meta_config(),
-        )
-        result["steps"].append(meta_result["step"])
-        if meta_result.get("issue"):
-            result["issues"].append(meta_result["issue"])
-        if meta_result["success"]:
+        step_result = await ctx.step.run("check-meta", _check_meta_config)
+        if _process_step_result(result, step_result):
             services_configured += 1
-        _save_progress(result)
 
         # Step 4: Check Google Merchant Center
         result["current_step"] = 4
         _save_progress(result)
-
-        gmc_result = await ctx.step.run(
-            "check-gmc",
-            lambda: _check_gmc_config(),
-        )
-        result["steps"].append(gmc_result["step"])
-        if gmc_result.get("issue"):
-            result["issues"].append(gmc_result["issue"])
-        if gmc_result["success"]:
+        step_result = await ctx.step.run("check-gmc", _check_gmc_config)
+        if _process_step_result(result, step_result):
             services_configured += 1
-        _save_progress(result)
 
         # Step 5: Check Google Search Console
         result["current_step"] = 5
         _save_progress(result)
-
-        gsc_result = await ctx.step.run(
-            "check-gsc",
-            lambda: _check_gsc_config(),
-        )
-        result["steps"].append(gsc_result["step"])
-        if gsc_result.get("issue"):
-            result["issues"].append(gsc_result["issue"])
-        if gsc_result["success"]:
+        step_result = await ctx.step.run("check-gsc", _check_gsc_config)
+        if _process_step_result(result, step_result):
             services_configured += 1
-        _save_progress(result)
 
-        # Finalize result
+        # Finalize and save
         result = await ctx.step.run(
             "finalize",
-            lambda: _finalize_result(result, services_configured, services_total),
+            lambda: _finalize_result(result, services_configured, 5),
         )
-
-        # Save final result to session
-        await ctx.step.run(
-            "save-session",
-            lambda: _save_audit_session(result),
-        )
+        await ctx.step.run("save-session", lambda: _save_audit_session(result))
 
         return result
 
