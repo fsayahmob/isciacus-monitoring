@@ -162,7 +162,45 @@ function useCompletionEffect(
   }, [session, runningAudits, queryClient, setRunningAudits, setOptimisticResults])
 }
 
-// eslint-disable-next-line max-lines-per-function -- Hook with multiple related state and effects
+/**
+ * Hook for audit mutation with optimistic updates
+ */
+function useAuditMutation(
+  setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>,
+  setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
+  setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>,
+  removeAuditFromRunning: (auditType: string) => void,
+  queryClient: ReturnType<typeof useQueryClient>
+): ReturnType<typeof useMutation<Awaited<ReturnType<typeof runAudit>>, Error, string>> {
+  return useMutation({
+    mutationFn: (auditType: string) => runAudit(auditType),
+    onMutate: (auditType: string) => {
+      const startedAt = new Date().toISOString()
+      setSelectedAudit(auditType)
+      setRunningAudits((prev) => new Map(prev).set(auditType, { startedAt }))
+      const optimistic = createRunningResult(auditType)
+      setOptimisticResults((prev) => new Map(prev).set(auditType, optimistic))
+    },
+    onSuccess: (response, auditType) => {
+      if ('async' in response && response.run_id !== '') {
+        setRunningAudits((prev) => {
+          const existing = prev.get(auditType)
+          if (existing) {
+            const next = new Map(prev)
+            next.set(auditType, { ...existing, runId: response.run_id })
+            return next
+          }
+          return prev
+        })
+      }
+      void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
+    },
+    onError: (_error, auditType) => {
+      removeAuditFromRunning(auditType)
+    },
+  })
+}
+
 export function useAuditSession(): UseAuditSessionReturn {
   const queryClient = useQueryClient()
   const [selectedAudit, setSelectedAudit] = React.useState<string | null>(null)
@@ -187,8 +225,6 @@ export function useAuditSession(): UseAuditSessionReturn {
 
   const session = sessionData?.session ?? null
 
-  useCompletionEffect(runningAudits, session, setRunningAudits, setOptimisticResults, queryClient)
-
   const removeAuditFromRunning = React.useCallback((auditType: string): void => {
     setRunningAudits((prev) => {
       const next = new Map(prev)
@@ -202,41 +238,15 @@ export function useAuditSession(): UseAuditSessionReturn {
     })
   }, [])
 
-  const runAuditMutation = useMutation({
-    mutationFn: (auditType: string) => runAudit(auditType),
-    onMutate: (auditType: string) => {
-      const startedAt = new Date().toISOString()
+  useCompletionEffect(runningAudits, session, setRunningAudits, setOptimisticResults, queryClient)
 
-      // Select this audit
-      setSelectedAudit(auditType)
-
-      // Mark as running with timestamp
-      setRunningAudits((prev) => new Map(prev).set(auditType, { startedAt }))
-
-      // Create optimistic result
-      const optimistic = createRunningResult(auditType)
-      setOptimisticResults((prev) => new Map(prev).set(auditType, optimistic))
-    },
-    onSuccess: (response, auditType) => {
-      // Update with run_id from server if available (async responses only)
-      if ('async' in response && response.run_id !== '') {
-        setRunningAudits((prev) => {
-          const existing = prev.get(auditType)
-          if (existing) {
-            const next = new Map(prev)
-            next.set(auditType, { ...existing, runId: response.run_id })
-            return next
-          }
-          return prev
-        })
-      }
-      // Force immediate refetch to get latest session data
-      void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
-    },
-    onError: (_error, auditType) => {
-      removeAuditFromRunning(auditType)
-    },
-  })
+  const runAuditMutation = useAuditMutation(
+    setSelectedAudit,
+    setRunningAudits,
+    setOptimisticResults,
+    removeAuditFromRunning,
+    queryClient
+  )
 
   const currentResult = React.useMemo(
     () => resolveCurrentResult(selectedAudit, session, optimisticResults, runningAudits),
