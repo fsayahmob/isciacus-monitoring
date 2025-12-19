@@ -97,17 +97,18 @@ def verify_result(result: dict, expected_steps: list[str]) -> list[str]:
     steps = result.get("steps", [])
     step_ids = [s["id"] for s in steps]
 
-    issues.extend([
-        f"Missing step: {expected}"
-        for expected in expected_steps
-        if expected not in step_ids
-    ])
+    issues.extend(
+        [f"Missing step: {expected}" for expected in expected_steps if expected not in step_ids]
+    )
 
-    issues.extend([
-        f"Invalid step status: {step['id']} = {step['status']}"
-        for step in steps
-        if step["status"] not in ["pending", "running", "success", "warning", "error", "skipped"]
-    ])
+    issues.extend(
+        [
+            f"Invalid step status: {step['id']} = {step['status']}"
+            for step in steps
+            if step["status"]
+            not in ["pending", "running", "success", "warning", "error", "skipped"]
+        ]
+    )
 
     return issues
 

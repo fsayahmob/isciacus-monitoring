@@ -92,6 +92,7 @@ def _get_ga4_config() -> dict[str, str]:
     """Get GA4 config from ConfigService."""
     try:
         from services.config_service import ConfigService
+
         config = ConfigService()
         return config.get_ga4_values()
     except Exception:
@@ -181,62 +182,70 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     # Collections coverage
     coll = coverage.get("collections", {})
     coll_rate = coll.get("rate", 0)
-    steps.append({
-        "id": "collections_coverage",
-        "name": "Couverture Collections",
-        "description": "Analyse des collections",
-        "status": _rate_to_status(coll_rate),
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": datetime.now(tz=UTC).isoformat(),
-        "duration_ms": 100,
-        "result": coll,
-        "error_message": None,
-    })
+    steps.append(
+        {
+            "id": "collections_coverage",
+            "name": "Couverture Collections",
+            "description": "Analyse des collections",
+            "status": _rate_to_status(coll_rate),
+            "started_at": datetime.now(tz=UTC).isoformat(),
+            "completed_at": datetime.now(tz=UTC).isoformat(),
+            "duration_ms": 100,
+            "result": coll,
+            "error_message": None,
+        }
+    )
 
     # Products coverage
     prod = coverage.get("products", {})
     prod_rate = prod.get("rate", 0)
-    steps.append({
-        "id": "products_coverage",
-        "name": "Couverture Produits",
-        "description": "Analyse des produits",
-        "status": _rate_to_status(prod_rate),
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": datetime.now(tz=UTC).isoformat(),
-        "duration_ms": 100,
-        "result": prod,
-        "error_message": None,
-    })
+    steps.append(
+        {
+            "id": "products_coverage",
+            "name": "Couverture Produits",
+            "description": "Analyse des produits",
+            "status": _rate_to_status(prod_rate),
+            "started_at": datetime.now(tz=UTC).isoformat(),
+            "completed_at": datetime.now(tz=UTC).isoformat(),
+            "duration_ms": 100,
+            "result": prod,
+            "error_message": None,
+        }
+    )
 
     # Events coverage
     events = coverage.get("events", {})
     events_rate = events.get("rate", 0)
-    steps.append({
-        "id": "events_coverage",
-        "name": "Événements E-commerce",
-        "description": "Vérification des événements",
-        "status": _rate_to_status(events_rate),
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": datetime.now(tz=UTC).isoformat(),
-        "duration_ms": 100,
-        "result": events,
-        "error_message": None,
-    })
+    steps.append(
+        {
+            "id": "events_coverage",
+            "name": "Événements E-commerce",
+            "description": "Vérification des événements",
+            "status": _rate_to_status(events_rate),
+            "started_at": datetime.now(tz=UTC).isoformat(),
+            "completed_at": datetime.now(tz=UTC).isoformat(),
+            "duration_ms": 100,
+            "result": events,
+            "error_message": None,
+        }
+    )
 
     # Transactions match
     trans = full_audit.get("transactions_match", {})
     match_rate = trans.get("match_rate", 0) * 100
-    steps.append({
-        "id": "transactions_match",
-        "name": "Match Transactions",
-        "description": "Comparaison GA4 vs Shopify",
-        "status": _rate_to_status(match_rate),
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": datetime.now(tz=UTC).isoformat(),
-        "duration_ms": 100,
-        "result": trans,
-        "error_message": None,
-    })
+    steps.append(
+        {
+            "id": "transactions_match",
+            "name": "Match Transactions",
+            "description": "Comparaison GA4 vs Shopify",
+            "status": _rate_to_status(match_rate),
+            "started_at": datetime.now(tz=UTC).isoformat(),
+            "completed_at": datetime.now(tz=UTC).isoformat(),
+            "duration_ms": 100,
+            "result": trans,
+            "error_message": None,
+        }
+    )
 
     return steps
 
@@ -269,15 +278,17 @@ def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
                 f"Possible problème de tracking."
             )
 
-        issues.append({
-            "id": "missing_collections",
-            "audit_type": "ga4_tracking",
-            "severity": severity,
-            "title": f"{missing_count} collections sans visite",
-            "description": description,
-            "details": coll["missing"][:10],
-            "action_available": False,
-        })
+        issues.append(
+            {
+                "id": "missing_collections",
+                "audit_type": "ga4_tracking",
+                "severity": severity,
+                "title": f"{missing_count} collections sans visite",
+                "description": description,
+                "details": coll["missing"][:10],
+                "action_available": False,
+            }
+        )
 
     # Products issues
     prod = coverage.get("products", {})
@@ -289,8 +300,7 @@ def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
         if rate >= COVERAGE_RATE_HIGH:
             severity = "low"
             description = (
-                f"{missing_count} produits sans vue récente. "
-                f"Excellent taux ({rate:.0f}%)."
+                f"{missing_count} produits sans vue récente. " f"Excellent taux ({rate:.0f}%)."
             )
         elif rate >= COVERAGE_RATE_MEDIUM:
             severity = "low"
@@ -305,32 +315,36 @@ def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
                 f"Possible problème de tracking view_item."
             )
 
-        issues.append({
-            "id": "missing_products",
-            "audit_type": "ga4_tracking",
-            "severity": severity,
-            "title": f"{missing_count} produits sans vue récente",
-            "description": description,
-            "details": prod["missing"][:10],
-            "action_available": False,
-        })
+        issues.append(
+            {
+                "id": "missing_products",
+                "audit_type": "ga4_tracking",
+                "severity": severity,
+                "title": f"{missing_count} produits sans vue récente",
+                "description": description,
+                "details": prod["missing"][:10],
+                "action_available": False,
+            }
+        )
 
     # Events issues
     events = coverage.get("events", {})
     critical_events = ["purchase", "add_to_cart"]
     for missing_event in events.get("missing", []):
         is_critical = missing_event in critical_events
-        issues.append({
-            "id": f"missing_event_{missing_event}",
-            "audit_type": "ga4_tracking",
-            "severity": "critical" if is_critical else "high",
-            "title": f"Événement '{missing_event}' manquant",
-            "description": f"L'événement GA4 {missing_event} n'est pas détecté",
-            "action_available": True,
-            "action_id": f"fix_event_{missing_event}",
-            "action_label": "Ajouter au thème",
-            "action_status": "available",
-        })
+        issues.append(
+            {
+                "id": f"missing_event_{missing_event}",
+                "audit_type": "ga4_tracking",
+                "severity": "critical" if is_critical else "high",
+                "title": f"Événement '{missing_event}' manquant",
+                "description": f"L'événement GA4 {missing_event} n'est pas détecté",
+                "action_available": True,
+                "action_id": f"fix_event_{missing_event}",
+                "action_label": "Ajouter au thème",
+                "action_status": "available",
+            }
+        )
 
     # Transactions match issues
     trans = full_audit.get("transactions_match", {})
@@ -339,14 +353,16 @@ def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
         ga4_trans = trans.get("ga4_transactions", 0)
         shopify_orders = trans.get("shopify_orders", 0)
         is_critical = match_rate < COVERAGE_RATE_MEDIUM
-        issues.append({
-            "id": "transactions_mismatch",
-            "audit_type": "ga4_tracking",
-            "severity": "critical" if is_critical else "high",
-            "title": f"Écart transactions: {match_rate:.0f}%",
-            "description": f"{ga4_trans} GA4 vs {shopify_orders} Shopify",
-            "action_available": False,
-        })
+        issues.append(
+            {
+                "id": "transactions_mismatch",
+                "audit_type": "ga4_tracking",
+                "severity": "critical" if is_critical else "high",
+                "title": f"Écart transactions: {match_rate:.0f}%",
+                "description": f"{ga4_trans} GA4 vs {shopify_orders} Shopify",
+                "action_available": False,
+            }
+        )
 
     return issues
 
@@ -382,17 +398,19 @@ def create_ga4_audit_function() -> inngest.Function | None:
 
         if not step1_result["success"]:
             for step_def in STEPS[1:]:
-                result["steps"].append({
-                    "id": step_def["id"],
-                    "name": step_def["name"],
-                    "description": step_def["description"],
-                    "status": "skipped",
-                    "started_at": None,
-                    "completed_at": None,
-                    "duration_ms": None,
-                    "result": None,
-                    "error_message": None,
-                })
+                result["steps"].append(
+                    {
+                        "id": step_def["id"],
+                        "name": step_def["name"],
+                        "description": step_def["description"],
+                        "status": "skipped",
+                        "started_at": None,
+                        "completed_at": None,
+                        "duration_ms": None,
+                        "result": None,
+                        "error_message": None,
+                    }
+                )
             result["status"] = "error"
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
             _save_progress(result)
@@ -406,14 +424,16 @@ def create_ga4_audit_function() -> inngest.Function | None:
 
         if not audit_result["success"]:
             result["status"] = "error"
-            result["issues"].append({
-                "id": "audit_error",
-                "audit_type": "ga4_tracking",
-                "severity": "critical",
-                "title": "Erreur d'audit",
-                "description": audit_result.get("error", "Erreur inconnue"),
-                "action_available": False,
-            })
+            result["issues"].append(
+                {
+                    "id": "audit_error",
+                    "audit_type": "ga4_tracking",
+                    "severity": "critical",
+                    "title": "Erreur d'audit",
+                    "description": audit_result.get("error", "Erreur inconnue"),
+                    "action_available": False,
+                }
+            )
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
             _save_progress(result)
             return result

@@ -105,7 +105,9 @@ class TrackingAnalysis:
     ga4_via_shopify_native: bool = False  # GA4 configured via Shopify Online Store > Preferences
     meta_pixel_configured: bool = False
     meta_pixel_id: str | None = None
-    meta_pixel_via_shopify_native: bool = False  # Meta Pixel configured via Shopify app (Web Pixels)
+    meta_pixel_via_shopify_native: bool = (
+        False  # Meta Pixel configured via Shopify app (Web Pixels)
+    )
     gtm_configured: bool = False
     gtm_container_id: str | None = None
 
@@ -314,10 +316,7 @@ class ThemeAnalyzerService:
             html = storefront_resp.text
 
             # Search for Meta Pixel init: fbq('init', 'PIXEL_ID')
-            pixel_matches = re.findall(
-                r"fbq\s*\(\s*['\"]init['\"]\s*,\s*['\"](\d{10,})['\"]",
-                html
-            )
+            pixel_matches = re.findall(r"fbq\s*\(\s*['\"]init['\"]\s*,\s*['\"](\d{10,})['\"]", html)
             if pixel_matches:
                 # Return first pixel found
                 return True, pixel_matches[0]

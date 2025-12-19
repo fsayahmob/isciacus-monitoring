@@ -70,6 +70,7 @@ def _get_gsc_config() -> dict[str, str]:
     """Get GSC config from ConfigService."""
     try:
         from services.config_service import ConfigService
+
         config = ConfigService()
         return config.get_search_console_values()
     except Exception:
@@ -208,17 +209,18 @@ def _step_2_check_indexation(site_url: str, token: str) -> dict[str, Any]:
                 step["status"] = "success"
             else:
                 step["status"] = "warning"
-                issues.append({
-                    "id": "gsc_low_indexation",
-                    "audit_type": "search_console",
-                    "severity": "warning",
-                    "title": "Couverture d'indexation faible",
-                    "description": (
-                        f"{indexed_pages} pages indexées "
-                        f"sur ~{estimated_pages} estimées"
-                    ),
-                    "action_available": False,
-                })
+                issues.append(
+                    {
+                        "id": "gsc_low_indexation",
+                        "audit_type": "search_console",
+                        "severity": "warning",
+                        "title": "Couverture d'indexation faible",
+                        "description": (
+                            f"{indexed_pages} pages indexées " f"sur ~{estimated_pages} estimées"
+                        ),
+                        "action_available": False,
+                    }
+                )
 
             step["result"] = {"indexed": indexed_pages, "estimated_total": estimated_pages}
         else:
@@ -277,14 +279,16 @@ def _step_3_check_errors(site_url: str, token: str) -> dict[str, Any]:
 
         if errors_found > 10:
             step["status"] = "warning"
-            issues.append({
-                "id": "gsc_potential_errors",
-                "audit_type": "search_console",
-                "severity": "medium",
-                "title": f"{errors_found} pages à vérifier",
-                "description": "Plusieurs pages ont 0 impressions",
-                "action_available": False,
-            })
+            issues.append(
+                {
+                    "id": "gsc_potential_errors",
+                    "audit_type": "search_console",
+                    "severity": "medium",
+                    "title": f"{errors_found} pages à vérifier",
+                    "description": "Plusieurs pages ont 0 impressions",
+                    "action_available": False,
+                }
+            )
         else:
             step["status"] = "success"
 
@@ -336,17 +340,19 @@ def _step_4_check_sitemaps(site_url: str, token: str) -> dict[str, Any]:
             else:
                 step["status"] = "warning"
                 step["result"] = {"count": 0}
-                issues.append({
-                    "id": "gsc_no_sitemap",
-                    "audit_type": "search_console",
-                    "severity": "medium",
-                    "title": "Aucun sitemap soumis",
-                    "description": "Soumettez un sitemap pour améliorer l'indexation",
-                    "action_available": True,
-                    "action_label": "Soumettre sitemap",
-                    "action_url": f"https://search.google.com/search-console/sitemaps?resource_id={quote(site_url)}",
-                    "action_status": "available",
-                })
+                issues.append(
+                    {
+                        "id": "gsc_no_sitemap",
+                        "audit_type": "search_console",
+                        "severity": "medium",
+                        "title": "Aucun sitemap soumis",
+                        "description": "Soumettez un sitemap pour améliorer l'indexation",
+                        "action_available": True,
+                        "action_label": "Soumettre sitemap",
+                        "action_url": f"https://search.google.com/search-console/sitemaps?resource_id={quote(site_url)}",
+                        "action_status": "available",
+                    }
+                )
         else:
             step["status"] = "error"
             step["error_message"] = f"Erreur API: {resp.status_code}"
@@ -392,15 +398,19 @@ def create_gsc_audit_function() -> inngest.Function | None:
 
         if not step1_result["success"]:
             for step_def in STEPS[1:]:
-                result["steps"].append({
-                    "id": step_def["id"],
-                    "name": step_def["name"],
-                    "description": step_def["description"],
-                    "status": "skipped",
-                    "started_at": None,
-                    "completed_at": None,
-                    "duration_ms": None, "result": None, "error_message": None,
-                })
+                result["steps"].append(
+                    {
+                        "id": step_def["id"],
+                        "name": step_def["name"],
+                        "description": step_def["description"],
+                        "status": "skipped",
+                        "started_at": None,
+                        "completed_at": None,
+                        "duration_ms": None,
+                        "result": None,
+                        "error_message": None,
+                    }
+                )
             result["status"] = "error"
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
             _save_progress(result)

@@ -69,6 +69,7 @@ def _get_meta_config() -> dict[str, str]:
     """Get Meta config from ConfigService."""
     try:
         from services.config_service import ConfigService
+
         config = ConfigService()
         return config.get_meta_values()
     except Exception:
@@ -96,6 +97,7 @@ def _step_1_detect_pixel(configured_pixel_id: str) -> dict[str, Any]:
 
     try:
         from services.theme_analyzer import ThemeAnalyzerService
+
         analyzer = ThemeAnalyzerService()
         # Force refresh to get latest detection (including storefront HTML check)
         analyzer.clear_cache()
@@ -166,34 +168,38 @@ def _step_2_check_config(
                 "configured_pixel_id": configured_pixel_id,
                 "match": False,
             }
-            issues.append({
-                "id": "meta_pixel_mismatch",
-                "audit_type": "meta_pixel",
-                "severity": "info",
-                "title": "Pixel ID différent de la config",
-                "description": f"Thème: {theme_pixel_id}, Config: {configured_pixel_id}",
-                "action_available": False,
-            })
+            issues.append(
+                {
+                    "id": "meta_pixel_mismatch",
+                    "audit_type": "meta_pixel",
+                    "severity": "info",
+                    "title": "Pixel ID différent de la config",
+                    "description": f"Thème: {theme_pixel_id}, Config: {configured_pixel_id}",
+                    "action_available": False,
+                }
+            )
         else:
             step["status"] = "success"
             step["result"] = {"theme_pixel_id": theme_pixel_id, "status": "installed"}
     else:
         step["status"] = "warning"
         step["result"] = {"pixel_in_theme": False}
-        issues.append({
-            "id": "meta_pixel_not_in_theme",
-            "audit_type": "meta_pixel",
-            "severity": "high",
-            "title": "Meta Pixel non installé dans le thème",
-            "description": (
-                f"Le Pixel {configured_pixel_id} est configuré "
-                "mais non détecté dans le thème"
-            ),
-            "action_available": True,
-            "action_label": "Guide d'installation",
-            "action_url": "https://www.facebook.com/business/help/952192354843755",
-            "action_status": "available",
-        })
+        issues.append(
+            {
+                "id": "meta_pixel_not_in_theme",
+                "audit_type": "meta_pixel",
+                "severity": "high",
+                "title": "Meta Pixel non installé dans le thème",
+                "description": (
+                    f"Le Pixel {configured_pixel_id} est configuré "
+                    "mais non détecté dans le thème"
+                ),
+                "action_available": True,
+                "action_label": "Guide d'installation",
+                "action_url": "https://www.facebook.com/business/help/952192354843755",
+                "action_status": "available",
+            }
+        )
 
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
@@ -293,31 +299,35 @@ def _step_4_check_status(pixel_id: str, access_token: str) -> dict[str, Any]:
             if is_unavailable:
                 step["status"] = "error"
                 step["error_message"] = "Le Pixel est indisponible sur Meta"
-                issues.append({
-                    "id": "meta_pixel_unavailable",
-                    "audit_type": "meta_pixel",
-                    "severity": "critical",
-                    "title": "Meta Pixel indisponible",
-                    "description": "Le Pixel n'est plus actif ou a été supprimé sur Meta Business",
-                    "action_available": True,
-                    "action_label": "Vérifier sur Meta",
-                    "action_url": "https://business.facebook.com/events_manager",
-                    "action_status": "available",
-                })
+                issues.append(
+                    {
+                        "id": "meta_pixel_unavailable",
+                        "audit_type": "meta_pixel",
+                        "severity": "critical",
+                        "title": "Meta Pixel indisponible",
+                        "description": "Le Pixel n'est plus actif ou a été supprimé sur Meta Business",
+                        "action_available": True,
+                        "action_label": "Vérifier sur Meta",
+                        "action_url": "https://business.facebook.com/events_manager",
+                        "action_status": "available",
+                    }
+                )
             elif last_fired:
                 step["status"] = "success"
                 step["result"] = {"name": pixel_name, "last_fired": last_fired, "active": True}
             else:
                 step["status"] = "warning"
                 step["result"] = {"name": pixel_name, "last_fired": None, "active": False}
-                issues.append({
-                    "id": "meta_pixel_no_activity",
-                    "audit_type": "meta_pixel",
-                    "severity": "high",
-                    "title": "Aucune activité récente",
-                    "description": "Le Pixel n'a pas reçu d'événement récemment",
-                    "action_available": False,
-                })
+                issues.append(
+                    {
+                        "id": "meta_pixel_no_activity",
+                        "audit_type": "meta_pixel",
+                        "severity": "high",
+                        "title": "Aucune activité récente",
+                        "description": "Le Pixel n'a pas reçu d'événement récemment",
+                        "action_available": False,
+                    }
+                )
         else:
             step["status"] = "error"
             step["error_message"] = f"Erreur API Meta: {resp.status_code}"
@@ -377,17 +387,19 @@ def create_meta_audit_function() -> inngest.Function | None:
                     }
                 )
             result["status"] = "error"
-            result["issues"].append({
-                "id": "meta_no_pixel",
-                "audit_type": "meta_pixel",
-                "severity": "critical",
-                "title": "Aucun Meta Pixel",
-                "description": "Aucun Meta Pixel n'est installé dans le thème Shopify",
-                "action_available": True,
-                "action_label": "Configurer Meta",
-                "action_url": "https://business.facebook.com/events_manager",
-                "action_status": "available",
-            })
+            result["issues"].append(
+                {
+                    "id": "meta_no_pixel",
+                    "audit_type": "meta_pixel",
+                    "severity": "critical",
+                    "title": "Aucun Meta Pixel",
+                    "description": "Aucun Meta Pixel n'est installé dans le thème Shopify",
+                    "action_available": True,
+                    "action_label": "Configurer Meta",
+                    "action_url": "https://business.facebook.com/events_manager",
+                    "action_status": "available",
+                }
+            )
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
             _save_progress(result)
             return result

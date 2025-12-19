@@ -85,6 +85,7 @@ def _get_ga4_config() -> dict[str, str]:
     """Get GA4 config from ConfigService."""
     try:
         from services.config_service import ConfigService
+
         config = ConfigService()
         return config.get_ga4_values()
     except Exception:
@@ -108,6 +109,7 @@ def _step_1_theme_access() -> dict[str, Any]:
 
     try:
         from services.theme_analyzer import ThemeAnalyzerService
+
         analyzer = ThemeAnalyzerService()
         analysis = analyzer.analyze_theme(force_refresh=True)
 
@@ -178,23 +180,26 @@ def _step_2_ga4_code(analysis: dict[str, Any], ga4_measurement_id: str) -> dict[
         }
 
         if ga4_via_shopify and not ga4_events:
-            issues.append({
-                "id": "ga4_native_no_events",
-                "audit_type": "theme_code",
-                "severity": "info",
-                "title": "GA4 via Shopify natif - événements gérés par Shopify",
-                "description": (
-                    "GA4 est configuré via les préférences Shopify. "
-                    "Les événements sont automatiques."
-                ),
-                "action_available": False,
-            })
+            issues.append(
+                {
+                    "id": "ga4_native_no_events",
+                    "audit_type": "theme_code",
+                    "severity": "info",
+                    "title": "GA4 via Shopify natif - événements gérés par Shopify",
+                    "description": (
+                        "GA4 est configuré via les préférences Shopify. "
+                        "Les événements sont automatiques."
+                    ),
+                    "action_available": False,
+                }
+            )
     else:
         # Check if GA4 is receiving data anyway
         ga4_receiving_data = False
         try:
             from services.config_service import ConfigService
             from services.ga4_analytics import GA4AnalyticsService
+
             ga4_service = GA4AnalyticsService(ConfigService())
             if ga4_service.is_available():
                 metrics = ga4_service.get_funnel_metrics(days=7, force_refresh=True)
@@ -205,28 +210,32 @@ def _step_2_ga4_code(analysis: dict[str, Any], ga4_measurement_id: str) -> dict[
         if ga4_receiving_data:
             step["status"] = "success"
             step["result"] = {"configured": True, "via_custom_pixels": True}
-            issues.append({
-                "id": "ga4_via_custom_pixels",
-                "audit_type": "theme_code",
-                "severity": "info",
-                "title": "GA4 actif via Custom Pixels ou GTM",
-                "description": "GA4 n'est pas dans le thème mais reçoit des données",
-                "action_available": False,
-            })
+            issues.append(
+                {
+                    "id": "ga4_via_custom_pixels",
+                    "audit_type": "theme_code",
+                    "severity": "info",
+                    "title": "GA4 actif via Custom Pixels ou GTM",
+                    "description": "GA4 n'est pas dans le thème mais reçoit des données",
+                    "action_available": False,
+                }
+            )
         else:
             step["status"] = "warning"
             step["result"] = {"configured": False}
-            issues.append({
-                "id": "ga4_not_in_theme",
-                "audit_type": "theme_code",
-                "severity": "critical",
-                "title": "GA4 non configuré",
-                "description": "Aucun code GA4 détecté et aucune donnée reçue",
-                "action_available": bool(ga4_measurement_id),
-                "action_id": "add_ga4_base" if ga4_measurement_id else None,
-                "action_label": "Ajouter via snippet" if ga4_measurement_id else None,
-                "action_status": "available" if ga4_measurement_id else "not_available",
-            })
+            issues.append(
+                {
+                    "id": "ga4_not_in_theme",
+                    "audit_type": "theme_code",
+                    "severity": "critical",
+                    "title": "GA4 non configuré",
+                    "description": "Aucun code GA4 détecté et aucune donnée reçue",
+                    "action_available": bool(ga4_measurement_id),
+                    "action_id": "add_ga4_base" if ga4_measurement_id else None,
+                    "action_label": "Ajouter via snippet" if ga4_measurement_id else None,
+                    "action_status": "available" if ga4_measurement_id else "not_available",
+                }
+            )
 
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
@@ -264,14 +273,16 @@ def _step_3_meta_code(analysis: dict[str, Any]) -> dict[str, Any]:
     else:
         step["status"] = "warning"
         step["result"] = {"configured": False}
-        issues.append({
-            "id": "meta_not_in_theme",
-            "audit_type": "theme_code",
-            "severity": "medium",
-            "title": "Meta Pixel non détecté",
-            "description": "Aucun Meta Pixel détecté dans le thème",
-            "action_available": False,
-        })
+        issues.append(
+            {
+                "id": "meta_not_in_theme",
+                "audit_type": "theme_code",
+                "severity": "medium",
+                "title": "Meta Pixel non détecté",
+                "description": "Aucun Meta Pixel détecté dans le thème",
+                "action_available": False,
+            }
+        )
 
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
@@ -330,17 +341,19 @@ def _step_5_issues_detection(analysis: dict[str, Any]) -> dict[str, Any]:
 
     if critical_issues:
         step["status"] = "warning"
-        issues.extend([
-            {
-                "id": f"theme_issue_{issue.get('type', 'unknown')}",
-                "audit_type": "theme_code",
-                "severity": issue.get("severity", "medium"),
-                "title": issue.get("title", "Problème détecté"),
-                "description": issue.get("description", ""),
-                "action_available": False,
-            }
-            for issue in critical_issues
-        ])
+        issues.extend(
+            [
+                {
+                    "id": f"theme_issue_{issue.get('type', 'unknown')}",
+                    "audit_type": "theme_code",
+                    "severity": issue.get("severity", "medium"),
+                    "title": issue.get("title", "Problème détecté"),
+                    "description": issue.get("description", ""),
+                    "action_available": False,
+                }
+                for issue in critical_issues
+            ]
+        )
     else:
         step["status"] = "success"
 
@@ -372,17 +385,19 @@ def _create_skipped_step(step_def: dict[str, str]) -> dict[str, Any]:
 
 def _handle_ga4_not_configured(result: dict[str, Any]) -> dict[str, Any]:
     """Handle case when GA4 is not configured."""
-    result["steps"].append({
-        "id": "theme_access",
-        "name": "Accès Thème",
-        "description": "Récupération des fichiers",
-        "status": "error",
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": datetime.now(tz=UTC).isoformat(),
-        "duration_ms": 0,
-        "result": None,
-        "error_message": "GA4 non configuré. Allez dans Settings > GA4.",
-    })
+    result["steps"].append(
+        {
+            "id": "theme_access",
+            "name": "Accès Thème",
+            "description": "Récupération des fichiers",
+            "status": "error",
+            "started_at": datetime.now(tz=UTC).isoformat(),
+            "completed_at": datetime.now(tz=UTC).isoformat(),
+            "duration_ms": 0,
+            "result": None,
+            "error_message": "GA4 non configuré. Allez dans Settings > GA4.",
+        }
+    )
     for step_def in STEPS[1:]:
         result["steps"].append(_create_skipped_step(step_def))
     result["status"] = "error"
@@ -395,14 +410,16 @@ def _handle_theme_access_failed(result: dict[str, Any]) -> dict[str, Any]:
     for step_def in STEPS[1:]:
         result["steps"].append(_create_skipped_step(step_def))
     result["status"] = "error"
-    result["issues"].append({
-        "id": "theme_access_error",
-        "audit_type": "theme_code",
-        "severity": "critical",
-        "title": "Accès thème impossible",
-        "description": "Impossible d'accéder aux fichiers du thème Shopify",
-        "action_available": False,
-    })
+    result["issues"].append(
+        {
+            "id": "theme_access_error",
+            "audit_type": "theme_code",
+            "severity": "critical",
+            "title": "Accès thème impossible",
+            "description": "Impossible d'accéder aux fichiers du thème Shopify",
+            "action_available": False,
+        }
+    )
     result["completed_at"] = datetime.now(tz=UTC).isoformat()
     return result
 

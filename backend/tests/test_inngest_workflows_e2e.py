@@ -263,8 +263,12 @@ class TestAPIResponses:
     def test_trigger_returns_async_true(self):
         """Verify trigger endpoint returns async: true."""
         audit_types = [
-            "theme_code", "ga4_tracking", "meta_pixel",
-            "search_console", "merchant_center", "onboarding",
+            "theme_code",
+            "ga4_tracking",
+            "meta_pixel",
+            "search_console",
+            "merchant_center",
+            "onboarding",
         ]
         for audit_type in audit_types:
             resp = requests.post(f"{BASE_URL}/api/audits/run/{audit_type}", timeout=10)
@@ -309,8 +313,12 @@ class TestNoSyncFallback:
         """Verify all audits use Inngest execution mode."""
         # Trigger all audits
         audit_types = [
-            "theme_code", "ga4_tracking", "meta_pixel",
-            "search_console", "merchant_center", "onboarding",
+            "theme_code",
+            "ga4_tracking",
+            "meta_pixel",
+            "search_console",
+            "merchant_center",
+            "onboarding",
         ]
 
         for audit_type in audit_types:
@@ -332,8 +340,9 @@ class TestNoSyncFallback:
         for audit_type in audit_types:
             if audit_type in audits:
                 result = audits[audit_type]
-                assert result.get("execution_mode") == "inngest", \
-                    f"{audit_type} should use inngest, got {result.get('execution_mode')}"
+                assert (
+                    result.get("execution_mode") == "inngest"
+                ), f"{audit_type} should use inngest, got {result.get('execution_mode')}"
 
 
 if __name__ == "__main__":

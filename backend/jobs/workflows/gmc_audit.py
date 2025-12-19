@@ -86,6 +86,7 @@ def _get_gmc_config() -> dict[str, str]:
     """Get GMC config from ConfigService."""
     try:
         from services.config_service import ConfigService
+
         config = ConfigService()
         return config.get_merchant_center_values()
     except Exception:
@@ -130,9 +131,7 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
         step["status"] = "error"
         step["error_message"] = "GOOGLE_MERCHANT_ID non configuré"
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step["duration_ms"] = int(
-            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-        )
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
         return {
             "step": step,
             "success": False,
@@ -146,9 +145,7 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
         step["status"] = "error"
         step["error_message"] = "Fichier credentials Google non trouvé"
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step["duration_ms"] = int(
-            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-        )
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
         return {
             "step": step,
             "success": False,
@@ -171,9 +168,7 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
             step["status"] = "error"
             step["error_message"] = f"Erreur API GMC: {resp.status_code}"
             step["completed_at"] = datetime.now(tz=UTC).isoformat()
-            step["duration_ms"] = int(
-                (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-            )
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
             return {
                 "step": step,
                 "success": False,
@@ -185,9 +180,7 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
         step["status"] = "error"
         step["error_message"] = str(e)
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step["duration_ms"] = int(
-            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
-        )
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
         return {
             "step": step,
             "success": False,
@@ -319,12 +312,14 @@ def _analyze_products(
             all_rejection_reasons[code].extend(issues)
 
         if product_issues:
-            products_with_issues.append({
-                "product_id": product_id,
-                "title": title,
-                "status": product_status,
-                "issues": product_issues,
-            })
+            products_with_issues.append(
+                {
+                    "product_id": product_id,
+                    "title": title,
+                    "status": product_status,
+                    "issues": product_issues,
+                }
+            )
 
     return approved, disapproved, pending, all_rejection_reasons, products_with_issues
 
@@ -391,6 +386,7 @@ def _step_3_feed_sync(_merchant_id: str, products_data: dict[str, Any]) -> dict[
 
     try:
         from services.shopify_analytics import ShopifyAnalyticsService
+
         shopify = ShopifyAnalyticsService()
         google_pub_status = shopify.fetch_products_google_shopping_status()
     except Exception:
@@ -453,56 +449,61 @@ def _build_issues(
     elif pending > 0 or approval_rate < 95:
         kpi_severity = "warning"
 
-    issues.append({
-        "id": "kpi_summary",
-        "audit_type": "merchant_center",
-        "severity": kpi_severity,
-        "title": f"📊 GMC: {approved}/{total_products} approuvés ({approval_rate}%)",
-        "description": (
-            f"Shopify {total_shopify} → Canal Google {published_to_google} → "
-            f"GMC {total_products} → {approved} approuvées"
-        ),
-        "details": [
-            f"🛍️  SHOPIFY: {total_shopify} produits",
-            f"📤  CANAL GOOGLE: {published_to_google} publiés",
-            f"📥  GMC REÇUS: {total_products} variantes",
-            f"✅  APPROUVÉS: {approved} ({approval_rate}%)",
-            f"⏳  En attente: {pending}",
-            f"❌  Rejetés: {disapproved}",
-        ],
-        "action_available": False,
-    })
+    issues.append(
+        {
+            "id": "kpi_summary",
+            "audit_type": "merchant_center",
+            "severity": kpi_severity,
+            "title": f"📊 GMC: {approved}/{total_products} approuvés ({approval_rate}%)",
+            "description": (
+                f"Shopify {total_shopify} → Canal Google {published_to_google} → "
+                f"GMC {total_products} → {approved} approuvées"
+            ),
+            "details": [
+                f"🛍️  SHOPIFY: {total_shopify} produits",
+                f"📤  CANAL GOOGLE: {published_to_google} publiés",
+                f"📥  GMC REÇUS: {total_products} variantes",
+                f"✅  APPROUVÉS: {approved} ({approval_rate}%)",
+                f"⏳  En attente: {pending}",
+                f"❌  Rejetés: {disapproved}",
+            ],
+            "action_available": False,
+        }
+    )
 
     # Account issues
     if account_issues:
         critical = [i for i in account_issues if i.get("severity") == "critical"]
         errors = [i for i in account_issues if i.get("severity") == "error"]
         if critical or errors:
-            issues.append({
-                "id": "gmc_account_issues",
-                "audit_type": "merchant_center",
-                "severity": "critical" if critical else "high",
-                "title": f"🚨 {len(account_issues)} problème(s) de compte GMC",
-                "description": "Ces problèmes peuvent bloquer la synchronisation",
-                "details": [f"• {i.get('title', 'Problème')}" for i in account_issues[:10]],
-                "action_available": False,
-            })
+            issues.append(
+                {
+                    "id": "gmc_account_issues",
+                    "audit_type": "merchant_center",
+                    "severity": "critical" if critical else "high",
+                    "title": f"🚨 {len(account_issues)} problème(s) de compte GMC",
+                    "description": "Ces problèmes peuvent bloquer la synchronisation",
+                    "details": [f"• {i.get('title', 'Problème')}" for i in account_issues[:10]],
+                    "action_available": False,
+                }
+            )
 
     # Rejection reasons
     total_variants_with_issues = len(products_data.get("products_with_issues", []))
     if rejection_reasons and total_variants_with_issues > 0:
-        issues.append({
-            "id": "gmc_issues_summary",
-            "audit_type": "merchant_center",
-            "severity": "high",
-            "title": f"⚠️ {total_variants_with_issues} variante(s) GMC avec problèmes",
-            "description": f"{total_variants_with_issues} variantes ont des issues bloquantes",
-            "details": [
-                f"• {k}: {len(v)} variante(s)"
-                for k, v in list(rejection_reasons.items())[:10]
-            ],
-            "action_available": False,
-        })
+        issues.append(
+            {
+                "id": "gmc_issues_summary",
+                "audit_type": "merchant_center",
+                "severity": "high",
+                "title": f"⚠️ {total_variants_with_issues} variante(s) GMC avec problèmes",
+                "description": f"{total_variants_with_issues} variantes ont des issues bloquantes",
+                "details": [
+                    f"• {k}: {len(v)} variante(s)" for k, v in list(rejection_reasons.items())[:10]
+                ],
+                "action_available": False,
+            }
+        )
 
         # Individual rejection reasons
         for reason_code, products_list in sorted(
@@ -512,38 +513,42 @@ def _build_issues(
             if count >= 1:
                 desc = products_list[0]["description"] if products_list else reason_code
                 gmc_url = f"https://merchants.google.com/mc/products/diagnostics?a={merchant_id}"
-                issues.append({
-                    "id": f"gmc_rejection_{reason_code}",
-                    "audit_type": "merchant_center",
-                    "severity": "high" if count > 5 else "medium",
-                    "title": f"❌ {count} variante(s) rejetée(s): {desc[:50]}",
-                    "description": f"Raison Google: {desc}",
-                    "details": [f"• {p['title']}" for p in products_list[:10]],
-                    "action_available": True,
-                    "action_id": "open_gmc_diagnostics",
-                    "action_label": "Ouvrir GMC",
-                    "action_status": "available",
-                    "action_url": gmc_url,
-                })
+                issues.append(
+                    {
+                        "id": f"gmc_rejection_{reason_code}",
+                        "audit_type": "merchant_center",
+                        "severity": "high" if count > 5 else "medium",
+                        "title": f"❌ {count} variante(s) rejetée(s): {desc[:50]}",
+                        "description": f"Raison Google: {desc}",
+                        "details": [f"• {p['title']}" for p in products_list[:10]],
+                        "action_available": True,
+                        "action_id": "open_gmc_diagnostics",
+                        "action_label": "Ouvrir GMC",
+                        "action_status": "available",
+                        "action_url": gmc_url,
+                    }
+                )
 
     # Not published products
     eligible = google_pub_status.get("products_not_published_eligible", [])
     if google_pub_status.get("google_channel_found") and not_published_to_google > 0:
-        issues.append({
-            "id": "gmc_not_published_google",
-            "audit_type": "merchant_center",
-            "severity": "high" if len(eligible) > 0 else "medium",
-            "title": (
-                f"🚫 {not_published_to_google} produits NON publiés "
-                f"({len(eligible)} éligibles)"
-            ),
-            "description": f"{len(eligible)} prêts à publier",
-            "details": [f"• {p['title']}" for p in eligible[:10]],
-            "action_available": len(eligible) > 0,
-            "action_id": "publish_eligible_to_google" if len(eligible) > 0 else None,
-            "action_label": f"Publier {len(eligible)} éligibles" if len(eligible) > 0 else None,
-            "action_status": "available" if len(eligible) > 0 else "not_available",
-        })
+        issues.append(
+            {
+                "id": "gmc_not_published_google",
+                "audit_type": "merchant_center",
+                "severity": "high" if len(eligible) > 0 else "medium",
+                "title": (
+                    f"🚫 {not_published_to_google} produits NON publiés "
+                    f"({len(eligible)} éligibles)"
+                ),
+                "description": f"{len(eligible)} prêts à publier",
+                "details": [f"• {p['title']}" for p in eligible[:10]],
+                "action_available": len(eligible) > 0,
+                "action_id": "publish_eligible_to_google" if len(eligible) > 0 else None,
+                "action_label": f"Publier {len(eligible)} éligibles" if len(eligible) > 0 else None,
+                "action_status": "available" if len(eligible) > 0 else "not_available",
+            }
+        )
 
     return issues
 
@@ -627,17 +632,19 @@ def create_gmc_audit_function() -> inngest.Function | None:
         if not step1_result["success"]:
             # Skip remaining steps
             for step_def in STEPS[1:]:
-                result["steps"].append({
-                    "id": step_def["id"],
-                    "name": step_def["name"],
-                    "description": step_def["description"],
-                    "status": "skipped",
-                    "started_at": None,
-                    "completed_at": None,
-                    "duration_ms": None,
-                    "result": None,
-                    "error_message": None,
-                })
+                result["steps"].append(
+                    {
+                        "id": step_def["id"],
+                        "name": step_def["name"],
+                        "description": step_def["description"],
+                        "status": "skipped",
+                        "started_at": None,
+                        "completed_at": None,
+                        "duration_ms": None,
+                        "result": None,
+                        "error_message": None,
+                    }
+                )
             result["status"] = "error"
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
             _save_progress(result)
