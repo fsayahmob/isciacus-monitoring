@@ -120,15 +120,9 @@ def _check_tracking_quality() -> dict[str, Any]:
 
     try:
         # Import des services nécessaires
-        from services.config_service import ConfigService
         from services.theme_analyzer import ThemeAnalyzerService
 
-        config = ConfigService()
         theme_analyzer = ThemeAnalyzerService()
-
-        # Vérifier GA4
-        ga4_config = config.get_ga4_values()
-        ga4_measurement_id = ga4_config.get("measurement_id")
 
         # Analyser le thème pour détecter les événements
         theme_analysis = theme_analyzer.analyze_theme(force_refresh=True)
@@ -264,48 +258,43 @@ def _check_conversion_completeness() -> dict[str, Any]:
 
         shopify_service = ShopifyAnalyticsService()
 
-        # Récupérer le funnel (qui contient GA4 vs Shopify match)
-        funnel = shopify_service.fetch_conversion_funnel(period=30, force_refresh=True)
+        # Récupérer les données Shopify
+        funnel = shopify_service.fetch_conversion_funnel(days=30, force_refresh=True)
 
         shopify_orders = funnel.purchases
-        ga4_transactions = funnel.conversions_ga4 if funnel.conversions_ga4 else 0
+        has_checkout_data = funnel.checkout > 0
 
-        # Calculer match rate
-        match_rate = (ga4_transactions / shopify_orders) * 100 if shopify_orders > 0 else 0
-
-        # Score basé sur match rate
-        if match_rate >= 95:
-            score = 20
-        elif match_rate >= 85:
-            score = 15
-        elif match_rate >= 70:
-            score = 10
+        # TODO: Implémenter vérification GA4 match rate via ga4_audit
+        # Pour l'instant, score basé sur la présence de données de checkout
+        if has_checkout_data and shopify_orders > 0:
+            score = 15  # Données Shopify présentes
+        elif shopify_orders > 0:
+            score = 10  # Seulement des commandes
         else:
-            score = 5
+            score = 0  # Pas de données
 
-        if match_rate < 90:
+        if shopify_orders == 0:
             issues.append(
                 {
-                    "id": "low_conversion_match",
+                    "id": "no_shopify_orders",
                     "audit_type": "ads_readiness",
-                    "severity": "critical" if match_rate < 70 else "high",
-                    "title": f"Match rate GA4 ↔ Shopify faible ({match_rate:.1f}%)",
+                    "severity": "high",
+                    "title": "Aucune commande Shopify sur 30 jours",
                     "description": (
-                        f"GA4: {ga4_transactions} transactions, "
-                        f"Shopify: {shopify_orders} commandes. "
-                        "Risque de sous-déclaration des conversions."
+                        "Impossible de calculer les métriques de conversion "
+                        "sans données historiques"
                     ),
                     "action_available": False,
                 }
             )
 
-        step["status"] = "success" if match_rate >= 90 else "warning"
+        step["status"] = "success" if score >= 10 else "warning"
         step["result"] = {
             "score": score,
             "max_score": 20,
-            "match_rate": round(match_rate, 2),
-            "ga4_transactions": ga4_transactions,
             "shopify_orders": shopify_orders,
+            "has_checkout_data": has_checkout_data,
+            "note": "GA4 match rate check à implémenter",
         }
 
     except ImportError as e:
