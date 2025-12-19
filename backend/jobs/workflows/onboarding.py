@@ -142,6 +142,7 @@ def _get_config(section: str) -> dict[str, str]:
     """
     try:
         from services.config_service import ConfigService
+
         config_service = ConfigService()
 
         # Key mappings from ConfigService to expected env var names
