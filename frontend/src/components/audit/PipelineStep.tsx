@@ -1,12 +1,35 @@
 /**
  * Audit Pipeline - Pipeline Step Components (Horizontal layout)
+ *
+ * Uses Framer Motion for smooth step status transitions.
+ * Steps animate when their status changes (pending → running → success/error).
  */
 
+import { motion, AnimatePresence } from 'framer-motion'
 import React from 'react'
 
 import type { AuditStep, AuditStepStatus, ExecutionMode } from '../../services/api'
 import { StepStatusIcon } from './StatusIcons'
 import { formatDuration } from './utils'
+
+// Animation constants
+const SCALE_RUNNING = 1.1
+const OPACITY_FADED = 0.4
+
+// Animation variants for step status transitions
+const stepVariants = {
+  pending: { opacity: 0.5, scale: 0.95 },
+  running: { opacity: 1, scale: 1 },
+  success: { opacity: 1, scale: 1 },
+  warning: { opacity: 1, scale: 1 },
+  error: { opacity: 1, scale: 1 },
+  skipped: { opacity: OPACITY_FADED, scale: 0.95 },
+}
+
+const lineVariants = {
+  inactive: { scaleX: 0, opacity: 0.3 },
+  active: { scaleX: 1, opacity: 1 },
+}
 
 function getStepLineColor(status: AuditStepStatus): string {
   if (status === 'success' || status === 'warning') {
@@ -57,30 +80,65 @@ function HorizontalPipelineStep({
   isLast: boolean
 }): React.ReactElement {
   const lineColor = getStepLineColor(step.status)
+  const isCompleted = step.status === 'success' || step.status === 'warning' || step.status === 'error'
 
   return (
     <div className="flex flex-1 items-center">
-      {/* Step content */}
-      <div className="flex flex-col items-center">
-        <StepStatusIcon status={step.status} />
+      {/* Step content with animation */}
+      <motion.div
+        className="flex flex-col items-center"
+        initial="pending"
+        animate={step.status}
+        variants={stepVariants}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+      >
+        <motion.div
+          animate={step.status === 'running' ? { scale: [1, SCALE_RUNNING, 1] } : {}}
+          transition={{ duration: 1, repeat: step.status === 'running' ? Infinity : 0 }}
+        >
+          <StepStatusIcon status={step.status} />
+        </motion.div>
         <div className="mt-1 text-center">
           <h4 className="text-xs font-medium text-gray-900">{step.name}</h4>
-          {step.duration_ms !== null && (
-            <span className="text-[10px] text-gray-400">{formatDuration(step.duration_ms)}</span>
-          )}
+          <AnimatePresence>
+            {step.duration_ms !== null && (
+              <motion.span
+                className="text-[10px] text-gray-400"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {formatDuration(step.duration_ms)}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
-        {step.error_message !== null && (
-          <p
-            className="mt-0.5 max-w-[100px] truncate text-[10px] text-red-600"
-            title={step.error_message}
-          >
-            {step.error_message}
-          </p>
-        )}
-      </div>
+        <AnimatePresence>
+          {step.error_message !== null && (
+            <motion.p
+              className="mt-0.5 max-w-[100px] truncate text-[10px] text-red-600"
+              title={step.error_message}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {step.error_message}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
-      {/* Connector line */}
-      {!isLast && <div className={`mx-2 h-0.5 flex-1 ${lineColor}`} />}
+      {/* Connector line with animation */}
+      {!isLast && (
+        <motion.div
+          className={`mx-2 h-0.5 flex-1 origin-left ${lineColor}`}
+          initial="inactive"
+          animate={isCompleted ? 'active' : 'inactive'}
+          variants={lineVariants}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        />
+      )}
     </div>
   )
 }
@@ -95,25 +153,54 @@ export function PipelineStepsPanel({
   executionMode?: ExecutionMode
 }): React.ReactElement {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white px-6 py-4">
+    <motion.div
+      className="rounded-xl border border-gray-200 bg-white px-6 py-4"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-medium text-gray-900">Pipeline d'audit</h2>
           <ExecutionModeBadge mode={executionMode} />
         </div>
-        {isRunning && (
-          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-            En cours...
-          </span>
-        )}
+        <AnimatePresence>
+          {isRunning && (
+            <motion.span
+              className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-600"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.span
+                className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                animate={{ opacity: [1, OPACITY_FADED, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              />
+              En cours...
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
 
-      <div className="flex items-start">
+      <motion.div
+        className="flex items-start"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          visible: {
+            transition: {
+              staggerChildren: 0.05,
+            },
+          },
+        }}
+      >
         {steps.map((step, index) => (
           <HorizontalPipelineStep key={step.id} step={step} isLast={index === steps.length - 1} />
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

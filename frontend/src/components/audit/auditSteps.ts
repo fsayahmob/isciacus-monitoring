@@ -3,7 +3,7 @@
  * Used to show loading states while waiting for API response
  */
 
-import { type AuditStep, type AuditResult } from '../../services/api'
+import { type AuditStep, type AuditResult, type AuditStepStatus } from '../../services/api'
 
 // Define initial steps for each audit type (shown while waiting for API)
 export const AUDIT_STEPS: Record<string, { id: string; name: string; description: string }[]> = {
@@ -90,5 +90,72 @@ export function createRunningResult(auditType: string, isAsync = true): AuditRes
     raw_data: null,
     // Default to async (Inngest) mode - will be confirmed by API response
     execution_mode: isAsync ? 'inngest' : 'sync',
+  }
+}
+
+/**
+ * Reconcile steps from API with placeholder steps.
+ * This ensures we always show all expected steps, even if some haven't started yet.
+ * Steps from API take priority; missing steps remain as 'pending'.
+ */
+export function reconcileSteps(
+  auditType: string,
+  apiSteps: AuditStep[] | undefined
+): AuditStep[] {
+  const stepDefs = AUDIT_STEPS[auditType] as { id: string; name: string; description: string }[] | undefined
+  if (stepDefs === undefined) {
+    return apiSteps ?? []
+  }
+
+  // Create a map of API steps by ID for quick lookup
+  const apiStepMap = new Map<string, AuditStep>()
+  if (apiSteps) {
+    for (const step of apiSteps) {
+      apiStepMap.set(step.id, step)
+    }
+  }
+
+  // Build reconciled steps: use API step if available, otherwise create pending placeholder
+  return stepDefs.map((def) => {
+    const apiStep = apiStepMap.get(def.id)
+    if (apiStep) {
+      return apiStep
+    }
+    // Create pending placeholder for steps not yet in API response
+    return {
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      status: 'pending' as AuditStepStatus,
+      started_at: null,
+      completed_at: null,
+      duration_ms: null,
+      result: null,
+      error_message: null,
+    }
+  })
+}
+
+/**
+ * Merge a new result with an existing one, preserving step states.
+ * This prevents UI flickering by keeping previous step states until new ones arrive.
+ */
+export function mergeAuditResults(
+  existing: AuditResult | null,
+  incoming: AuditResult | null
+): AuditResult | null {
+  if (!incoming) {
+    return existing
+  }
+  if (!existing || existing.audit_type !== incoming.audit_type) {
+    return incoming
+  }
+
+  // Reconcile steps to ensure all expected steps are present
+  const reconciledSteps = reconcileSteps(incoming.audit_type, incoming.steps)
+
+  return {
+    ...incoming,
+    steps: reconciledSteps,
   }
 }

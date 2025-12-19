@@ -1,83 +1,48 @@
 /**
  * Audit Pipeline - GitHub Actions style audit progress display
+ *
+ * Uses React Query for state management with proper step reconciliation.
+ * Steps are always displayed progressively, never replaced wholesale.
  */
 
 import React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import {
-  fetchAvailableAudits,
-  fetchLatestAuditSession,
-  runAudit,
-  executeAuditAction,
-  type AuditResult,
-  type AuditSession,
-} from '../../services/api'
+import { executeAuditAction, type AuditResult, type AuditSession } from '../../services/api'
 import { AuditCardsGrid } from './AuditCard'
-import { createRunningResult } from './auditSteps'
 import { GMCFlowKPI, type GMCFlowData } from './GMCFlowKPI'
 import { IssuesPanel } from './IssueCard'
 import { PipelineStepsPanel } from './PipelineStep'
-import { useAuditPolling } from './useAuditPolling'
+import { useAuditSession } from './useAuditSession'
 
 const HIGHLIGHT_DURATION_MS = 2000
 
 export function AuditPipeline(): React.ReactElement {
   const queryClient = useQueryClient()
-  const [selectedAudit, setSelectedAudit] = React.useState<string | null>(null)
-  const [runningResult, setRunningResult] = React.useState<AuditResult | null>(null)
 
-  const { isPolling, startPolling, stopPolling } = useAuditPolling(setRunningResult, queryClient)
-
-  const { data: auditsData } = useQuery({
-    queryKey: ['available-audits'],
-    queryFn: fetchAvailableAudits,
-  })
-
-  const { data: sessionData, refetch: refetchSession } = useQuery({
-    queryKey: ['audit-session'],
-    queryFn: fetchLatestAuditSession,
-  })
-
-  const runAuditMutation = useMutation({
-    mutationFn: (auditType: string) => runAudit(auditType),
-    onSuccess: (data) => {
-      if ('async' in data) {
-        startPolling(data.audit_type)
-        return
-      }
-      if ('result' in data) {
-        setRunningResult(data.result)
-        void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
-        void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
-      }
-    },
-    onError: () => {
-      setRunningResult(null)
-      stopPolling()
-    },
-  })
+  // Use the new consolidated hook for all audit state
+  const {
+    session,
+    availableAudits,
+    currentResult,
+    selectedAudit,
+    isRunning,
+    selectAudit,
+    runSelectedAudit,
+  } = useAuditSession()
 
   const executeActionMutation = useMutation({
     mutationFn: ({ auditType, actionId }: { auditType: string; actionId: string }) =>
       executeAuditAction(auditType, actionId),
     onSuccess: () => {
-      void refetchSession()
+      void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
     },
   })
 
-  const audits = auditsData?.audits ?? []
-  const session = sessionData?.session
-
-  // Use runningResult while audit is in progress, otherwise use session result
-  const currentResult =
-    runningResult ?? (selectedAudit !== null ? session?.audits[selectedAudit] : undefined)
+  const { audits } = availableAudits
 
   const handleRunAudit = (auditType: string): void => {
-    setSelectedAudit(auditType)
-    // Immediately show running state with pending steps (clears old result)
-    setRunningResult(createRunningResult(auditType))
-    runAuditMutation.mutate(auditType)
+    runSelectedAudit(auditType)
   }
 
   const handleExecuteAction = (auditType: string, actionId: string): void => {
@@ -85,15 +50,8 @@ export function AuditPipeline(): React.ReactElement {
   }
 
   const handleSelectAudit = (auditType: string): void => {
-    // Clear runningResult when selecting a different audit to show session data
-    if (auditType !== selectedAudit) {
-      setRunningResult(null)
-    }
-    setSelectedAudit(auditType)
+    selectAudit(auditType)
   }
-
-  // isRunning includes both mutation pending and async polling states
-  const isRunning = runAuditMutation.isPending || isPolling
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cream to-cream-dark p-6">
@@ -136,14 +94,14 @@ function AuditResultSection({
   onExecuteAction,
   actionPending,
 }: {
-  currentResult: AuditResult | false | undefined
+  currentResult: AuditResult | null
   selectedAudit: string | null
-  session: AuditSession | null | undefined
+  session: AuditSession | null
   isRunning: boolean
   onExecuteAction: (auditType: string, actionId: string) => void
   actionPending: boolean
 }): React.ReactElement | null {
-  if (currentResult !== undefined && currentResult !== false) {
+  if (currentResult !== null) {
     return (
       <AuditResultPanel
         result={currentResult}
