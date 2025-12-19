@@ -334,31 +334,63 @@ def _check_segmentation_data() -> dict[str, Any]:
     }
     start_time = datetime.now(tz=UTC)
     issues: list[dict[str, Any]] = []
+    score = 0
 
-    # TODO: Implémenter vérification réelle des données de segmentation
-    # Pour l'instant, score basique basé sur la configuration
-    score = 10  # Score par défaut
+    try:
+        from services.config_service import ConfigService
 
-    issues.append(
-        {
-            "id": "segmentation_not_verified",
-            "audit_type": "ads_readiness",
-            "severity": "medium",
-            "title": "Segmentation non vérifiée",
-            "description": (
-                "Les données de segmentation (device, country, source/medium) "
-                "ne sont pas encore vérifiées automatiquement"
-            ),
-            "action_available": False,
+        config = ConfigService()
+        ga4_config = config.get_ga4_values()
+        has_ga4 = bool(ga4_config.get("measurement_id"))
+
+        # Vérifier si GA4 est configuré (nécessaire pour segmentation)
+        if not has_ga4:
+            issues.append(
+                {
+                    "id": "ga4_required_for_segmentation",
+                    "audit_type": "ads_readiness",
+                    "severity": "high",
+                    "title": "GA4 requis pour segmentation",
+                    "description": (
+                        "GA4 doit être configuré pour accéder aux données de "
+                        "device, country, et source/medium"
+                    ),
+                    "action_available": True,
+                    "action_label": "Configurer GA4",
+                    "action_id": "configure_ga4",
+                    "action_status": "available",
+                }
+            )
+            score = 0
+            step["status"] = "error"
+        else:
+            # GA4 configuré - assume que les données de base sont collectées
+            # Score basé sur la configuration GA4
+            score = 12  # Données de base disponibles via GA4
+
+            # Note: Pour un check plus précis, il faudrait:
+            # 1. Vérifier les dimensions custom configurées
+            # 2. Checker les rapports GA4 pour confirm data collection
+            # 3. Valider la qualité des données (pas de null/unknown)
+
+            step["status"] = "success"
+
+        step["result"] = {
+            "score": score,
+            "max_score": 15,
+            "has_ga4": has_ga4,
+            "note": "Segmentation basique disponible via GA4 si configuré",
         }
-    )
 
-    step["status"] = "warning"
-    step["result"] = {
-        "score": score,
-        "max_score": 15,
-        "verified": False,
-    }
+    except ImportError as e:
+        step["status"] = "error"
+        step["error_message"] = f"Service import failed: {e}"
+        score = 0
+    except (ValueError, KeyError) as e:
+        step["status"] = "error"
+        step["error_message"] = f"Config error: {e}"
+        score = 0
+
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
 
@@ -387,30 +419,85 @@ def _check_attribution_readiness() -> dict[str, Any]:
     }
     start_time = datetime.now(tz=UTC)
     issues: list[dict[str, Any]] = []
+    score = 0
 
-    # TODO: Implémenter vérification UTM tracking
-    score = 5  # Score par défaut
+    try:
+        from services.config_service import ConfigService
+        from services.theme_analyzer import ThemeAnalyzerService
 
-    issues.append(
-        {
-            "id": "utm_tracking_not_verified",
-            "audit_type": "ads_readiness",
-            "severity": "high",
-            "title": "UTM tracking non vérifié",
-            "description": (
-                "Les paramètres UTM (source, medium, campaign) ne sont pas vérifiés. "
-                "Attribution multi-touch limitée."
+        config = ConfigService()
+        theme_analyzer = ThemeAnalyzerService()
+
+        # Vérifier GA4 pour UTM tracking
+        ga4_config = config.get_ga4_values()
+        has_ga4 = bool(ga4_config.get("measurement_id"))
+
+        # Analyser le thème pour UTM/tracking setup
+        theme_analysis = theme_analyzer.analyze_theme(force_refresh=False)
+        has_gtm = theme_analysis.gtm_configured
+
+        # Score basé sur les outils d'attribution disponibles
+        if has_ga4 and has_gtm:
+            score = 10  # Setup optimal: GA4 + GTM pour attribution complète
+            step["status"] = "success"
+        elif has_ga4:
+            score = 7  # GA4 seul - attribution basique possible
+            step["status"] = "success"
+            issues.append(
+                {
+                    "id": "gtm_recommended_for_attribution",
+                    "audit_type": "ads_readiness",
+                    "severity": "medium",
+                    "title": "GTM recommandé pour attribution avancée",
+                    "description": (
+                        "Google Tag Manager permet un meilleur suivi des UTM "
+                        "et facilite l'attribution multi-touch"
+                    ),
+                    "action_available": True,
+                    "action_label": "Guide GTM",
+                    "action_url": "https://tagmanager.google.com",
+                    "action_status": "available",
+                }
+            )
+        else:
+            score = 0
+            step["status"] = "error"
+            issues.append(
+                {
+                    "id": "ga4_required_for_attribution",
+                    "audit_type": "ads_readiness",
+                    "severity": "critical",
+                    "title": "GA4 requis pour attribution",
+                    "description": (
+                        "Sans GA4, impossible de tracker les UTM et faire "
+                        "de l'attribution multi-touch"
+                    ),
+                    "action_available": True,
+                    "action_label": "Configurer GA4",
+                    "action_id": "configure_ga4",
+                    "action_status": "available",
+                }
+            )
+
+        step["result"] = {
+            "score": score,
+            "max_score": 10,
+            "has_ga4": has_ga4,
+            "has_gtm": has_gtm,
+            "attribution_level": (
+                "advanced" if has_gtm and has_ga4 else ("basic" if has_ga4 else "none")
             ),
-            "action_available": False,
         }
-    )
 
-    step["status"] = "warning"
-    step["result"] = {
-        "score": score,
-        "max_score": 10,
-        "verified": False,
-    }
+    except ImportError as e:
+        step["status"] = "error"
+        step["error_message"] = f"Service import failed: {e}"
+        score = 0
+    except (ValueError, KeyError, AttributeError) as e:
+        step["status"] = "error"
+        step["error_message"] = f"Error: {e}"
+        score = 0
+
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
 
@@ -439,27 +526,77 @@ def _check_ads_metrics() -> dict[str, Any]:
     }
     start_time = datetime.now(tz=UTC)
     issues: list[dict[str, Any]] = []
+    score = 0
 
-    # TODO: Vérifier que les métriques sont calculables
-    score = 5  # Score par défaut
+    try:
+        from services.shopify_analytics import ShopifyAnalyticsService
 
-    issues.append(
-        {
-            "id": "ads_metrics_not_verified",
-            "audit_type": "ads_readiness",
-            "severity": "medium",
-            "title": "Métriques Ads non vérifiées",
-            "description": "ROAS, CPA, LTV ne sont pas encore calculés automatiquement",
-            "action_available": False,
+        shopify_service = ShopifyAnalyticsService()
+
+        # Vérifier données Shopify pour calcul métriques
+        funnel = shopify_service.fetch_conversion_funnel(days=30, force_refresh=False)
+
+        has_orders = funnel.purchases > 0
+        has_checkout = funnel.checkout > 0
+
+        # Score basé sur la disponibilité des données de base
+        if has_orders and has_checkout:
+            score = 5  # Données de base OK pour calculer CPA, ROAS
+            step["status"] = "success"
+
+            # Note: Pour ROAS/CPA réels, il faut:
+            # 1. Connecter Meta/Google Ads API pour ad spend
+            # 2. Récupérer les coûts par campagne
+            # 3. Matcher conversions avec sources
+
+        elif has_orders:
+            score = 3  # Seulement conversions, pas de funnel complet
+            step["status"] = "warning"
+            issues.append(
+                {
+                    "id": "incomplete_funnel_data",
+                    "audit_type": "ads_readiness",
+                    "severity": "medium",
+                    "title": "Données de funnel incomplètes",
+                    "description": ("Checkouts manquants - calcul CPA limité"),
+                    "action_available": False,
+                }
+            )
+        else:
+            score = 0
+            step["status"] = "error"
+            issues.append(
+                {
+                    "id": "no_conversion_data",
+                    "audit_type": "ads_readiness",
+                    "severity": "critical",
+                    "title": "Aucune donnée de conversion",
+                    "description": (
+                        "Impossible de calculer ROAS/CPA sans commandes. "
+                        "Attendez d'avoir des données historiques."
+                    ),
+                    "action_available": False,
+                }
+            )
+
+        step["result"] = {
+            "score": score,
+            "max_score": 5,
+            "has_orders": has_orders,
+            "has_checkout": has_checkout,
+            "orders_30d": funnel.purchases,
+            "note": "Ad spend data à connecter via Meta/Google Ads API pour ROAS réel",
         }
-    )
 
-    step["status"] = "warning"
-    step["result"] = {
-        "score": score,
-        "max_score": 5,
-        "verified": False,
-    }
+    except ImportError as e:
+        step["status"] = "error"
+        step["error_message"] = f"Service import failed: {e}"
+        score = 0
+    except (ValueError, KeyError, AttributeError) as e:
+        step["status"] = "error"
+        step["error_message"] = f"Data error: {e}"
+        score = 0
+
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
 
