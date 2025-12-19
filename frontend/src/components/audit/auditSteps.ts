@@ -48,6 +48,7 @@ export const AUDIT_STEPS: Record<string, { id: string; name: string; description
     { id: 'gmc_connection', name: 'Connexion GMC', description: 'Connexion au Merchant Center' },
     { id: 'products_status', name: 'Statut Produits', description: 'Analyse des produits GMC' },
     { id: 'feed_sync', name: 'Synchronisation Feed', description: 'Vérification de la sync' },
+    { id: 'issues_check', name: 'Problèmes', description: 'Détection des problèmes' },
   ],
   meta_pixel: [
     { id: 'meta_connection', name: 'Détection Pixel', description: 'Scan du thème Shopify' },
@@ -57,8 +58,9 @@ export const AUDIT_STEPS: Record<string, { id: string; name: string; description
   ],
   search_console: [
     { id: 'gsc_connection', name: 'Connexion GSC', description: 'Connexion Search Console' },
-    { id: 'site_verification', name: 'Vérification Site', description: 'Statut de vérification' },
-    { id: 'indexing_status', name: 'Indexation', description: "Statut d'indexation" },
+    { id: 'indexation', name: 'Indexation', description: "Couverture d'indexation" },
+    { id: 'errors', name: 'Erreurs', description: 'Vérification des erreurs' },
+    { id: 'sitemaps', name: 'Sitemaps', description: 'Statut des sitemaps' },
   ],
 }
 

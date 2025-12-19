@@ -1,5 +1,5 @@
 /**
- * Audit Pipeline - Pipeline Step Components (Horizontal layout)
+ * Audit Pipeline - Modern Vertical Stepper with Animations
  *
  * Uses Framer Motion for smooth step status transitions.
  * Steps animate when their status changes (pending → running → success/error).
@@ -8,50 +8,86 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import React from 'react'
 
-import type { AuditStep, AuditStepStatus, ExecutionMode } from '../../services/api'
-import { StepStatusIcon } from './StatusIcons'
+import type { AuditStep, ExecutionMode } from '../../services/api'
+import { StepIcon } from './StepIcon'
+import { STATUS_CONFIG, ANIMATION, isStepCompleted } from './stepperConfig'
 import { formatDuration } from './utils'
 
-// Animation constants
-const SCALE_RUNNING = 1.1
-const OPACITY_FADED = 0.4
-
-// Animation variants for step status transitions
-const stepVariants = {
-  pending: { opacity: 0.5, scale: 0.95 },
-  running: { opacity: 1, scale: 1 },
-  success: { opacity: 1, scale: 1 },
-  warning: { opacity: 1, scale: 1 },
-  error: { opacity: 1, scale: 1 },
-  skipped: { opacity: OPACITY_FADED, scale: 0.95 },
-}
-
-const lineVariants = {
-  inactive: { scaleX: 0, opacity: 0.3 },
-  active: { scaleX: 1, opacity: 1 },
-}
-
-function getStepLineColor(status: AuditStepStatus): string {
-  if (status === 'success' || status === 'warning') {
-    return 'bg-green-400'
+function VerticalConnector({ isCompleted, isLast }: { isCompleted: boolean; isLast: boolean }): React.ReactElement | null {
+  if (isLast) {
+    return null
   }
-  if (status === 'error') {
-    return 'bg-red-400'
-  }
-  return 'bg-gray-200'
+
+  return (
+    <div className="absolute left-5 top-12 h-full w-0.5 -translate-x-1/2">
+      <motion.div
+        className={`h-full w-full ${isCompleted ? 'bg-emerald-400' : 'bg-gray-200'}`}
+        initial={{ scaleY: 0, originY: 0 }}
+        animate={{ scaleY: 1 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      />
+    </div>
+  )
 }
 
-/**
- * Execution mode badge - Shows whether audit runs via Inngest (async) or directly (sync)
- */
+function VerticalPipelineStep({ step, index, isLast }: { step: AuditStep; index: number; isLast: boolean }): React.ReactElement {
+  const config = STATUS_CONFIG[step.status]
+  const completed = isStepCompleted(step.status)
+
+  return (
+    <motion.div
+      className="relative flex gap-4 pb-8 last:pb-0"
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3, delay: index * ANIMATION.STAGGER_DELAY }}
+    >
+      <VerticalConnector isCompleted={completed} isLast={isLast} />
+
+      <div className="relative z-10 flex-shrink-0">
+        <StepIcon status={step.status} />
+      </div>
+
+      <div className="flex-1 pt-1">
+        <div className="flex items-center gap-3">
+          <h4 className={`font-medium ${config.text}`}>{step.name}</h4>
+          <AnimatePresence>
+            {step.duration_ms !== null && (
+              <motion.span
+                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                {formatDuration(step.duration_ms)}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </div>
+        <p className="mt-0.5 text-sm text-gray-500">{step.description}</p>
+
+        <AnimatePresence>
+          {step.error_message !== null && (
+            <motion.div
+              className="mt-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {step.error_message}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  )
+}
+
 function ExecutionModeBadge({ mode }: { mode: ExecutionMode | undefined }): React.ReactElement {
   if (mode === 'inngest') {
     return (
-      <span
-        className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700"
-        title="Exécution asynchrone via Inngest"
-      >
-        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         Async
@@ -60,86 +96,30 @@ function ExecutionModeBadge({ mode }: { mode: ExecutionMode | undefined }): Reac
   }
 
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-      title="Exécution synchrone directe"
-    >
-      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="12" r="10" />
       </svg>
       Sync
     </span>
   )
 }
 
-function HorizontalPipelineStep({
-  step,
-  isLast,
-}: {
-  step: AuditStep
-  isLast: boolean
-}): React.ReactElement {
-  const lineColor = getStepLineColor(step.status)
-  const isCompleted = step.status === 'success' || step.status === 'warning' || step.status === 'error'
-
+function RunningBadge(): React.ReactElement {
   return (
-    <div className="flex flex-1 items-center">
-      {/* Step content with animation */}
-      <motion.div
-        className="flex flex-col items-center"
-        initial="pending"
-        animate={step.status}
-        variants={stepVariants}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-      >
-        <motion.div
-          animate={step.status === 'running' ? { scale: [1, SCALE_RUNNING, 1] } : {}}
-          transition={{ duration: 1, repeat: step.status === 'running' ? Infinity : 0 }}
-        >
-          <StepStatusIcon status={step.status} />
-        </motion.div>
-        <div className="mt-1 text-center">
-          <h4 className="text-xs font-medium text-gray-900">{step.name}</h4>
-          <AnimatePresence>
-            {step.duration_ms !== null && (
-              <motion.span
-                className="text-[10px] text-gray-400"
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {formatDuration(step.duration_ms)}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </div>
-        <AnimatePresence>
-          {step.error_message !== null && (
-            <motion.p
-              className="mt-0.5 max-w-[100px] truncate text-[10px] text-red-600"
-              title={step.error_message}
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {step.error_message}
-            </motion.p>
-          )}
-        </AnimatePresence>
-      </motion.div>
-
-      {/* Connector line with animation */}
-      {!isLast && (
-        <motion.div
-          className={`mx-2 h-0.5 flex-1 origin-left ${lineColor}`}
-          initial="inactive"
-          animate={isCompleted ? 'active' : 'inactive'}
-          variants={lineVariants}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-        />
-      )}
-    </div>
+    <motion.div
+      className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+    >
+      <motion.span
+        className="h-2 w-2 rounded-full bg-blue-500"
+        animate={{ opacity: [1, ANIMATION.OPACITY_FADED, 1] }}
+        transition={{ duration: 1.2, repeat: Infinity }}
+      />
+      <span className="text-sm font-medium text-blue-700">En cours...</span>
+    </motion.div>
   )
 }
 
@@ -152,90 +132,47 @@ export function PipelineStepsPanel({
   isRunning: boolean
   executionMode?: ExecutionMode
 }): React.ReactElement {
+  const completedSteps = steps.filter((s) => isStepCompleted(s.status)).length
+  const progressPercent = steps.length > 0 ? (completedSteps / steps.length) * 100 : 0
+
   return (
     <motion.div
-      className="rounded-xl border border-gray-200 bg-white px-6 py-4"
-      initial={{ opacity: 0, y: 10 }}
+      className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.4 }}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium text-gray-900">Pipeline d'audit</h2>
-          <ExecutionModeBadge mode={executionMode} />
+      <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-semibold text-gray-900">Pipeline d'audit</h2>
+            <ExecutionModeBadge mode={executionMode} />
+          </div>
+          <AnimatePresence>{isRunning && <RunningBadge />}</AnimatePresence>
         </div>
-        <AnimatePresence>
-          {isRunning && (
-            <motion.span
-              className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-600"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <motion.span
-                className="h-1.5 w-1.5 rounded-full bg-blue-500"
-                animate={{ opacity: [1, OPACITY_FADED, 1] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-              />
-              En cours...
-            </motion.span>
-          )}
-        </AnimatePresence>
+
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200">
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500"
+            initial={{ width: 0 }}
+            animate={{ width: `${String(progressPercent)}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        </div>
+        <p className="mt-1.5 text-xs text-gray-500">
+          {completedSteps} / {steps.length} étapes complétées
+        </p>
       </div>
 
-      <motion.div
-        className="flex items-start"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          visible: {
-            transition: {
-              staggerChildren: 0.05,
-            },
-          },
-        }}
-      >
+      <div className="p-6">
         {steps.map((step, index) => (
-          <HorizontalPipelineStep key={step.id} step={step} isLast={index === steps.length - 1} />
+          <VerticalPipelineStep key={step.id} step={step} index={index} isLast={index === steps.length - 1} />
         ))}
-      </motion.div>
+      </div>
     </motion.div>
   )
 }
 
-// Keep vertical version for potential future use (e.g., mobile)
-export function PipelineStep({
-  step,
-  isLast,
-}: {
-  step: AuditStep
-  isLast: boolean
-}): React.ReactElement {
-  const lineColor = getStepLineColor(step.status)
-
-  return (
-    <div className="flex items-start gap-3">
-      <div className="flex flex-col items-center">
-        <StepStatusIcon status={step.status} />
-        {!isLast && <div className={`h-8 w-0.5 ${lineColor}`} />}
-      </div>
-
-      <div className="flex-1 pb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-medium text-gray-900">{step.name}</h4>
-            <p className="text-sm text-gray-500">{step.description}</p>
-          </div>
-          {step.duration_ms !== null && (
-            <span className="text-xs text-gray-400">{formatDuration(step.duration_ms)}</span>
-          )}
-        </div>
-
-        {step.error_message !== null && (
-          <p className="mt-1 text-sm text-red-600">{step.error_message}</p>
-        )}
-      </div>
-    </div>
-  )
+export function PipelineStep({ step, isLast }: { step: AuditStep; isLast: boolean }): React.ReactElement {
+  return <VerticalPipelineStep step={step} index={0} isLast={isLast} />
 }
