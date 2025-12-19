@@ -1,10 +1,6 @@
 import type { FilteredSalesAnalysis } from '../../../types/analytics'
 
-export function SalesResultsSummary({
-  data,
-}: {
-  data: FilteredSalesAnalysis
-}): React.ReactElement {
+export function SalesResultsSummary({ data }: { data: FilteredSalesAnalysis }): React.ReactElement {
   const hasViews = data.ga4_available === true && data.total_views !== undefined
 
   return (

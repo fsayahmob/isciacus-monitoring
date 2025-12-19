@@ -31,11 +31,7 @@ export function ProductRow({ product, rank, showViews }: ProductRowProps): React
             {hasViews ? product.views : '-'}
           </td>
           <td className="py-3 text-center font-mono">
-            {hasCVR ? (
-              <span className="badge badge-success">{product.cvr?.toFixed(1)}%</span>
-            ) : (
-              '-'
-            )}
+            {hasCVR ? <span className="badge badge-success">{product.cvr?.toFixed(1)}%</span> : '-'}
           </td>
         </>
       ) : null}

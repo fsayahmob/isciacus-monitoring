@@ -204,9 +204,7 @@ function useAuditMutation(
 export function useAuditSession(): UseAuditSessionReturn {
   const queryClient = useQueryClient()
   const [selectedAudit, setSelectedAudit] = React.useState<string | null>(null)
-  const [runningAudits, setRunningAudits] = React.useState<Map<string, RunningAuditInfo>>(
-    new Map()
-  )
+  const [runningAudits, setRunningAudits] = React.useState<Map<string, RunningAuditInfo>>(new Map())
   const [optimisticResults, setOptimisticResults] = React.useState<Map<string, AuditResult>>(
     new Map()
   )
