@@ -37,6 +37,7 @@ class AuditType(Enum):
     MERCHANT_CENTER = "merchant_center"
     SEARCH_CONSOLE = "search_console"
     THEME_CODE = "theme_code"
+    ADS_READINESS = "ads_readiness"  # Global Ads readiness score
 
 
 class AuditStepStatus(Enum):

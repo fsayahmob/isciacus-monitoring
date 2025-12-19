@@ -48,6 +48,7 @@ def setup_inngest(app: FastAPI) -> bool:
     from .audit_workflow import inngest_client
 
     # Import dedicated audit workflows
+    from .workflows.ads_readiness_audit import ads_readiness_audit_function
     from .workflows.ga4_audit import ga4_audit_function
     from .workflows.gmc_audit import gmc_audit_function
     from .workflows.gsc_audit import gsc_audit_function
@@ -72,6 +73,8 @@ def setup_inngest(app: FastAPI) -> bool:
         functions.append(meta_audit_function)
     if theme_audit_function is not None:
         functions.append(theme_audit_function)
+    if ads_readiness_audit_function is not None:
+        functions.append(ads_readiness_audit_function)
 
     if not functions:
         return False
@@ -245,11 +248,35 @@ async def trigger_theme_audit() -> dict[str, str]:
         return {"status": "error", "message": str(e)}
 
 
+async def trigger_ads_readiness_audit() -> dict[str, str]:
+    """Trigger Ads Readiness audit workflow."""
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/ads_readiness.requested",
+                data={"run_id": run_id},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": "ads_readiness"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 async def trigger_audit(audit_type: str, period: int = 30) -> dict[str, str]:
     """
     Trigger any audit type via its dedicated Inngest workflow.
 
-    Supported types: ga4_tracking, theme_code, meta_pixel, merchant_center, search_console
+    Supported types: ga4_tracking, theme_code, meta_pixel, merchant_center, search_console, ads_readiness
     """
     trigger_map = {
         "ga4_tracking": lambda: trigger_ga4_audit(period),
@@ -257,6 +284,7 @@ async def trigger_audit(audit_type: str, period: int = 30) -> dict[str, str]:
         "meta_pixel": trigger_meta_audit,
         "merchant_center": trigger_gmc_audit,
         "search_console": trigger_gsc_audit,
+        "ads_readiness": trigger_ads_readiness_audit,
     }
 
     trigger_func = trigger_map.get(audit_type)
