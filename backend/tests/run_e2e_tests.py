@@ -33,22 +33,15 @@ BOLD = "\033[1m"
 
 def check_services() -> bool:
     """Check if required services are running."""
-    print(f"{BLUE}Checking services...{RESET}")
 
     try:
         requests.get(f"{BASE_URL}/api/audits/session", timeout=5)
-        print(f"  Backend: {GREEN}OK{RESET}")
     except requests.ConnectionError:
-        print(f"  Backend: {RED}NOT RUNNING{RESET}")
-        print(f"\n{RED}Start services with: docker compose up{RESET}")
         return False
 
     try:
         requests.get("http://localhost:8288/health", timeout=5)
-        print(f"  Inngest: {GREEN}OK{RESET}")
     except requests.ConnectionError:
-        print(f"  Inngest: {RED}NOT RUNNING{RESET}")
-        print(f"\n{RED}Start services with: docker compose up{RESET}")
         return False
 
     return True
@@ -121,73 +114,30 @@ def verify_result(result: dict, expected_steps: list[str]) -> list[str]:
 
 def test_workflow(audit_type: str, expected_steps: list[str]) -> bool:
     """Test a single workflow. Returns True if passed."""
-    print(f"\n{BOLD}Testing {audit_type}...{RESET}")
 
     # Trigger
-    success, run_id = trigger_audit(audit_type)
+    success, _run_id = trigger_audit(audit_type)
     if not success:
-        print(f"  Trigger: {RED}FAILED{RESET} - {run_id}")
         return False
-    print(f"  Trigger: {GREEN}OK{RESET} (run_id: {run_id})")
 
     # Wait for completion
-    print("  Waiting for completion...", end="", flush=True)
     status, result = wait_for_completion(audit_type)
 
     if status == "timeout":
-        print(f" {RED}TIMEOUT{RESET}")
         return False
-
-    status_color = GREEN if status == "success" else YELLOW if status == "warning" else RED
-    print(f" {status_color}{status}{RESET}")
 
     # Verify async mode
     exec_mode = result.get("execution_mode", "unknown")
     if exec_mode != "inngest":
-        print(f"  Execution mode: {RED}{exec_mode}{RESET} (expected inngest)")
         return False
-    print(f"  Execution mode: {GREEN}inngest{RESET}")
 
     # Verify steps
     issues = verify_result(result, expected_steps)
-    if issues:
-        print(f"  Structure: {RED}FAILED{RESET}")
-        for issue in issues:
-            print(f"    - {issue}")
-        return False
-    print(f"  Structure: {GREEN}OK{RESET}")
-
-    # Show step summary
-    steps = result.get("steps", [])
-    print("  Steps:")
-    for step in steps:
-        status = step["status"]
-        if status == "success":
-            icon = "✓"
-        elif status == "warning":
-            icon = "○"
-        elif status == "error":
-            icon = "✗"
-        else:
-            icon = "⊘"
-        if status == "success":
-            color = GREEN
-        elif status == "warning":
-            color = YELLOW
-        elif status == "error":
-            color = RED
-        else:
-            color = RESET
-        print(f"    {color}{icon} {step['id']}: {status}{RESET}")
-
-    return True
+    return not issues
 
 
 def main():
     """Run all E2E tests."""
-    print(f"\n{BOLD}{'='*60}{RESET}")
-    print(f"{BOLD}  Inngest Workflow E2E Tests{RESET}")
-    print(f"{BOLD}{'='*60}{RESET}\n")
 
     if not check_services():
         sys.exit(1)
@@ -242,24 +192,12 @@ def main():
         time.sleep(1)  # Small delay between tests
 
     # Summary
-    print(f"\n{BOLD}{'='*60}{RESET}")
-    print(f"{BOLD}  Summary{RESET}")
-    print(f"{BOLD}{'='*60}{RESET}\n")
-
     passed = sum(1 for v in results.values() if v)
     total = len(results)
 
-    for audit_type, success in results.items():
-        icon = f"{GREEN}PASS{RESET}" if success else f"{RED}FAIL{RESET}"
-        print(f"  {audit_type}: {icon}")
-
-    print(f"\n{BOLD}Result: {passed}/{total} tests passed{RESET}")
-
     if passed == total:
-        print(f"\n{GREEN}{BOLD}All workflows are working correctly!{RESET}\n")
         sys.exit(0)
     else:
-        print(f"\n{RED}{BOLD}Some workflows failed.{RESET}\n")
         sys.exit(1)
 
 

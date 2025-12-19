@@ -355,14 +355,76 @@ def _step_5_issues_detection(analysis: dict[str, Any]) -> dict[str, Any]:
     return {"step": step, "issues": issues}
 
 
-def create_theme_audit_function() -> inngest.Function | None:
-    """Create the Theme Code audit Inngest function.
+def _create_skipped_step(step_def: dict[str, str]) -> dict[str, Any]:
+    """Create a skipped step entry."""
+    return {
+        "id": step_def["id"],
+        "name": step_def["name"],
+        "description": step_def["description"],
+        "status": "skipped",
+        "started_at": None,
+        "completed_at": None,
+        "duration_ms": None,
+        "result": None,
+        "error_message": None,
+    }
 
-    Note: This function has 51 statements which exceeds the limit of 50. This is
-    necessary to handle the complete theme audit workflow including error handling,
-    step progression, and result aggregation. Breaking it apart would reduce
-    maintainability of the audit flow.
-    """
+
+def _handle_ga4_not_configured(result: dict[str, Any]) -> dict[str, Any]:
+    """Handle case when GA4 is not configured."""
+    result["steps"].append({
+        "id": "theme_access",
+        "name": "Accès Thème",
+        "description": "Récupération des fichiers",
+        "status": "error",
+        "started_at": datetime.now(tz=UTC).isoformat(),
+        "completed_at": datetime.now(tz=UTC).isoformat(),
+        "duration_ms": 0,
+        "result": None,
+        "error_message": "GA4 non configuré. Allez dans Settings > GA4.",
+    })
+    for step_def in STEPS[1:]:
+        result["steps"].append(_create_skipped_step(step_def))
+    result["status"] = "error"
+    result["completed_at"] = datetime.now(tz=UTC).isoformat()
+    return result
+
+
+def _handle_theme_access_failed(result: dict[str, Any]) -> dict[str, Any]:
+    """Handle case when theme access fails."""
+    for step_def in STEPS[1:]:
+        result["steps"].append(_create_skipped_step(step_def))
+    result["status"] = "error"
+    result["issues"].append({
+        "id": "theme_access_error",
+        "audit_type": "theme_code",
+        "severity": "critical",
+        "title": "Accès thème impossible",
+        "description": "Impossible d'accéder aux fichiers du thème Shopify",
+        "action_available": False,
+    })
+    result["completed_at"] = datetime.now(tz=UTC).isoformat()
+    return result
+
+
+def _finalize_theme_result(result: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+    """Finalize theme audit result."""
+    has_errors = any(s.get("status") == "error" for s in result["steps"])
+    has_warnings = any(s.get("status") == "warning" for s in result["steps"])
+    result["status"] = "error" if has_errors else ("warning" if has_warnings else "success")
+    result["completed_at"] = datetime.now(tz=UTC).isoformat()
+    result["summary"] = {
+        "files_analyzed": len(analysis.get("files_analyzed", [])),
+        "ga4_configured": analysis.get("ga4_configured", False),
+        "meta_configured": analysis.get("meta_pixel_configured", False),
+        "gtm_configured": analysis.get("gtm_configured", False),
+        "issues_count": len(result["issues"]),
+    }
+    return result
+
+
+def create_theme_audit_function() -> inngest.Function | None:
+    """Create the Theme Code audit Inngest function."""
     if inngest_client is None:
         return None
 
@@ -377,68 +439,26 @@ def create_theme_audit_function() -> inngest.Function | None:
         result = _init_result(run_id)
         _save_progress(result)
 
-        # Get GA4 config
         ga4_config = _get_ga4_config()
         ga4_measurement_id = ga4_config.get("measurement_id", "")
 
         if not ga4_measurement_id:
-            result["steps"].append({
-                "id": "theme_access",
-                "name": "Accès Thème",
-                "description": "Récupération des fichiers",
-                "status": "error",
-                "started_at": datetime.now(tz=UTC).isoformat(),
-                "completed_at": datetime.now(tz=UTC).isoformat(),
-                "duration_ms": 0,
-                "result": None,
-                "error_message": "GA4 non configuré. Allez dans Settings > GA4.",
-            })
-            for step_def in STEPS[1:]:
-                result["steps"].append({
-                    "id": step_def["id"],
-                    "name": step_def["name"],
-                    "description": step_def["description"],
-                    "status": "skipped", "started_at": None, "completed_at": None,
-                    "duration_ms": None, "result": None, "error_message": None,
-                })
-            result["status"] = "error"
-            result["completed_at"] = datetime.now(tz=UTC).isoformat()
+            result = _handle_ga4_not_configured(result)
             _save_progress(result)
             return result
 
-        # Step 1: Theme access
         _save_progress(result)
         step1_result = await ctx.step.run("access-theme", _step_1_theme_access)
         result["steps"].append(step1_result["step"])
         _save_progress(result)
 
         if not step1_result["success"]:
-            for step_def in STEPS[1:]:
-                result["steps"].append({
-                    "id": step_def["id"],
-                    "name": step_def["name"],
-                    "description": step_def["description"],
-                    "status": "skipped",
-                    "started_at": None,
-                    "completed_at": None,
-                    "duration_ms": None, "result": None, "error_message": None,
-                })
-            result["status"] = "error"
-            result["issues"].append({
-                "id": "theme_access_error",
-                "audit_type": "theme_code",
-                "severity": "critical",
-                "title": "Accès thème impossible",
-                "description": "Impossible d'accéder aux fichiers du thème Shopify",
-                "action_available": False,
-            })
-            result["completed_at"] = datetime.now(tz=UTC).isoformat()
+            result = _handle_theme_access_failed(result)
             _save_progress(result)
             return result
 
         analysis = step1_result["analysis"]
 
-        # Step 2: GA4 code
         _save_progress(result)
         step2_result = await ctx.step.run(
             "analyze-ga4-code",
@@ -448,20 +468,17 @@ def create_theme_audit_function() -> inngest.Function | None:
         result["issues"].extend(step2_result["issues"])
         _save_progress(result)
 
-        # Step 3: Meta code
         _save_progress(result)
         step3_result = await ctx.step.run("analyze-meta-code", lambda: _step_3_meta_code(analysis))
         result["steps"].append(step3_result["step"])
         result["issues"].extend(step3_result["issues"])
         _save_progress(result)
 
-        # Step 4: GTM code
         _save_progress(result)
         step4_result = await ctx.step.run("analyze-gtm-code", lambda: _step_4_gtm_code(analysis))
         result["steps"].append(step4_result["step"])
         _save_progress(result)
 
-        # Step 5: Issues detection
         _save_progress(result)
         step5_result = await ctx.step.run(
             "detect-issues", lambda: _step_5_issues_detection(analysis)
@@ -470,19 +487,7 @@ def create_theme_audit_function() -> inngest.Function | None:
         result["issues"].extend(step5_result["issues"])
         _save_progress(result)
 
-        # Finalize
-        has_errors = any(s.get("status") == "error" for s in result["steps"])
-        has_warnings = any(s.get("status") == "warning" for s in result["steps"])
-        result["status"] = "error" if has_errors else ("warning" if has_warnings else "success")
-        result["completed_at"] = datetime.now(tz=UTC).isoformat()
-        result["summary"] = {
-            "files_analyzed": len(analysis.get("files_analyzed", [])),
-            "ga4_configured": analysis.get("ga4_configured", False),
-            "meta_configured": analysis.get("meta_pixel_configured", False),
-            "gtm_configured": analysis.get("gtm_configured", False),
-            "issues_count": len(result["issues"]),
-        }
-
+        result = _finalize_theme_result(result, analysis)
         _save_progress(result)
         return result
 

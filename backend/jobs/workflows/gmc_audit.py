@@ -217,29 +217,8 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
     return {"step": step, "success": True, "token": token, "account_issues": account_issues}
 
 
-def _step_2_products_status(merchant_id: str, token: str) -> dict[str, Any]:
-    """Step 2: Fetch and analyze product statuses.
-
-    Note: This function has high complexity (18 branches, 62 statements) but this is
-    necessary to handle all GMC API response scenarios, product statuses, and issue
-    categorization. Breaking it down would reduce readability and make the GMC audit
-    flow harder to follow.
-    """
-    step = {
-        "id": "products_status",
-        "name": "Statut Produits",
-        "description": "Analyse des produits GMC",
-        "status": "running",
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": None,
-        "duration_ms": None,
-        "result": None,
-        "error_message": None,
-    }
-    start_time = datetime.now(tz=UTC)
-    headers = {"Authorization": f"Bearer {token}"}
-
-    # Fetch all products with pagination
+def _fetch_gmc_products(merchant_id: str, headers: dict[str, str]) -> list[dict]:
+    """Fetch all GMC products with pagination."""
     gmc_products = []
     next_page_token = None
     page_count = 0
@@ -263,25 +242,67 @@ def _step_2_products_status(merchant_id: str, token: str) -> dict[str, Any]:
         except Exception:
             break
 
-    total_products = len(gmc_products)
-    approved = disapproved = pending = 0
+    return gmc_products
+
+
+def _get_product_status_for_france(dest_statuses: list[dict]) -> str:
+    """Determine product status for France market."""
+    for dest in dest_statuses:
+        dest_name = dest.get("destination", "")
+        if "SurfacesAcrossGoogle" in dest_name or "Shopping" in dest_name:
+            if "FR" in dest.get("approvedCountries", []):
+                return "approved"
+            if "FR" in dest.get("disapprovedCountries", []):
+                return "disapproved"
+    return "pending"
+
+
+def _extract_product_issues(
+    product: dict[str, Any],
+    product_id: str,
+    title: str,
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Extract rejection reasons from product issues."""
+    item_issues = product.get("itemLevelIssues", [])
+    product_issues = []
     rejection_reasons: dict[str, list[dict]] = {}
+    seen_codes = set()
+
+    for issue in item_issues:
+        if issue.get("servability") == "disapproved":
+            code = issue.get("code", "unknown")
+            if code not in seen_codes:
+                seen_codes.add(code)
+                issue_info = {
+                    "product_id": product_id,
+                    "title": title,
+                    "description": issue.get("description", code),
+                    "attribute": issue.get("attributeName", ""),
+                    "detail": issue.get("detail", ""),
+                    "documentation": issue.get("documentation", ""),
+                }
+                if code not in rejection_reasons:
+                    rejection_reasons[code] = []
+                rejection_reasons[code].append(issue_info)
+                product_issues.append(issue_info)
+
+    return product_issues, rejection_reasons
+
+
+def _analyze_products(
+    gmc_products: list[dict],
+) -> tuple[int, int, int, dict[str, list[dict]], list[dict]]:
+    """Analyze GMC products and count statuses."""
+    approved = disapproved = pending = 0
+    all_rejection_reasons: dict[str, list[dict]] = {}
     products_with_issues: list[dict] = []
 
     for product in gmc_products:
         product_id = product.get("productId", "")
         title = product.get("title", "Sans titre")
-
-        # Check status for France
         dest_statuses = product.get("destinationStatuses", [])
-        product_status = "pending"
-        for dest in dest_statuses:
-            dest_name = dest.get("destination", "")
-            if "SurfacesAcrossGoogle" in dest_name or "Shopping" in dest_name:
-                if "FR" in dest.get("approvedCountries", []):
-                    product_status = "approved"
-                elif "FR" in dest.get("disapprovedCountries", []):
-                    product_status = "disapproved"
+
+        product_status = _get_product_status_for_france(dest_statuses)
 
         if product_status == "approved":
             approved += 1
@@ -290,28 +311,12 @@ def _step_2_products_status(merchant_id: str, token: str) -> dict[str, Any]:
         else:
             pending += 1
 
-        # Extract rejection reasons
-        item_issues = product.get("itemLevelIssues", [])
-        product_issues = []
-        seen_codes = set()
+        product_issues, rejection_reasons = _extract_product_issues(product, product_id, title)
 
-        for issue in item_issues:
-            if issue.get("servability") == "disapproved":
-                code = issue.get("code", "unknown")
-                if code not in seen_codes:
-                    seen_codes.add(code)
-                    issue_info = {
-                        "product_id": product_id,
-                        "title": title,
-                        "description": issue.get("description", code),
-                        "attribute": issue.get("attributeName", ""),
-                        "detail": issue.get("detail", ""),
-                        "documentation": issue.get("documentation", ""),
-                    }
-                    if code not in rejection_reasons:
-                        rejection_reasons[code] = []
-                    rejection_reasons[code].append(issue_info)
-                    product_issues.append(issue_info)
+        for code, issues in rejection_reasons.items():
+            if code not in all_rejection_reasons:
+                all_rejection_reasons[code] = []
+            all_rejection_reasons[code].extend(issues)
 
         if product_issues:
             products_with_issues.append({
@@ -320,6 +325,32 @@ def _step_2_products_status(merchant_id: str, token: str) -> dict[str, Any]:
                 "status": product_status,
                 "issues": product_issues,
             })
+
+    return approved, disapproved, pending, all_rejection_reasons, products_with_issues
+
+
+def _step_2_products_status(merchant_id: str, token: str) -> dict[str, Any]:
+    """Step 2: Fetch and analyze product statuses."""
+    step = {
+        "id": "products_status",
+        "name": "Statut Produits",
+        "description": "Analyse des produits GMC",
+        "status": "running",
+        "started_at": datetime.now(tz=UTC).isoformat(),
+        "completed_at": None,
+        "duration_ms": None,
+        "result": None,
+        "error_message": None,
+    }
+    start_time = datetime.now(tz=UTC)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    gmc_products = _fetch_gmc_products(merchant_id, headers)
+    total_products = len(gmc_products)
+
+    approved, disapproved, pending, rejection_reasons, products_with_issues = _analyze_products(
+        gmc_products
+    )
 
     step["status"] = "warning" if disapproved > 0 else "success"
     step["result"] = {
