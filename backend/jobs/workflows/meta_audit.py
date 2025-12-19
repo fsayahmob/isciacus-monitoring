@@ -305,7 +305,9 @@ def _step_4_check_status(pixel_id: str, access_token: str) -> dict[str, Any]:
                         "audit_type": "meta_pixel",
                         "severity": "critical",
                         "title": "Meta Pixel indisponible",
-                        "description": "Le Pixel n'est plus actif ou a été supprimé sur Meta Business",
+                        "description": (
+                            "Le Pixel n'est plus actif ou a été supprimé sur Meta Business"
+                        ),
                         "action_available": True,
                         "action_label": "Vérifier sur Meta",
                         "action_url": "https://business.facebook.com/events_manager",
