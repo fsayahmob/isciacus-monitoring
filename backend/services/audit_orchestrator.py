@@ -3091,6 +3091,9 @@ class AuditOrchestrator:
             if action_id.startswith("fix_theme_"):
                 return self._execute_theme_fix(issue, action_id)
 
+            if action_id.startswith("fix_meta_event_"):
+                return self._execute_fix_meta_event(issue, action_id)
+
             if action_id.startswith("fix_event_"):
                 event_name = action_id.replace("fix_event_", "")
                 issue.action_status = ActionStatus.FAILED
@@ -3266,6 +3269,70 @@ class AuditOrchestrator:
         issue.action_status = ActionStatus.FAILED
         self._save_current_session()
         return {"success": False, "error": "Échec de la correction du thème"}
+
+    def _execute_fix_meta_event(self, issue: AuditIssue, action_id: str) -> dict[str, Any]:
+        """Execute Meta Pixel event fix (add missing event to theme).
+
+        Args:
+            issue: The audit issue to fix
+            action_id: Action ID in format "fix_meta_event_<EventName>"
+
+        Returns:
+            Success/error dict with execution result
+        """
+        if not self.theme_analyzer:
+            issue.action_status = ActionStatus.FAILED
+            self._save_current_session()
+            return {"success": False, "error": "ThemeAnalyzer non disponible"}
+
+        # Extract event name from action_id (e.g., "fix_meta_event_AddToCart" -> "AddToCart")
+        event_name = action_id.replace("fix_meta_event_", "")
+
+        # Get fresh theme analysis to find the corresponding issue
+        from services.theme_analyzer import TrackingType
+
+        self.theme_analyzer.clear_cache()
+        analysis = self.theme_analyzer.analyze_theme(force_refresh=True)
+
+        # Find the matching issue for this Meta event
+        matching_issue = None
+        for theme_issue in analysis.issues:
+            if (
+                theme_issue.tracking_type == TrackingType.META_PIXEL
+                and theme_issue.event == event_name
+                and theme_issue.fix_available
+            ):
+                matching_issue = theme_issue
+                break
+
+        if not matching_issue:
+            issue.action_status = ActionStatus.FAILED
+            self._save_current_session()
+            return {
+                "success": False,
+                "error": f"Issue Meta Pixel pour l'événement '{event_name}' non trouvée dans l'analyse du thème",
+            }
+
+        # Apply the fix using ThemeAnalyzer
+        success = self.theme_analyzer.apply_fix(matching_issue)
+
+        if success:
+            issue.action_status = ActionStatus.COMPLETED
+            self._save_current_session()
+            # Clear cache to ensure next audit detects the fix
+            self.theme_analyzer.clear_cache()
+            return {
+                "success": True,
+                "message": f"Événement Meta Pixel '{event_name}' ajouté au thème avec succès",
+                "details": f"Le code a été ajouté dans {matching_issue.file_path or 'le thème'}",
+            }
+
+        issue.action_status = ActionStatus.FAILED
+        self._save_current_session()
+        return {
+            "success": False,
+            "error": f"Échec de l'ajout de l'événement '{event_name}' au thème",
+        }
 
     def _update_step_status(
         self,

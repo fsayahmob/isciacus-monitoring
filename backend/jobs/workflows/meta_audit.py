@@ -225,7 +225,10 @@ def _step_3_check_events(meta_events_found: list[str]) -> dict[str, Any]:
             "severity": "high" if event in ["Purchase", "AddToCart"] else "medium",
             "title": f"Événement '{event}' manquant",
             "description": f"L'événement Meta Pixel {event} n'est pas détecté dans le thème",
-            "action_available": False,
+            "action_available": True,
+            "action_label": f"Ajouter {event} au thème",
+            "action_id": f"fix_meta_event_{event}",
+            "action_status": "available",
         })
 
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
