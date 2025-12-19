@@ -3376,6 +3376,9 @@ class AuditOrchestrator:
             ],
             "summary": result.summary,
             "raw_data": result.raw_data,
+            "execution_mode": result.execution_mode,
+            "current_step": result.current_step,
+            "total_steps": result.total_steps,
         }
 
     def _dict_to_session(self, data: dict[str, Any]) -> AuditSession:
@@ -3401,6 +3404,9 @@ class AuditOrchestrator:
             completed_at=data.get("completed_at"),
             summary=data.get("summary", {}),
             raw_data=data.get("raw_data"),
+            execution_mode=data.get("execution_mode", "sync"),
+            current_step=data.get("current_step", 0),
+            total_steps=data.get("total_steps", 0),
         )
 
         for step_data in data.get("steps", []):

@@ -105,14 +105,13 @@ def create_onboarding_function() -> inngest.Function | None:
         if _process_step_result(result, step_result):
             services_configured += 1
 
-        # Finalize and save
-        result = await ctx.step.run(
-            "finalize",
-            lambda: _finalize_result(result, services_configured, 5),
+        # Finalize - pass a copy of result to avoid closure issues
+        final_result = _finalize_result(
+            dict(result), services_configured, 5
         )
-        await ctx.step.run("save-session", lambda: _save_audit_session(result))
+        _save_audit_session(final_result)
 
-        return result
+        return final_result
 
     return onboarding_audit
 
