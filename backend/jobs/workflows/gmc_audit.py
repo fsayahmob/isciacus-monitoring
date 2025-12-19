@@ -20,10 +20,26 @@ from jobs.audit_workflow import inngest_client
 
 # Step definitions for this audit
 STEPS = [
-    {"id": "gmc_connection", "name": "Connexion GMC", "description": "Connexion au Merchant Center"},
-    {"id": "products_status", "name": "Statut Produits", "description": "Analyse des produits GMC"},
-    {"id": "feed_sync", "name": "Synchronisation Feed", "description": "Vérification de la sync"},
-    {"id": "issues_check", "name": "Problèmes", "description": "Détection des problèmes"},
+    {
+        "id": "gmc_connection",
+        "name": "Connexion GMC",
+        "description": "Connexion au Merchant Center",
+    },
+    {
+        "id": "products_status",
+        "name": "Statut Produits",
+        "description": "Analyse des produits GMC",
+    },
+    {
+        "id": "feed_sync",
+        "name": "Synchronisation Feed",
+        "description": "Vérification de la sync",
+    },
+    {
+        "id": "issues_check",
+        "name": "Problèmes",
+        "description": "Détection des problèmes",
+    },
 ]
 
 
@@ -114,18 +130,34 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
         step["status"] = "error"
         step["error_message"] = "GOOGLE_MERCHANT_ID non configuré"
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-        return {"step": step, "success": False, "credentials": None, "token": None, "account_issues": []}
+        step["duration_ms"] = int(
+            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
+        )
+        return {
+            "step": step,
+            "success": False,
+            "credentials": None,
+            "token": None,
+            "account_issues": [],
+        }
 
     creds_result = _get_gmc_credentials(creds_path)
     if not creds_result:
         step["status"] = "error"
         step["error_message"] = "Fichier credentials Google non trouvé"
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-        return {"step": step, "success": False, "credentials": None, "token": None, "account_issues": []}
+        step["duration_ms"] = int(
+            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
+        )
+        return {
+            "step": step,
+            "success": False,
+            "credentials": None,
+            "token": None,
+            "account_issues": [],
+        }
 
-    credentials, token = creds_result
+    _credentials, token = creds_result
     headers = {"Authorization": f"Bearer {token}"}
 
     # Test connection
@@ -139,14 +171,30 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
             step["status"] = "error"
             step["error_message"] = f"Erreur API GMC: {resp.status_code}"
             step["completed_at"] = datetime.now(tz=UTC).isoformat()
-            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-            return {"step": step, "success": False, "credentials": None, "token": None, "account_issues": []}
+            step["duration_ms"] = int(
+                (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
+            )
+            return {
+                "step": step,
+                "success": False,
+                "credentials": None,
+                "token": None,
+                "account_issues": [],
+            }
     except Exception as e:
         step["status"] = "error"
         step["error_message"] = str(e)
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-        return {"step": step, "success": False, "credentials": None, "token": None, "account_issues": []}
+        step["duration_ms"] = int(
+            (datetime.now(tz=UTC) - start_time).total_seconds() * 1000
+        )
+        return {
+            "step": step,
+            "success": False,
+            "credentials": None,
+            "token": None,
+            "account_issues": [],
+        }
 
     # Get account-level issues
     account_issues = []
@@ -170,7 +218,13 @@ def _step_1_check_connection(merchant_id: str, creds_path: str) -> dict[str, Any
 
 
 def _step_2_products_status(merchant_id: str, token: str) -> dict[str, Any]:
-    """Step 2: Fetch and analyze product statuses."""
+    """Step 2: Fetch and analyze product statuses.
+
+    Note: This function has high complexity (18 branches, 62 statements) but this is
+    necessary to handle all GMC API response scenarios, product statuses, and issue
+    categorization. Breaking it down would reduce readability and make the GMC audit
+    flow harder to follow.
+    """
     step = {
         "id": "products_status",
         "name": "Statut Produits",
@@ -289,7 +343,7 @@ def _step_2_products_status(merchant_id: str, token: str) -> dict[str, Any]:
     }
 
 
-def _step_3_feed_sync(merchant_id: str, products_data: dict[str, Any]) -> dict[str, Any]:
+def _step_3_feed_sync(_merchant_id: str, products_data: dict[str, Any]) -> dict[str, Any]:
     """Step 3: Analyze feed sync with Shopify."""
     step = {
         "id": "feed_sync",
@@ -373,7 +427,10 @@ def _build_issues(
         "audit_type": "merchant_center",
         "severity": kpi_severity,
         "title": f"📊 GMC: {approved}/{total_products} approuvés ({approval_rate}%)",
-        "description": f"Shopify {total_shopify} → Canal Google {published_to_google} → GMC {total_products} → {approved} approuvées",
+        "description": (
+            f"Shopify {total_shopify} → Canal Google {published_to_google} → "
+            f"GMC {total_products} → {approved} approuvées"
+        ),
         "details": [
             f"🛍️  SHOPIFY: {total_shopify} produits",
             f"📤  CANAL GOOGLE: {published_to_google} publiés",
@@ -409,12 +466,17 @@ def _build_issues(
             "severity": "high",
             "title": f"⚠️ {total_variants_with_issues} variante(s) GMC avec problèmes",
             "description": f"{total_variants_with_issues} variantes ont des issues bloquantes",
-            "details": [f"• {k}: {len(v)} variante(s)" for k, v in list(rejection_reasons.items())[:10]],
+            "details": [
+                f"• {k}: {len(v)} variante(s)"
+                for k, v in list(rejection_reasons.items())[:10]
+            ],
             "action_available": False,
         })
 
         # Individual rejection reasons
-        for reason_code, products_list in sorted(rejection_reasons.items(), key=lambda x: -len(x[1])):
+        for reason_code, products_list in sorted(
+            rejection_reasons.items(), key=lambda x: -len(x[1])
+        ):
             count = len(products_list)
             if count >= 1:
                 desc = products_list[0]["description"] if products_list else reason_code
@@ -440,7 +502,10 @@ def _build_issues(
             "id": "gmc_not_published_google",
             "audit_type": "merchant_center",
             "severity": "high" if len(eligible) > 0 else "medium",
-            "title": f"🚫 {not_published_to_google} produits NON publiés ({len(eligible)} éligibles)",
+            "title": (
+                f"🚫 {not_published_to_google} produits NON publiés "
+                f"({len(eligible)} éligibles)"
+            ),
             "description": f"{len(eligible)} prêts à publier",
             "details": [f"• {p['title']}" for p in eligible[:10]],
             "action_available": len(eligible) > 0,
@@ -594,7 +659,9 @@ def create_gmc_audit_function() -> inngest.Function | None:
         start_time = datetime.now(tz=UTC)
 
         # Build issues
-        result["issues"] = _build_issues(merchant_id, products_data, google_pub_status, account_issues)
+        result["issues"] = _build_issues(
+            merchant_id, products_data, google_pub_status, account_issues
+        )
 
         # Determine step status based on issues
         has_critical = any(i.get("severity") == "critical" for i in result["issues"])

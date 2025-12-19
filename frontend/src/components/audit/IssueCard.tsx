@@ -209,12 +209,7 @@ function SuccessPanel(): React.ReactElement {
   return (
     <div className="rounded-xl border border-success/30 bg-success/10 p-6 text-center">
       <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-success/20">
-        <svg
-          className="h-6 w-6 text-success"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="h-6 w-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       </div>

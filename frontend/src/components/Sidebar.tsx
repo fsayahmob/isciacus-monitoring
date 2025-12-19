@@ -135,7 +135,9 @@ function NavItem({
       {isActive && (
         <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-brand" />
       )}
-      <span className={isActive ? 'text-brand' : 'text-text-tertiary group-hover:text-text-secondary'}>
+      <span
+        className={isActive ? 'text-brand' : 'text-text-tertiary group-hover:text-text-secondary'}
+      >
         {icon}
       </span>
       <span className="flex-1">{label}</span>

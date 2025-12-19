@@ -30,7 +30,9 @@ export function VariableCard({
   return (
     <div
       className={`rounded-xl border p-5 transition-all ${
-        hasChanges ? 'border-warning/50 bg-warning/5' : 'border-border-default bg-bg-secondary hover:border-brand/30'
+        hasChanges
+          ? 'border-warning/50 bg-warning/5'
+          : 'border-border-default bg-bg-secondary hover:border-brand/30'
       }`}
     >
       <div className="flex items-start justify-between gap-4">

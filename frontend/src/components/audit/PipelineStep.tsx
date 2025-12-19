@@ -15,11 +15,7 @@ import { formatDuration } from './utils'
  * Vertical line connecting steps
  * z-index: 0 to go BEHIND the icons (z-10)
  */
-function StepConnector({
-  isCompleted,
-}: {
-  isCompleted: boolean
-}): React.ReactElement {
+function StepConnector({ isCompleted }: { isCompleted: boolean }): React.ReactElement {
   return (
     <div
       className="absolute left-5 top-10 -z-10 h-full w-0.5 -translate-x-1/2"
@@ -83,11 +79,7 @@ const PipelineStepItem = React.memo(function PipelineStepItem({
 /**
  * Execution mode badge (Async/Sync)
  */
-function ExecutionModeBadge({
-  mode,
-}: {
-  mode: ExecutionMode | undefined
-}): React.ReactElement {
+function ExecutionModeBadge({ mode }: { mode: ExecutionMode | undefined }): React.ReactElement {
   if (mode === 'inngest') {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-500/20 px-2.5 py-1 text-xs font-medium text-violet-400">
@@ -170,11 +162,7 @@ export function PipelineStepsPanel({
       {/* Steps list */}
       <div className="p-6">
         {steps.map((step, index) => (
-          <PipelineStepItem
-            key={step.id}
-            step={step}
-            isLast={index === steps.length - 1}
-          />
+          <PipelineStepItem key={step.id} step={step} isLast={index === steps.length - 1} />
         ))}
       </div>
     </div>

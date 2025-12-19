@@ -36,7 +36,7 @@ def check_services() -> bool:
     print(f"{BLUE}Checking services...{RESET}")
 
     try:
-        resp = requests.get(f"{BASE_URL}/api/audits/session", timeout=5)
+        requests.get(f"{BASE_URL}/api/audits/session", timeout=5)
         print(f"  Backend: {GREEN}OK{RESET}")
     except requests.ConnectionError:
         print(f"  Backend: {RED}NOT RUNNING{RESET}")
@@ -44,7 +44,7 @@ def check_services() -> bool:
         return False
 
     try:
-        resp = requests.get("http://localhost:8288/health", timeout=5)
+        requests.get("http://localhost:8288/health", timeout=5)
         print(f"  Inngest: {GREEN}OK{RESET}")
     except requests.ConnectionError:
         print(f"  Inngest: {RED}NOT RUNNING{RESET}")
@@ -83,8 +83,11 @@ def wait_for_completion(audit_type: str) -> tuple[str, dict]:
 
                 if result and result.get("status") not in ["running", None]:
                     return result["status"], result
-        except Exception:
-            pass
+        except Exception as e:
+            # Ignore transient errors during polling (connection issues, timeouts, etc.)
+            # Logging would be too verbose for expected polling behavior
+            _ = e  # Acknowledge the exception
+            continue
 
         time.sleep(POLL_INTERVAL_SEC)
 
@@ -101,13 +104,17 @@ def verify_result(result: dict, expected_steps: list[str]) -> list[str]:
     steps = result.get("steps", [])
     step_ids = [s["id"] for s in steps]
 
-    for expected in expected_steps:
-        if expected not in step_ids:
-            issues.append(f"Missing step: {expected}")
+    issues.extend([
+        f"Missing step: {expected}"
+        for expected in expected_steps
+        if expected not in step_ids
+    ])
 
-    for step in steps:
-        if step["status"] not in ["pending", "running", "success", "warning", "error", "skipped"]:
-            issues.append(f"Invalid step status: {step['id']} = {step['status']}")
+    issues.extend([
+        f"Invalid step status: {step['id']} = {step['status']}"
+        for step in steps
+        if step["status"] not in ["pending", "running", "success", "warning", "error", "skipped"]
+    ])
 
     return issues
 
@@ -155,8 +162,22 @@ def test_workflow(audit_type: str, expected_steps: list[str]) -> bool:
     print("  Steps:")
     for step in steps:
         status = step["status"]
-        icon = "✓" if status == "success" else "○" if status == "warning" else "✗" if status == "error" else "⊘"
-        color = GREEN if status == "success" else YELLOW if status == "warning" else RED if status == "error" else RESET
+        if status == "success":
+            icon = "✓"
+        elif status == "warning":
+            icon = "○"
+        elif status == "error":
+            icon = "✗"
+        else:
+            icon = "⊘"
+        if status == "success":
+            color = GREEN
+        elif status == "warning":
+            color = YELLOW
+        elif status == "error":
+            color = RED
+        else:
+            color = RESET
         print(f"    {color}{icon} {step['id']}: {status}{RESET}")
 
     return True

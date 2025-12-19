@@ -4,13 +4,7 @@
 
 import type { BenchmarkEvaluation, FunnelStage } from '../../../types/analytics'
 
-const FUNNEL_COLORS = [
-  'bg-brand',
-  'bg-brand/80',
-  'bg-brand/60',
-  'bg-brand/40',
-  'bg-brand/30',
-]
+const FUNNEL_COLORS = ['bg-brand', 'bg-brand/80', 'bg-brand/60', 'bg-brand/40', 'bg-brand/30']
 const PERCENT_100 = 100
 
 interface FunnelBarProps {

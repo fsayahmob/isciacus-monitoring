@@ -125,9 +125,7 @@ export function AuditCard({
         {!isRunning && audit.last_status !== null && (
           <StatusBadge status={audit.last_status} issuesCount={audit.issues_count} />
         )}
-        {isRunning && (
-          <span className="badge badge-info">En cours</span>
-        )}
+        {isRunning && <span className="badge badge-info">En cours</span>}
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-border-subtle pt-3">

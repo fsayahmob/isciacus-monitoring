@@ -13,41 +13,39 @@ export const ANIMATION = {
 } as const
 
 // Status colors and icons - Dark Theme
-export const STATUS_CONFIG: Record<
-  AuditStepStatus,
-  { bg: string; border: string; text: string }
-> = {
-  pending: {
-    bg: 'bg-bg-tertiary',
-    border: 'border-border-subtle',
-    text: 'text-text-muted',
-  },
-  running: {
-    bg: 'bg-info/20',
-    border: 'border-info',
-    text: 'text-info',
-  },
-  success: {
-    bg: 'bg-success/20',
-    border: 'border-success',
-    text: 'text-success',
-  },
-  warning: {
-    bg: 'bg-warning/20',
-    border: 'border-warning',
-    text: 'text-warning',
-  },
-  error: {
-    bg: 'bg-error/20',
-    border: 'border-error',
-    text: 'text-error',
-  },
-  skipped: {
-    bg: 'bg-bg-tertiary',
-    border: 'border-border-subtle',
-    text: 'text-text-muted',
-  },
-}
+export const STATUS_CONFIG: Record<AuditStepStatus, { bg: string; border: string; text: string }> =
+  {
+    pending: {
+      bg: 'bg-bg-tertiary',
+      border: 'border-border-subtle',
+      text: 'text-text-muted',
+    },
+    running: {
+      bg: 'bg-info/20',
+      border: 'border-info',
+      text: 'text-info',
+    },
+    success: {
+      bg: 'bg-success/20',
+      border: 'border-success',
+      text: 'text-success',
+    },
+    warning: {
+      bg: 'bg-warning/20',
+      border: 'border-warning',
+      text: 'text-warning',
+    },
+    error: {
+      bg: 'bg-error/20',
+      border: 'border-error',
+      text: 'text-error',
+    },
+    skipped: {
+      bg: 'bg-bg-tertiary',
+      border: 'border-border-subtle',
+      text: 'text-text-muted',
+    },
+  }
 
 export function isStepCompleted(status: AuditStepStatus): boolean {
   return status === 'success' || status === 'warning' || status === 'error'

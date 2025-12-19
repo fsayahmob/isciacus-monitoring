@@ -100,11 +100,10 @@ export function createRunningResult(auditType: string, isAsync = true): AuditRes
  * This ensures we always show all expected steps, even if some haven't started yet.
  * Steps from API take priority; missing steps remain as 'pending'.
  */
-export function reconcileSteps(
-  auditType: string,
-  apiSteps: AuditStep[] | undefined
-): AuditStep[] {
-  const stepDefs = AUDIT_STEPS[auditType] as { id: string; name: string; description: string }[] | undefined
+export function reconcileSteps(auditType: string, apiSteps: AuditStep[] | undefined): AuditStep[] {
+  const stepDefs = AUDIT_STEPS[auditType] as
+    | { id: string; name: string; description: string }[]
+    | undefined
   if (stepDefs === undefined) {
     return apiSteps ?? []
   }

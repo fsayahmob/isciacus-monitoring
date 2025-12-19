@@ -107,7 +107,12 @@ function AuditResultSection({
     return (
       <div className="card-elevated animate-fade-in p-12 text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-bg-tertiary">
-          <svg className="h-6 w-6 text-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-6 w-6 text-text-tertiary"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               strokeLinecap="round"
@@ -116,12 +121,8 @@ function AuditResultSection({
             />
           </svg>
         </div>
-        <p className="text-text-secondary">
-          Sélectionnez un audit ci-dessus pour voir les détails
-        </p>
-        <p className="mt-1 text-sm text-text-tertiary">
-          ou lancez un nouvel audit pour commencer
-        </p>
+        <p className="text-text-secondary">Sélectionnez un audit ci-dessus pour voir les détails</p>
+        <p className="mt-1 text-sm text-text-tertiary">ou lancez un nouvel audit pour commencer</p>
       </div>
     )
   }

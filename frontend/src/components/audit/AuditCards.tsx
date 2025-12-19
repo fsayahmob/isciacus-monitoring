@@ -31,9 +31,7 @@ export function ResultsHeader({ onRefresh }: { onRefresh: () => void }): React.R
 }
 
 export function ConnectionStatus({ connected }: { connected: boolean }): React.ReactElement {
-  const statusClass = connected
-    ? 'bg-success/10 border-success/30'
-    : 'bg-error/10 border-error/30'
+  const statusClass = connected ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30'
   const iconBg = connected ? 'bg-success/20' : 'bg-error/20'
   const textColor = connected ? 'text-success' : 'text-error'
   const subtextColor = connected ? 'text-success/80' : 'text-error/80'

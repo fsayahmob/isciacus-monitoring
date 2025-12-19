@@ -56,7 +56,7 @@ class TestAuditWorkflowsE2E:
         assert data.get("async") is True, f"Audit {audit_type} should be async"
         return data
 
-    def _wait_for_completion(self, audit_type: str, run_id: str) -> dict:
+    def _wait_for_completion(self, audit_type: str, _run_id: str) -> dict:
         """Wait for an audit to complete and return the result."""
         start_time = time.time()
 
@@ -85,8 +85,8 @@ class TestAuditWorkflowsE2E:
             assert "id" in step, "Step missing 'id'"
             assert "name" in step, "Step missing 'name'"
             assert "status" in step, "Step missing 'status'"
-            assert step["status"] in ["pending", "running", "success", "warning", "error", "skipped"], \
-                f"Invalid step status: {step['status']}"
+            valid_statuses = ["pending", "running", "success", "warning", "error", "skipped"]
+            assert step["status"] in valid_statuses, f"Invalid step status: {step['status']}"
 
     # =========================================================================
     # Theme Code Audit
@@ -231,7 +231,6 @@ class TestWorkflowProgressTracking:
         resp = requests.post(f"{BASE_URL}/api/audits/run/onboarding", timeout=10)
         assert resp.status_code == 200
 
-        seen_running = False
         seen_completed = False
         start_time = time.time()
 
@@ -241,21 +240,13 @@ class TestWorkflowProgressTracking:
                 session = resp.json().get("session", {})
                 result = session.get("audits", {}).get("onboarding")
 
-                if result:
-                    steps = result.get("steps", [])
-                    statuses = [s["status"] for s in steps]
-
-                    if "running" in statuses:
-                        seen_running = True
-
-                    if result["status"] not in ["running", None]:
-                        seen_completed = True
-                        break
+                if result and result["status"] not in ["running", None]:
+                    seen_completed = True
+                    break
 
             time.sleep(0.5)
 
         assert seen_completed, "Workflow did not complete"
-        # Note: seen_running might be False if workflow is very fast
 
 
 class TestAPIResponses:
@@ -271,7 +262,11 @@ class TestAPIResponses:
 
     def test_trigger_returns_async_true(self):
         """Verify trigger endpoint returns async: true."""
-        for audit_type in ["theme_code", "ga4_tracking", "meta_pixel", "search_console", "merchant_center", "onboarding"]:
+        audit_types = [
+            "theme_code", "ga4_tracking", "meta_pixel",
+            "search_console", "merchant_center", "onboarding",
+        ]
+        for audit_type in audit_types:
             resp = requests.post(f"{BASE_URL}/api/audits/run/{audit_type}", timeout=10)
             assert resp.status_code == 200
             data = resp.json()
@@ -292,7 +287,7 @@ class TestAPIResponses:
 
         if data["session"]:
             audits = data["session"].get("audits", {})
-            for audit_type, result in audits.items():
+            for result in audits.values():
                 assert "audit_type" in result
                 assert "status" in result
                 assert "steps" in result
@@ -313,7 +308,10 @@ class TestNoSyncFallback:
     def test_all_audits_use_inngest(self):
         """Verify all audits use Inngest execution mode."""
         # Trigger all audits
-        audit_types = ["theme_code", "ga4_tracking", "meta_pixel", "search_console", "merchant_center", "onboarding"]
+        audit_types = [
+            "theme_code", "ga4_tracking", "meta_pixel",
+            "search_console", "merchant_center", "onboarding",
+        ]
 
         for audit_type in audit_types:
             resp = requests.post(f"{BASE_URL}/api/audits/run/{audit_type}", timeout=10)

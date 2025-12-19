@@ -70,7 +70,12 @@ export function ErrorIcon(): React.ReactElement {
 export function SkippedIcon(): React.ReactElement {
   return (
     <div className="flex h-6 w-6 items-center justify-center rounded-full border border-border-default bg-bg-tertiary">
-      <svg className="h-4 w-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        className="h-4 w-4 text-text-muted"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
       </svg>
     </div>

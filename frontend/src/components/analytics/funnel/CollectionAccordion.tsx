@@ -38,7 +38,9 @@ function CollectionRow({ collection, ga4Available }: CollectionRowProps): React.
           {hasVisitors ? collection.visitors.toLocaleString('fr-FR') : '-'}
         </td>
       ) : null}
-      <td className="py-2 text-right font-mono text-text-primary">{collection.purchases.toLocaleString('fr-FR')}</td>
+      <td className="py-2 text-right font-mono text-text-primary">
+        {collection.purchases.toLocaleString('fr-FR')}
+      </td>
       {ga4Available ? (
         <td className="py-2 text-right">
           {hasCVR ? (

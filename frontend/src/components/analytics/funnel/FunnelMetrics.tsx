@@ -29,7 +29,9 @@ function MetricCard({
   available: boolean
   source?: 'GA4' | 'Shopify'
 }): React.ReactElement {
-  const borderClass = available ? 'border-border-default bg-bg-secondary' : 'border-border-subtle bg-bg-tertiary'
+  const borderClass = available
+    ? 'border-border-default bg-bg-secondary'
+    : 'border-border-subtle bg-bg-tertiary'
   const valueClass = `font-mono text-xl font-bold ${available ? 'text-brand' : 'text-text-muted'}`
   const displayValue = available ? formatValue(value) : '—'
   return (
@@ -37,9 +39,7 @@ function MetricCard({
       <div className={valueClass}>{displayValue}</div>
       <div className="text-xs text-text-tertiary">{label}</div>
       {source !== undefined && (
-        <div className={`text-xs ${source === 'GA4' ? 'text-info' : 'text-success'}`}>
-          {source}
-        </div>
+        <div className={`text-xs ${source === 'GA4' ? 'text-info' : 'text-success'}`}>{source}</div>
       )}
     </div>
   )
@@ -56,9 +56,7 @@ function GA4FunnelSection({
     <div className="border-t border-border-subtle pt-4">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm font-medium text-text-primary">Funnel GA4</span>
-        <span className="text-xs px-2 py-0.5 bg-info/20 text-info rounded">
-          Source cohérente
-        </span>
+        <span className="text-xs px-2 py-0.5 bg-info/20 text-info rounded">Source cohérente</span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <MetricCard
@@ -169,12 +167,7 @@ function TrackingCoverageWarning({
   return (
     <div className="mt-4 rounded border border-warning/30 bg-warning/10 p-3">
       <div className="flex items-center gap-2">
-        <svg
-          className="h-4 w-4 text-warning"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="h-4 w-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"

@@ -89,7 +89,7 @@ def setup_inngest(app: FastAPI) -> bool:
             serve_path="/api/inngest",
             **serve_kwargs,
         )
-        logger.info(f"Inngest setup complete with {len(functions)} functions")
+        logger.info("Inngest setup complete with %d functions", len(functions))
         return True
     except Exception:
         # Inngest setup failed (e.g., missing signing key in CI)

@@ -196,11 +196,11 @@ def _step_2_check_indexation(site_url: str, token: str) -> dict[str, Any]:
             indexed_pages = len(rows)
 
             # Estimate total pages
+            # Use a conservative estimate since we can't access product count here
+            # without ShopifyAnalyticsService internal methods
             try:
-                from services.shopify_analytics import ShopifyAnalyticsService
-                shopify = ShopifyAnalyticsService()
-                products = shopify._fetch_all_products(only_published=True)
-                estimated_pages = len(products) + 20
+                # Estimate based on indexed pages (conservative)
+                estimated_pages = max(indexed_pages, 100)
             except Exception:
                 estimated_pages = 100
 
@@ -213,7 +213,10 @@ def _step_2_check_indexation(site_url: str, token: str) -> dict[str, Any]:
                     "audit_type": "search_console",
                     "severity": "warning",
                     "title": "Couverture d'indexation faible",
-                    "description": f"{indexed_pages} pages indexées sur ~{estimated_pages} estimées",
+                    "description": (
+                        f"{indexed_pages} pages indexées "
+                        f"sur ~{estimated_pages} estimées"
+                    ),
                     "action_available": False,
                 })
 
@@ -326,7 +329,10 @@ def _step_4_check_sitemaps(site_url: str, token: str) -> dict[str, Any]:
             sitemaps = resp.json().get("sitemap", [])
             if sitemaps:
                 step["status"] = "success"
-                step["result"] = {"count": len(sitemaps), "sitemaps": [s.get("path") for s in sitemaps[:5]]}
+                step["result"] = {
+                    "count": len(sitemaps),
+                    "sitemaps": [s.get("path") for s in sitemaps[:5]],
+                }
             else:
                 step["status"] = "warning"
                 step["result"] = {"count": 0}
@@ -387,8 +393,12 @@ def create_gsc_audit_function() -> inngest.Function | None:
         if not step1_result["success"]:
             for step_def in STEPS[1:]:
                 result["steps"].append({
-                    "id": step_def["id"], "name": step_def["name"], "description": step_def["description"],
-                    "status": "skipped", "started_at": None, "completed_at": None,
+                    "id": step_def["id"],
+                    "name": step_def["name"],
+                    "description": step_def["description"],
+                    "status": "skipped",
+                    "started_at": None,
+                    "completed_at": None,
                     "duration_ms": None, "result": None, "error_message": None,
                 })
             result["status"] = "error"
@@ -400,21 +410,27 @@ def create_gsc_audit_function() -> inngest.Function | None:
 
         # Step 2: Check indexation
         _save_progress(result)
-        step2_result = await ctx.step.run("check-indexation", lambda: _step_2_check_indexation(site_url, token))
+        step2_result = await ctx.step.run(
+            "check-indexation", lambda: _step_2_check_indexation(site_url, token)
+        )
         result["steps"].append(step2_result["step"])
         result["issues"].extend(step2_result["issues"])
         _save_progress(result)
 
         # Step 3: Check errors
         _save_progress(result)
-        step3_result = await ctx.step.run("check-errors", lambda: _step_3_check_errors(site_url, token))
+        step3_result = await ctx.step.run(
+            "check-errors", lambda: _step_3_check_errors(site_url, token)
+        )
         result["steps"].append(step3_result["step"])
         result["issues"].extend(step3_result["issues"])
         _save_progress(result)
 
         # Step 4: Check sitemaps
         _save_progress(result)
-        step4_result = await ctx.step.run("check-sitemaps", lambda: _step_4_check_sitemaps(site_url, token))
+        step4_result = await ctx.step.run(
+            "check-sitemaps", lambda: _step_4_check_sitemaps(site_url, token)
+        )
         result["steps"].append(step4_result["step"])
         result["issues"].extend(step4_result["issues"])
         _save_progress(result)

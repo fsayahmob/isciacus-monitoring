@@ -164,7 +164,10 @@ export function LoadingSkeleton(): React.ReactElement {
   return (
     <div className="space-y-6">
       {SKELETON_ITEMS.map((i) => (
-        <div key={i} className="animate-pulse rounded-2xl border border-border-default bg-bg-secondary p-6">
+        <div
+          key={i}
+          className="animate-pulse rounded-2xl border border-border-default bg-bg-secondary p-6"
+        >
           <div className="flex items-center gap-4">
             <div className="skeleton h-12 w-12 rounded-xl" />
             <div className="flex-1">
@@ -203,8 +206,8 @@ export function EnvFileInfo(): React.ReactElement {
           <h4 className="font-medium text-info">Configuration via fichier .env</h4>
           <p className="mt-1 text-sm text-text-secondary">
             Les variables sont configurées dans le fichier{' '}
-            <code className="rounded bg-info/20 px-1.5 py-0.5 text-xs text-info">.env</code> du backend.
-            Modifiez ce fichier puis redémarrez les containers Docker pour appliquer les
+            <code className="rounded bg-info/20 px-1.5 py-0.5 text-xs text-info">.env</code> du
+            backend. Modifiez ce fichier puis redémarrez les containers Docker pour appliquer les
             changements.
           </p>
           <div className="mt-3 rounded-lg bg-bg-tertiary p-3">

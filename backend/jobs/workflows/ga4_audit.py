@@ -21,11 +21,31 @@ COVERAGE_RATE_HIGH = 90
 COVERAGE_RATE_MEDIUM = 70
 
 STEPS = [
-    {"id": "ga4_connection", "name": "Connexion GA4", "description": "Vérification de la connexion"},
-    {"id": "collections_coverage", "name": "Couverture Collections", "description": "Analyse des collections"},
-    {"id": "products_coverage", "name": "Couverture Produits", "description": "Analyse des produits"},
-    {"id": "events_coverage", "name": "Événements E-commerce", "description": "Vérification des événements"},
-    {"id": "transactions_match", "name": "Match Transactions", "description": "Comparaison GA4 vs Shopify"},
+    {
+        "id": "ga4_connection",
+        "name": "Connexion GA4",
+        "description": "Vérification de la connexion",
+    },
+    {
+        "id": "collections_coverage",
+        "name": "Couverture Collections",
+        "description": "Analyse des collections",
+    },
+    {
+        "id": "products_coverage",
+        "name": "Couverture Produits",
+        "description": "Analyse des produits",
+    },
+    {
+        "id": "events_coverage",
+        "name": "Événements E-commerce",
+        "description": "Vérification des événements",
+    },
+    {
+        "id": "transactions_match",
+        "name": "Match Transactions",
+        "description": "Comparaison GA4 vs Shopify",
+    },
 ]
 
 
@@ -235,13 +255,19 @@ def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
 
         if rate >= COVERAGE_RATE_MEDIUM:
             severity = "low"
-            description = f"{missing_count} collections sans visite récente. Le tracking fonctionne ({tracked} pages vues)."
+            description = (
+                f"{missing_count} collections sans visite récente. "
+                f"Le tracking fonctionne ({tracked} pages vues)."
+            )
         elif rate >= 50:
             severity = "medium"
             description = f"Collections peu visitées ({tracked}/{total}). Vérifiez leur visibilité."
         else:
             severity = "high"
-            description = f"Faible couverture collections ({tracked}/{total}). Possible problème de tracking."
+            description = (
+                f"Faible couverture collections ({tracked}/{total}). "
+                f"Possible problème de tracking."
+            )
 
         issues.append({
             "id": "missing_collections",
@@ -262,7 +288,10 @@ def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
 
         if rate >= COVERAGE_RATE_HIGH:
             severity = "low"
-            description = f"{missing_count} produits sans vue récente. Excellent taux ({rate:.0f}%)."
+            description = (
+                f"{missing_count} produits sans vue récente. "
+                f"Excellent taux ({rate:.0f}%)."
+            )
         elif rate >= COVERAGE_RATE_MEDIUM:
             severity = "low"
             description = f"{missing_count} produits sans visite. Bon taux ({rate:.0f}%)."
@@ -271,7 +300,10 @@ def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
             description = f"Couverture moyenne ({tracked}/{total}). Vérifiez la visibilité."
         else:
             severity = "high"
-            description = f"Faible couverture ({tracked}/{total}). Possible problème de tracking view_item."
+            description = (
+                f"Faible couverture ({tracked}/{total}). "
+                f"Possible problème de tracking view_item."
+            )
 
         issues.append({
             "id": "missing_products",

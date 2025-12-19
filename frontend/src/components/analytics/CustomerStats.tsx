@@ -105,12 +105,7 @@ export function CustomerStatsSection(): React.ReactElement {
     <div className="mb-8">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-semibold text-text-primary">Analytics DATA - Clients</h3>
-        <button
-          className="btn btn-secondary"
-          disabled={isLoading}
-          type="button"
-          onClick={refetch}
-        >
+        <button className="btn btn-secondary" disabled={isLoading} type="button" onClick={refetch}>
           <svg
             className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
             fill="none"

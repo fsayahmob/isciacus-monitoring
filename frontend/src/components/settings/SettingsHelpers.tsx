@@ -80,20 +80,10 @@ function SaveBarActions({
 }): React.ReactElement {
   return (
     <div className="flex items-center gap-3">
-      <button
-        className="btn btn-secondary"
-        disabled={isSaving}
-        type="button"
-        onClick={onCancel}
-      >
+      <button className="btn btn-secondary" disabled={isSaving} type="button" onClick={onCancel}>
         Annuler
       </button>
-      <button
-        className="btn btn-primary"
-        disabled={isSaving}
-        type="button"
-        onClick={onSave}
-      >
+      <button className="btn btn-primary" disabled={isSaving} type="button" onClick={onSave}>
         {isSaving ? (
           <>
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -187,11 +177,7 @@ export function ErrorDisplay({ error }: { error: Error | null }): React.ReactEle
 
 export function RefreshButton({ onRefresh }: { onRefresh: () => void }): React.ReactElement {
   return (
-    <button
-      className="btn btn-secondary"
-      type="button"
-      onClick={onRefresh}
-    >
+    <button className="btn btn-secondary" type="button" onClick={onRefresh}>
       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"

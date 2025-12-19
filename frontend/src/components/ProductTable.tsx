@@ -138,7 +138,10 @@ function ProductRow({ product }: { product: Product }): React.ReactElement {
           <span className="text-error">✗</span>
         )}
       </td>
-      <td className="max-w-[120px] truncate p-2 text-xs text-text-tertiary" title={product.channels.join(', ')}>
+      <td
+        className="max-w-[120px] truncate p-2 text-xs text-text-tertiary"
+        title={product.channels.join(', ')}
+      >
         {product.channels.slice(0, 2).join(', ')}
       </td>
       <td className="p-2">
