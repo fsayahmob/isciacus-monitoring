@@ -48,22 +48,31 @@ def create_onboarding_function() -> inngest.Function | None:
         """
         run_id = ctx.event.data.get("run_id", str(uuid4())[:8])
 
-        # Initialize result structure
+        # Initialize result structure with execution mode indicator
         result = {
             "id": run_id,
             "audit_type": "onboarding",
             "status": "running",
+            "execution_mode": "inngest",  # Indicates async Inngest execution
             "started_at": datetime.now(tz=UTC).isoformat(),
             "completed_at": None,
             "steps": [],
             "issues": [],
             "summary": {},
+            "current_step": 0,
+            "total_steps": 5,
         }
 
         services_configured = 0
         services_total = 5
 
+        # Save initial progress (running state)
+        _save_progress(result)
+
         # Step 1: Check Shopify connection
+        result["current_step"] = 1
+        _save_progress(result)  # Show we're starting step 1
+
         shopify_result = await ctx.step.run(
             "check-shopify",
             lambda: _check_shopify_connection(),
@@ -73,8 +82,12 @@ def create_onboarding_function() -> inngest.Function | None:
             result["issues"].append(shopify_result["issue"])
         if shopify_result["success"]:
             services_configured += 1
+        _save_progress(result)  # Save progress after step 1
 
         # Step 2: Check GA4 configuration
+        result["current_step"] = 2
+        _save_progress(result)
+
         ga4_result = await ctx.step.run(
             "check-ga4",
             lambda: _check_ga4_config(),
@@ -84,8 +97,12 @@ def create_onboarding_function() -> inngest.Function | None:
             result["issues"].append(ga4_result["issue"])
         if ga4_result["success"]:
             services_configured += 1
+        _save_progress(result)
 
         # Step 3: Check Meta Pixel configuration
+        result["current_step"] = 3
+        _save_progress(result)
+
         meta_result = await ctx.step.run(
             "check-meta",
             lambda: _check_meta_config(),
@@ -95,8 +112,12 @@ def create_onboarding_function() -> inngest.Function | None:
             result["issues"].append(meta_result["issue"])
         if meta_result["success"]:
             services_configured += 1
+        _save_progress(result)
 
         # Step 4: Check Google Merchant Center
+        result["current_step"] = 4
+        _save_progress(result)
+
         gmc_result = await ctx.step.run(
             "check-gmc",
             lambda: _check_gmc_config(),
@@ -106,8 +127,12 @@ def create_onboarding_function() -> inngest.Function | None:
             result["issues"].append(gmc_result["issue"])
         if gmc_result["success"]:
             services_configured += 1
+        _save_progress(result)
 
         # Step 5: Check Google Search Console
+        result["current_step"] = 5
+        _save_progress(result)
+
         gsc_result = await ctx.step.run(
             "check-gsc",
             lambda: _check_gsc_config(),
@@ -117,6 +142,7 @@ def create_onboarding_function() -> inngest.Function | None:
             result["issues"].append(gsc_result["issue"])
         if gsc_result["success"]:
             services_configured += 1
+        _save_progress(result)
 
         # Finalize result
         result = await ctx.step.run(
@@ -124,7 +150,7 @@ def create_onboarding_function() -> inngest.Function | None:
             lambda: _finalize_result(result, services_configured, services_total),
         )
 
-        # Save to session file via API
+        # Save final result to session
         await ctx.step.run(
             "save-session",
             lambda: _save_audit_session(result),
@@ -675,16 +701,47 @@ def _finalize_result(
     return result
 
 
-def _save_audit_session(result: dict[str, Any]) -> dict[str, str]:
-    """Save audit result to session via internal API or direct file write."""
+def _save_progress(result: dict[str, Any]) -> dict[str, str]:
+    """Save audit progress to session file for real-time updates.
+
+    Called after each step to provide live progress feedback.
+    """
     import json
     from pathlib import Path
 
-    # Direct file write (simpler than API call for internal use)
     storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
     storage_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load or create session
+    latest_file = storage_dir / "latest_session.json"
+    if latest_file.exists():
+        with latest_file.open() as f:
+            session = json.load(f)
+    else:
+        session = {
+            "id": result["id"],
+            "created_at": result["started_at"],
+            "updated_at": datetime.now(tz=UTC).isoformat(),
+            "audits": {},
+        }
+
+    # Update session with current progress
+    session["audits"]["onboarding"] = result
+    session["updated_at"] = datetime.now(tz=UTC).isoformat()
+
+    with latest_file.open("w") as f:
+        json.dump(session, f, indent=2)
+
+    return {"status": "progress_saved", "step_count": len(result.get("steps", []))}
+
+
+def _save_audit_session(result: dict[str, Any]) -> dict[str, str]:
+    """Save final audit result to session."""
+    import json
+    from pathlib import Path
+
+    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
+    storage_dir.mkdir(parents=True, exist_ok=True)
+
     latest_file = storage_dir / "latest_session.json"
     if latest_file.exists():
         with latest_file.open() as f:
@@ -697,15 +754,12 @@ def _save_audit_session(result: dict[str, Any]) -> dict[str, str]:
             "audits": {},
         }
 
-    # Update session with this audit result
     session["audits"]["onboarding"] = result
     session["updated_at"] = result["completed_at"]
 
-    # Save
     with latest_file.open("w") as f:
         json.dump(session, f, indent=2)
 
-    # Also save specific session file
     session_file = storage_dir / f"session_{session['id']}.json"
     with session_file.open("w") as f:
         json.dump(session, f, indent=2)

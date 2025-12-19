@@ -77,6 +77,8 @@ export interface AuditIssue {
   action_url: string | null // External URL for link-type actions
 }
 
+export type ExecutionMode = 'sync' | 'inngest'
+
 export interface AuditResult {
   id: string
   audit_type: string
@@ -87,6 +89,9 @@ export interface AuditResult {
   issues: AuditIssue[]
   summary: Record<string, unknown>
   raw_data: Record<string, unknown> | null
+  execution_mode?: ExecutionMode // "sync" or "inngest" - indicates how audit was executed
+  current_step?: number // Current step being processed (for progress tracking)
+  total_steps?: number // Total number of steps (for progress tracking)
 }
 
 export interface AvailableAudit {

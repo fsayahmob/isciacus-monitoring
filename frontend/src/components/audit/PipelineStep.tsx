@@ -4,7 +4,7 @@
 
 import React from 'react'
 
-import type { AuditStep, AuditStepStatus } from '../../services/api'
+import type { AuditStep, AuditStepStatus, ExecutionMode } from '../../services/api'
 import { StepStatusIcon } from './StatusIcons'
 import { formatDuration } from './utils'
 
@@ -16,6 +16,70 @@ function getStepLineColor(status: AuditStepStatus): string {
     return 'bg-red-400'
   }
   return 'bg-gray-200'
+}
+
+/**
+ * Execution mode badge - Shows whether audit runs via Inngest (async) or directly (sync)
+ */
+function ExecutionModeBadge({ mode }: { mode: ExecutionMode | undefined }): React.ReactElement {
+  if (mode === 'inngest') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700"
+        title="Exécution asynchrone via Inngest"
+      >
+        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        Async
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+      title="Exécution synchrone directe"
+    >
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+      </svg>
+      Sync
+    </span>
+  )
+}
+
+/**
+ * Progress indicator for real-time step tracking
+ */
+function ProgressIndicator({
+  currentStep,
+  totalSteps,
+  isRunning,
+}: {
+  currentStep: number
+  totalSteps: number
+  isRunning: boolean
+}): React.ReactElement | null {
+  if (!isRunning || totalSteps === 0) {
+    return null
+  }
+
+  const progress = Math.round((currentStep / totalSteps) * 100)
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-200">
+        <div
+          className="h-full rounded-full bg-blue-500 transition-all duration-300"
+          style={{ width: `${String(progress)}%` }}
+        />
+      </div>
+      <span className="text-xs text-gray-500">
+        {String(currentStep)}/{String(totalSteps)}
+      </span>
+    </div>
+  )
 }
 
 function HorizontalPipelineStep({
@@ -57,19 +121,35 @@ function HorizontalPipelineStep({
 export function PipelineStepsPanel({
   steps,
   isRunning,
+  executionMode,
+  currentStep,
+  totalSteps,
 }: {
   steps: AuditStep[]
   isRunning: boolean
+  executionMode?: ExecutionMode
+  currentStep?: number
+  totalSteps?: number
 }): React.ReactElement {
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-6 py-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-gray-900">Pipeline d'audit</h2>
-        {isRunning && (
-          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-            En cours...
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-medium text-gray-900">Pipeline d'audit</h2>
+          <ExecutionModeBadge mode={executionMode} />
+        </div>
+        <div className="flex items-center gap-3">
+          <ProgressIndicator
+            currentStep={currentStep ?? 0}
+            totalSteps={totalSteps ?? 0}
+            isRunning={isRunning}
+          />
+          {isRunning && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
+              En cours...
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-start">

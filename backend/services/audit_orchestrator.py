@@ -105,6 +105,9 @@ class AuditResult:
     started_at: str = field(default_factory=lambda: datetime.now(tz=UTC).isoformat())
     completed_at: str | None = None
     raw_data: dict[str, Any] | None = None
+    execution_mode: str = "sync"  # "sync" or "inngest" - indicates how audit was executed
+    current_step: int = 0  # Current step being processed (for progress tracking)
+    total_steps: int = 0  # Total number of steps (for progress tracking)
 
 
 @dataclass

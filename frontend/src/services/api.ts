@@ -42,6 +42,7 @@ export type {
   ConfigSection,
   ConfigVariable,
   ConnectionTestResult,
+  ExecutionMode,
   HealthCheckResult,
   PermissionResult,
   PermissionsReport,
