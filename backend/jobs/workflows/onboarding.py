@@ -20,7 +20,7 @@ from jobs.audit_workflow import inngest_client
 
 
 # Backend API URL for internal calls
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 def create_onboarding_function() -> inngest.Function | None:
@@ -35,7 +35,6 @@ def create_onboarding_function() -> inngest.Function | None:
     )
     async def onboarding_audit(
         ctx: inngest.Context,
-        step: inngest.Step,
     ) -> dict[str, Any]:
         """
         Run onboarding audit - checks all service configurations.
@@ -65,7 +64,7 @@ def create_onboarding_function() -> inngest.Function | None:
         services_total = 5
 
         # Step 1: Check Shopify connection
-        shopify_result = await step.run(
+        shopify_result = await ctx.step.run(
             "check-shopify",
             lambda: _check_shopify_connection(),
         )
@@ -76,7 +75,7 @@ def create_onboarding_function() -> inngest.Function | None:
             services_configured += 1
 
         # Step 2: Check GA4 configuration
-        ga4_result = await step.run(
+        ga4_result = await ctx.step.run(
             "check-ga4",
             lambda: _check_ga4_config(),
         )
@@ -87,7 +86,7 @@ def create_onboarding_function() -> inngest.Function | None:
             services_configured += 1
 
         # Step 3: Check Meta Pixel configuration
-        meta_result = await step.run(
+        meta_result = await ctx.step.run(
             "check-meta",
             lambda: _check_meta_config(),
         )
@@ -98,7 +97,7 @@ def create_onboarding_function() -> inngest.Function | None:
             services_configured += 1
 
         # Step 4: Check Google Merchant Center
-        gmc_result = await step.run(
+        gmc_result = await ctx.step.run(
             "check-gmc",
             lambda: _check_gmc_config(),
         )
@@ -109,7 +108,7 @@ def create_onboarding_function() -> inngest.Function | None:
             services_configured += 1
 
         # Step 5: Check Google Search Console
-        gsc_result = await step.run(
+        gsc_result = await ctx.step.run(
             "check-gsc",
             lambda: _check_gsc_config(),
         )
@@ -120,13 +119,13 @@ def create_onboarding_function() -> inngest.Function | None:
             services_configured += 1
 
         # Finalize result
-        result = await step.run(
+        result = await ctx.step.run(
             "finalize",
             lambda: _finalize_result(result, services_configured, services_total),
         )
 
         # Save to session file via API
-        await step.run(
+        await ctx.step.run(
             "save-session",
             lambda: _save_audit_session(result),
         )
@@ -137,15 +136,58 @@ def create_onboarding_function() -> inngest.Function | None:
 
 
 def _get_config(section: str) -> dict[str, str]:
-    """Get config values from FastAPI (which reads from SQLite)."""
+    """Get config values directly from ConfigService (SQLite).
+
+    Maps internal keys to expected environment variable names.
+    """
     try:
-        resp = requests.get(f"{BACKEND_URL}/api/config", timeout=5)
-        if resp.status_code == 200:
-            config_data = resp.json()
-            for sec in config_data.get("sections", []):
-                if sec.get("id") == section:
-                    return {var["key"]: var["value"] for var in sec.get("variables", [])}
-        return {}
+        from services.config_service import ConfigService
+        config_service = ConfigService()
+
+        # Key mappings from ConfigService to expected env var names
+        key_mappings = {
+            "shopify": {
+                "store_url": "SHOPIFY_STORE_URL",
+                "access_token": "SHOPIFY_ACCESS_TOKEN",
+            },
+            "ga4": {
+                "measurement_id": "GA4_MEASUREMENT_ID",
+                "property_id": "GA4_PROPERTY_ID",
+            },
+            "meta": {
+                "pixel_id": "META_PIXEL_ID",
+                "access_token": "META_ACCESS_TOKEN",
+            },
+            "search_console": {
+                "property_url": "GSC_PROPERTY_URL",
+            },
+            "merchant_center": {
+                "merchant_id": "GMC_MERCHANT_ID",
+            },
+        }
+
+        section_methods = {
+            "shopify": config_service.get_shopify_values,
+            "ga4": config_service.get_ga4_values,
+            "meta": config_service.get_meta_values,
+            "search_console": config_service.get_search_console_values,
+            "merchant_center": config_service.get_merchant_center_values,
+        }
+
+        method = section_methods.get(section)
+        if not method:
+            return {}
+
+        raw_values = method()
+        mapping = key_mappings.get(section, {})
+
+        # Map keys to expected names
+        result = {}
+        for internal_key, env_key in mapping.items():
+            if internal_key in raw_values:
+                result[env_key] = raw_values[internal_key]
+
+        return result
     except Exception:
         return {}
 

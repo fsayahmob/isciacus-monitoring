@@ -50,7 +50,6 @@ def create_audit_function() -> inngest.Function | None:
     )
     async def tracking_audit(
         ctx: inngest.Context,
-        step: inngest.Step,
     ) -> dict[str, Any]:
         """
         Run comprehensive tracking audit comparing GA4 vs Shopify.
@@ -65,31 +64,31 @@ def create_audit_function() -> inngest.Function | None:
         period = ctx.event.data.get("period", 30)
 
         # Step 1: Get Shopify collections
-        shopify_collections = await step.run(
+        shopify_collections = await ctx.step.run(
             "fetch-shopify-collections",
             lambda: _fetch_shopify_collections(),
         )
 
         # Step 2: Get GA4 tracked collections
-        ga4_collections = await step.run(
+        ga4_collections = await ctx.step.run(
             "fetch-ga4-collections",
             lambda: _fetch_ga4_collections(period),
         )
 
         # Step 3: Compare collections
-        comparison = await step.run(
+        comparison = await ctx.step.run(
             "compare-collections",
             lambda: _compare_collections(shopify_collections, ga4_collections),
         )
 
         # Step 4: Get transaction counts
-        transactions = await step.run(
+        transactions = await ctx.step.run(
             "fetch-transaction-counts",
             lambda: _fetch_transaction_counts(period),
         )
 
         # Step 5: Generate final report
-        return await step.run(
+        return await ctx.step.run(
             "generate-report",
             lambda: _generate_audit_report(comparison, transactions, period),
         )
