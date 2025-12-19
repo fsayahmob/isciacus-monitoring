@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from services.audit_orchestrator import AuditOrchestrator, AuditType
 from services.audit_service import AuditService
 from services.benchmarks import BenchmarksService
+from services.cache_service import CacheService
 from services.config_service import ConfigService
 from services.ga4_analytics import GA4AnalyticsService
 from services.permissions_checker import PermissionsCheckerService
@@ -69,11 +70,8 @@ if not STORE_URL or not ACCESS_TOKEN:
 GRAPHQL_URL = f"{STORE_URL}/admin/api/2024-01/graphql.json"
 HEADERS = {"X-Shopify-Access-Token": ACCESS_TOKEN, "Content-Type": "application/json"}
 
-# Cache global
-PRODUCTS_CACHE: list[ProductData] = []
-FILTERS_CACHE: FiltersData = {}
-
-# Analytics services
+# Services
+cache_service = CacheService()
 benchmarks_service = BenchmarksService()
 shopify_analytics = ShopifyAnalyticsService()
 config_service = ConfigService()
@@ -305,8 +303,17 @@ def load_all_products() -> tuple[list[ProductData], FiltersData]:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
-    global PRODUCTS_CACHE, FILTERS_CACHE
-    PRODUCTS_CACHE, FILTERS_CACHE = load_all_products()
+    """Initialize application - load products cache on startup."""
+    # Try to load from cache first
+    products = cache_service.get_products()
+    filters = cache_service.get_filters()
+
+    # If cache miss or stale, reload from Shopify
+    if products is None or filters is None:
+        products, filters = load_all_products()
+        cache_service.set_products(products)
+        cache_service.set_filters(filters)
+
     yield
 
 
@@ -351,8 +358,15 @@ async def get_products(
     offset: int = 0,
 ) -> ProductData:
     """Liste les produits avec filtres."""
+    # Get products from cache (or load if stale)
+    products = cache_service.get_products()
+    if products is None:
+        products, filters = load_all_products()
+        cache_service.set_products(products)
+        cache_service.set_filters(filters)
+
     filtered = _apply_filters(
-        PRODUCTS_CACHE,
+        products,
         search=search,
         tag=tag,
         stock_level=stock_level,
@@ -460,7 +474,13 @@ def _apply_filters(
 @app.get("/api/products/{product_id}")
 async def get_product(product_id: str) -> ProductData:
     """Détails complets d'un produit."""
-    for p in PRODUCTS_CACHE:
+    products = cache_service.get_products()
+    if products is None:
+        products, filters = load_all_products()
+        cache_service.set_products(products)
+        cache_service.set_filters(filters)
+
+    for p in products:
         if p["product_id"] == product_id:
             return p
     return {"error": "Produit non trouvé"}
@@ -469,21 +489,29 @@ async def get_product(product_id: str) -> ProductData:
 @app.get("/api/filters")
 async def get_filters() -> FiltersData:
     """Retourne les valeurs disponibles pour les filtres."""
-    return FILTERS_CACHE
+    filters = cache_service.get_filters()
+    if filters is None:
+        products, filters = load_all_products()
+        cache_service.set_products(products)
+        cache_service.set_filters(filters)
+    return filters
 
 
 @app.get("/api/reload")
 async def reload_data() -> ProductData:
-    """Recharge les données depuis Shopify."""
-    global PRODUCTS_CACHE, FILTERS_CACHE
-    PRODUCTS_CACHE, FILTERS_CACHE = load_all_products()
-    return {"status": "ok", "count": len(PRODUCTS_CACHE)}
+    """Recharge les données depuis Shopify et met à jour le cache."""
+    products, filters = load_all_products()
+    cache_service.set_products(products)
+    cache_service.set_filters(filters)
+    return {"status": "ok", "count": len(products)}
 
 
 @app.get("/api/health")
 async def health_check() -> ProductData:
     """Health check endpoint for monitoring."""
-    return {"status": "healthy", "products_count": len(PRODUCTS_CACHE)}
+    products = cache_service.get_products()
+    count = len(products) if products else 0
+    return {"status": "healthy", "products_count": count}
 
 
 @app.get("/api/health/services")

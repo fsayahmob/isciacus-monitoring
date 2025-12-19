@@ -48,7 +48,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./backend:/app
+      - ./backend:/app  # Includes /app/data/ for persistence (config.db, audits/, cache/)
     env_file:
       - ./backend/.env
     environment:
