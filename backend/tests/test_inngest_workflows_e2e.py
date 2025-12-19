@@ -16,6 +16,7 @@ These tests verify:
 
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 import requests
@@ -35,7 +36,7 @@ class TestAuditWorkflowsE2E:
     """End-to-end tests for all audit workflows."""
 
     @pytest.fixture(autouse=True)
-    def check_services(self):
+    def check_services(self) -> None:
         """Verify services are running before each test."""
         try:
             resp = requests.get(f"{BASE_URL}/api/audits/session", timeout=5)
@@ -48,7 +49,7 @@ class TestAuditWorkflowsE2E:
         except requests.ConnectionError:
             pytest.skip("Inngest not running. Start with: docker compose up")
 
-    def _trigger_audit(self, audit_type: str) -> dict:
+    def _trigger_audit(self, audit_type: str) -> dict[str, Any]:
         """Trigger an audit and return the response."""
         resp = requests.post(f"{BASE_URL}/api/audits/run/{audit_type}", timeout=10)
         assert resp.status_code == 200, f"Failed to trigger {audit_type}: {resp.text}"
@@ -56,7 +57,7 @@ class TestAuditWorkflowsE2E:
         assert data.get("async") is True, f"Audit {audit_type} should be async"
         return data
 
-    def _wait_for_completion(self, audit_type: str, _run_id: str) -> dict:
+    def _wait_for_completion(self, audit_type: str, _run_id: str) -> dict[str, Any]:
         """Wait for an audit to complete and return the result."""
         start_time = time.time()
 
@@ -72,8 +73,9 @@ class TestAuditWorkflowsE2E:
             time.sleep(POLL_INTERVAL_SEC)
 
         pytest.fail(f"Workflow {audit_type} did not complete within {WORKFLOW_TIMEOUT_SEC}s")
+        return {}  # pragma: no cover (unreachable)
 
-    def _verify_steps_structure(self, result: dict, expected_step_ids: list[str]):
+    def _verify_steps_structure(self, result: dict[str, Any], expected_step_ids: list[str]) -> None:
         """Verify steps have correct structure."""
         steps = result.get("steps", [])
         step_ids = [s["id"] for s in steps]
@@ -91,7 +93,7 @@ class TestAuditWorkflowsE2E:
     # =========================================================================
     # Theme Code Audit
     # =========================================================================
-    def test_theme_code_workflow(self):
+    def test_theme_code_workflow(self) -> None:
         """Test theme_code audit workflow end-to-end."""
         # Trigger
         trigger_resp = self._trigger_audit("theme_code")
@@ -119,7 +121,7 @@ class TestAuditWorkflowsE2E:
     # =========================================================================
     # GA4 Tracking Audit
     # =========================================================================
-    def test_ga4_tracking_workflow(self):
+    def test_ga4_tracking_workflow(self) -> None:
         """Test ga4_tracking audit workflow end-to-end."""
         trigger_resp = self._trigger_audit("ga4_tracking")
         run_id = trigger_resp["run_id"]
@@ -142,7 +144,7 @@ class TestAuditWorkflowsE2E:
     # =========================================================================
     # Meta Pixel Audit
     # =========================================================================
-    def test_meta_pixel_workflow(self):
+    def test_meta_pixel_workflow(self) -> None:
         """Test meta_pixel audit workflow end-to-end."""
         trigger_resp = self._trigger_audit("meta_pixel")
         run_id = trigger_resp["run_id"]
@@ -159,7 +161,7 @@ class TestAuditWorkflowsE2E:
     # =========================================================================
     # Search Console Audit
     # =========================================================================
-    def test_search_console_workflow(self):
+    def test_search_console_workflow(self) -> None:
         """Test search_console audit workflow end-to-end."""
         trigger_resp = self._trigger_audit("search_console")
         run_id = trigger_resp["run_id"]
@@ -176,7 +178,7 @@ class TestAuditWorkflowsE2E:
     # =========================================================================
     # Merchant Center Audit
     # =========================================================================
-    def test_merchant_center_workflow(self):
+    def test_merchant_center_workflow(self) -> None:
         """Test merchant_center audit workflow end-to-end."""
         trigger_resp = self._trigger_audit("merchant_center")
         run_id = trigger_resp["run_id"]
@@ -193,7 +195,7 @@ class TestAuditWorkflowsE2E:
     # =========================================================================
     # Onboarding Audit
     # =========================================================================
-    def test_onboarding_workflow(self):
+    def test_onboarding_workflow(self) -> None:
         """Test onboarding audit workflow end-to-end."""
         trigger_resp = self._trigger_audit("onboarding")
         run_id = trigger_resp["run_id"]
@@ -218,14 +220,14 @@ class TestWorkflowProgressTracking:
     """Tests for step-by-step progress updates."""
 
     @pytest.fixture(autouse=True)
-    def check_services(self):
+    def check_services(self) -> None:
         """Verify services are running."""
         try:
             requests.get(f"{BASE_URL}/api/audits/session", timeout=5)
         except requests.ConnectionError:
             pytest.skip("Backend not running")
 
-    def test_steps_progress_sequentially(self):
+    def test_steps_progress_sequentially(self) -> None:
         """Verify steps transition from pending to running to complete."""
         # Use onboarding as it has predictable steps
         resp = requests.post(f"{BASE_URL}/api/audits/run/onboarding", timeout=10)
@@ -253,14 +255,14 @@ class TestAPIResponses:
     """Tests for API response format."""
 
     @pytest.fixture(autouse=True)
-    def check_services(self):
+    def check_services(self) -> None:
         """Verify services are running."""
         try:
             requests.get(f"{BASE_URL}/api/audits/session", timeout=5)
         except requests.ConnectionError:
             pytest.skip("Backend not running")
 
-    def test_trigger_returns_async_true(self):
+    def test_trigger_returns_async_true(self) -> None:
         """Verify trigger endpoint returns async: true."""
         audit_types = [
             "theme_code",
@@ -278,7 +280,7 @@ class TestAPIResponses:
             assert "run_id" in data, f"{audit_type} should return run_id"
             time.sleep(0.5)  # Small delay between triggers
 
-    def test_session_endpoint_returns_all_audits(self):
+    def test_session_endpoint_returns_all_audits(self) -> None:
         """Verify session endpoint returns all audit results."""
         # Wait for any running audits to complete
         time.sleep(5)
@@ -302,14 +304,14 @@ class TestNoSyncFallback:
     """Tests to verify no sync fallback exists."""
 
     @pytest.fixture(autouse=True)
-    def check_services(self):
+    def check_services(self) -> None:
         """Verify services are running."""
         try:
             requests.get(f"{BASE_URL}/api/audits/session", timeout=5)
         except requests.ConnectionError:
             pytest.skip("Backend not running")
 
-    def test_all_audits_use_inngest(self):
+    def test_all_audits_use_inngest(self) -> None:
         """Verify all audits use Inngest execution mode."""
         # Trigger all audits
         audit_types = [

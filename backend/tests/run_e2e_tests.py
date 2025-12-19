@@ -13,6 +13,7 @@ Requirements:
 
 import sys
 import time
+from typing import Any
 
 import requests
 
@@ -63,7 +64,7 @@ def trigger_audit(audit_type: str) -> tuple[bool, str]:
         return False, str(e)
 
 
-def wait_for_completion(audit_type: str) -> tuple[str, dict]:
+def wait_for_completion(audit_type: str) -> tuple[str, dict[str, Any]]:
     """Wait for audit to complete. Returns (status, result)."""
     start_time = time.time()
 
@@ -87,7 +88,7 @@ def wait_for_completion(audit_type: str) -> tuple[str, dict]:
     return "timeout", {}
 
 
-def verify_result(result: dict, expected_steps: list[str]) -> list[str]:
+def verify_result(result: dict[str, Any], expected_steps: list[str]) -> list[str]:
     """Verify result structure. Returns list of issues."""
     issues = []
 
@@ -137,7 +138,7 @@ def test_workflow(audit_type: str, expected_steps: list[str]) -> bool:
     return not issues
 
 
-def main():
+def main() -> None:
     """Run all E2E tests."""
 
     if not check_services():
