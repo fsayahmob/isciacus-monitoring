@@ -53,7 +53,7 @@ class TestAuditWorkflowsE2E:
         """Trigger an audit and return the response."""
         resp = requests.post(f"{BASE_URL}/api/audits/run/{audit_type}", timeout=10)
         assert resp.status_code == 200, f"Failed to trigger {audit_type}: {resp.text}"
-        data = resp.json()
+        data: dict[str, Any] = resp.json()
         assert data.get("async") is True, f"Audit {audit_type} should be async"
         return data
 
@@ -64,8 +64,9 @@ class TestAuditWorkflowsE2E:
         while time.time() - start_time < WORKFLOW_TIMEOUT_SEC:
             resp = requests.get(f"{BASE_URL}/api/audits/session", timeout=10)
             if resp.status_code == 200:
-                session = resp.json().get("session", {})
-                result = session.get("audits", {}).get(audit_type)
+                session_data: dict[str, Any] = resp.json()
+                session = session_data.get("session", {})
+                result: dict[str, Any] | None = session.get("audits", {}).get(audit_type)
 
                 if result and result.get("status") not in ["running", None]:
                     return result
