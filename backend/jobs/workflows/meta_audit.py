@@ -138,7 +138,8 @@ def _step_1_detect_pixel(configured_pixel_id: str) -> dict[str, Any]:
 
 
 def _step_2_check_config(
-    pixel_in_theme: bool,  # noqa: FBT001
+    *,
+    pixel_in_theme: bool,
     theme_pixel_id: str | None,
     configured_pixel_id: str,
 ) -> dict[str, Any]:
@@ -401,7 +402,9 @@ def create_meta_audit_function() -> inngest.Function | None:
         step2_result = await ctx.step.run(
             "check-pixel-config",
             lambda: _step_2_check_config(
-                pixel_in_theme, theme_pixel_id, configured_pixel_id
+                pixel_in_theme=pixel_in_theme,
+                theme_pixel_id=theme_pixel_id,
+                configured_pixel_id=configured_pixel_id,
             ),
         )
         result["steps"].append(step2_result["step"])
