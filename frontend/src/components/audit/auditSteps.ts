@@ -62,7 +62,7 @@ export const AUDIT_STEPS: Record<string, { id: string; name: string; description
   ],
 }
 
-export function createRunningResult(auditType: string): AuditResult {
+export function createRunningResult(auditType: string, isAsync = true): AuditResult {
   const stepDefs = AUDIT_STEPS[auditType] ?? [
     { id: 'loading', name: 'Chargement...', description: 'Audit en cours' },
   ]
@@ -88,5 +88,9 @@ export function createRunningResult(auditType: string): AuditResult {
     issues: [],
     summary: {},
     raw_data: null,
+    // Default to async (Inngest) mode - will be confirmed by API response
+    execution_mode: isAsync ? 'inngest' : 'sync',
+    current_step: 1,
+    total_steps: stepDefs.length,
   }
 }

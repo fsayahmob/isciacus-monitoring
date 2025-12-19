@@ -991,10 +991,10 @@ async def run_tracking_audit(
 async def trigger_audit_job(
     period: int = Query(30, description="Period in days"),
 ) -> dict[str, Any]:
-    """Trigger async audit job via Inngest (if configured)."""
-    from jobs.inngest_setup import trigger_audit_job as trigger_job
+    """Trigger async GA4 tracking audit job via Inngest (if configured)."""
+    from jobs.inngest_setup import trigger_ga4_audit
 
-    return await trigger_job(period)
+    return await trigger_ga4_audit(period)
 
 
 # ============================================================================
@@ -1205,7 +1205,7 @@ async def get_latest_audit_session() -> dict[str, Any]:
             "id": session.id,
             "created_at": session.created_at,
             "updated_at": session.updated_at,
-            "audits": {k: audit_orchestrator._result_to_dict(v) for k, v in session.audits.items()},
+            "audits": {k: audit_orchestrator.result_to_dict(v) for k, v in session.audits.items()},
         },
     }
 
@@ -1214,62 +1214,45 @@ async def get_latest_audit_session() -> dict[str, Any]:
 async def run_audit(
     audit_type: str,
     period: int = Query(default=30),
-    use_inngest: bool = Query(default=True),
 ) -> dict[str, Any]:
-    """Run a specific audit type.
+    """Run a specific audit type via Inngest async workflows.
 
-    Returns the audit result with steps (pipeline-style) and issues.
-    Actions on issues are NOT executed automatically - use /api/audits/action.
+    All audits run asynchronously via Inngest. Poll /api/audits/session for results.
 
     Args:
         audit_type: The type of audit to run
         period: Number of days to analyze (for GA4)
-        use_inngest: If True, uses Inngest for async execution (for supported audits).
     """
     try:
         audit_enum = AuditType(audit_type)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unknown audit type: {audit_type}")
 
-    # Onboarding audit uses Inngest
-    if audit_enum == AuditType.ONBOARDING and use_inngest:
-        from jobs.inngest_setup import trigger_onboarding_audit
+    from jobs.inngest_setup import (
+        trigger_audit,
+        trigger_onboarding_audit,
+    )
 
-        trigger_result = await trigger_onboarding_audit()
-        if trigger_result.get("status") == "error":
-            # Fallback to sync if Inngest fails
-            result = audit_orchestrator.run_onboarding_audit()
-            return {"result": audit_orchestrator._result_to_dict(result)}
-
-        # Return async response - frontend will poll /api/audits/session
-        return {
-            "async": True,
-            "run_id": trigger_result.get("run_id"),
-            "audit_type": audit_type,
-            "status": "triggered",
-            "message": "Audit started via Inngest. Poll /api/audits/session for results.",
-        }
-
-    # Other audits still use sync execution (will migrate later)
+    # Onboarding has its own specialized workflow
     if audit_enum == AuditType.ONBOARDING:
-        result = audit_orchestrator.run_onboarding_audit()
-    elif audit_enum == AuditType.GA4_TRACKING:
-        result = audit_orchestrator.run_ga4_audit(period)
-    elif audit_enum == AuditType.THEME_CODE:
-        result = audit_orchestrator.run_theme_audit()
-    elif audit_enum == AuditType.META_PIXEL:
-        result = audit_orchestrator.run_meta_audit()
-    elif audit_enum == AuditType.MERCHANT_CENTER:
-        result = audit_orchestrator.run_gmc_audit()
-    elif audit_enum == AuditType.SEARCH_CONSOLE:
-        result = audit_orchestrator.run_gsc_audit()
+        trigger_result = await trigger_onboarding_audit()
     else:
+        # Use dedicated workflows via trigger_audit dispatcher
+        trigger_result = await trigger_audit(audit_type, period)
+
+    if trigger_result.get("status") == "error":
         raise HTTPException(
-            status_code=501, detail=f"Audit type '{audit_type}' not yet implemented"
+            status_code=503,
+            detail=f"Inngest not available: {trigger_result.get('message', 'Unknown error')}",
         )
 
+    # Return async response - frontend will poll /api/audits/session
     return {
-        "result": audit_orchestrator._result_to_dict(result),
+        "async": True,
+        "run_id": trigger_result.get("run_id"),
+        "audit_type": audit_type,
+        "status": "triggered",
+        "message": "Audit started via Inngest. Poll /api/audits/session for results.",
     }
 
 

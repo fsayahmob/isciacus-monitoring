@@ -45,18 +45,32 @@ def setup_inngest(app: FastAPI) -> bool:
     if not INNGEST_ENABLED:
         return False
 
-    from .audit_workflow import audit_function, inngest_client
+    from .audit_workflow import inngest_client
     from .workflows.onboarding import onboarding_audit_function
+    # Import dedicated audit workflows
+    from .workflows.ga4_audit import ga4_audit_function
+    from .workflows.gmc_audit import gmc_audit_function
+    from .workflows.gsc_audit import gsc_audit_function
+    from .workflows.meta_audit import meta_audit_function
+    from .workflows.theme_audit import theme_audit_function
 
     if inngest_client is None:
         return False
 
-    # Collect all available functions
+    # Collect all available functions - dedicated workflows only
     functions = []
-    if audit_function is not None:
-        functions.append(audit_function)
     if onboarding_audit_function is not None:
         functions.append(onboarding_audit_function)
+    if ga4_audit_function is not None:
+        functions.append(ga4_audit_function)
+    if gmc_audit_function is not None:
+        functions.append(gmc_audit_function)
+    if gsc_audit_function is not None:
+        functions.append(gsc_audit_function)
+    if meta_audit_function is not None:
+        functions.append(meta_audit_function)
+    if theme_audit_function is not None:
+        functions.append(theme_audit_function)
 
     if not functions:
         return False
@@ -74,37 +88,12 @@ def setup_inngest(app: FastAPI) -> bool:
             serve_path="/api/inngest",
             **serve_kwargs,
         )
+        logger.info(f"Inngest setup complete with {len(functions)} functions")
         return True
     except Exception:
         # Inngest setup failed (e.g., missing signing key in CI)
         logger.warning("Inngest setup skipped - missing configuration")
         return False
-
-
-async def trigger_audit_job(period: int = 30) -> dict[str, str]:
-    """
-    Trigger the GA4 tracking audit workflow.
-
-    Returns job info or error message.
-    """
-    if not INNGEST_ENABLED:
-        return {"status": "error", "message": "Inngest not configured"}
-
-    from .audit_workflow import inngest_client
-
-    if inngest_client is None:
-        return {"status": "error", "message": "Inngest client not initialized"}
-
-    try:
-        await inngest_client.send(
-            inngest.Event(
-                name="audit/tracking.requested",
-                data={"period": period},
-            )
-        )
-        return {"status": "triggered", "message": "Audit job started"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
 
 
 async def trigger_onboarding_audit() -> dict[str, str]:
@@ -116,7 +105,7 @@ async def trigger_onboarding_audit() -> dict[str, str]:
     if not INNGEST_ENABLED:
         return {"status": "error", "message": "Inngest not configured"}
 
-    from .workflows.onboarding import inngest_client
+    from .audit_workflow import inngest_client
 
     if inngest_client is None:
         return {"status": "error", "message": "Inngest client not initialized"}
@@ -133,3 +122,144 @@ async def trigger_onboarding_audit() -> dict[str, str]:
         return {"status": "triggered", "run_id": run_id}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+async def trigger_ga4_audit(period: int = 30) -> dict[str, str]:
+    """Trigger GA4 tracking audit workflow."""
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/ga4.requested",
+                data={"run_id": run_id, "period": period},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": "ga4_tracking"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+async def trigger_gmc_audit() -> dict[str, str]:
+    """Trigger Google Merchant Center audit workflow."""
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/gmc.requested",
+                data={"run_id": run_id},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": "merchant_center"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+async def trigger_gsc_audit() -> dict[str, str]:
+    """Trigger Google Search Console audit workflow."""
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/gsc.requested",
+                data={"run_id": run_id},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": "search_console"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+async def trigger_meta_audit() -> dict[str, str]:
+    """Trigger Meta Pixel audit workflow."""
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/meta.requested",
+                data={"run_id": run_id},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": "meta_pixel"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+async def trigger_theme_audit() -> dict[str, str]:
+    """Trigger Theme Code audit workflow."""
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/theme.requested",
+                data={"run_id": run_id},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": "theme_code"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+async def trigger_audit(audit_type: str, period: int = 30) -> dict[str, str]:
+    """
+    Trigger any audit type via its dedicated Inngest workflow.
+
+    Supported types: ga4_tracking, theme_code, meta_pixel, merchant_center, search_console
+    """
+    trigger_map = {
+        "ga4_tracking": lambda: trigger_ga4_audit(period),
+        "theme_code": trigger_theme_audit,
+        "meta_pixel": trigger_meta_audit,
+        "merchant_center": trigger_gmc_audit,
+        "search_console": trigger_gsc_audit,
+    }
+
+    trigger_func = trigger_map.get(audit_type)
+    if trigger_func is None:
+        return {"status": "error", "message": f"Unknown audit type: {audit_type}"}
+
+    return await trigger_func()
