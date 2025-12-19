@@ -107,40 +107,46 @@ def _step_1_check_connection(measurement_id: str) -> dict[str, Any]:
         step["error_message"] = "GA4 non configuré. Allez dans Settings > GA4."
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
         step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-        return {"step": step, "success": False, "audit_service": None}
+        return {"step": step, "success": False}
 
     try:
-        from services.audit_service import AuditService
-        audit_service = AuditService()
+        from services.ga4_analytics import GA4AnalyticsService
+
+        ga4_service = GA4AnalyticsService()
 
         # Check if GA4 is available
-        if not audit_service.ga4.is_available():
+        if not ga4_service.is_available():
             step["status"] = "error"
             step["error_message"] = "Impossible de se connecter à l'API GA4"
             step["completed_at"] = datetime.now(tz=UTC).isoformat()
             step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-            return {"step": step, "success": False, "audit_service": None}
+            return {"step": step, "success": False}
 
         step["status"] = "success"
         step["result"] = {"connected": True, "measurement_id": measurement_id}
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
         step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
 
-        return {"step": step, "success": True, "audit_service": audit_service}
+        return {"step": step, "success": True}
 
     except Exception as e:
         step["status"] = "error"
         step["error_message"] = str(e)
         step["completed_at"] = datetime.now(tz=UTC).isoformat()
         step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-        return {"step": step, "success": False, "audit_service": None}
+        return {"step": step, "success": False}
 
 
 def _step_2_run_full_audit(period: int) -> dict[str, Any]:
     """Step 2-5: Run full GA4 audit and return all coverage data."""
     try:
         from services.audit_service import AuditService
-        audit_service = AuditService()
+        from services.ga4_analytics import GA4AnalyticsService
+        from services.shopify_analytics import ShopifyAnalyticsService
+
+        shopify_service = ShopifyAnalyticsService()
+        ga4_service = GA4AnalyticsService()
+        audit_service = AuditService(shopify_service, ga4_service)
         full_audit = audit_service.run_full_audit(period)
         return {"success": True, "data": full_audit}
     except Exception as e:

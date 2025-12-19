@@ -97,7 +97,9 @@ def _step_1_detect_pixel(configured_pixel_id: str) -> dict[str, Any]:
     try:
         from services.theme_analyzer import ThemeAnalyzerService
         analyzer = ThemeAnalyzerService()
-        analysis = analyzer.analyze_theme()
+        # Force refresh to get latest detection (including storefront HTML check)
+        analyzer.clear_cache()
+        analysis = analyzer.analyze_theme(force_refresh=True)
         pixel_in_theme = analysis.meta_pixel_configured
         theme_pixel_id = analysis.meta_pixel_id
         meta_events_found = analysis.meta_events_found

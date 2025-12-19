@@ -12,14 +12,14 @@ export function ProgressBar({
   total: number
 }): React.ReactElement {
   return (
-    <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="mt-6 rounded-xl border border-border-default bg-bg-secondary p-4 shadow-sm">
       <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-gray-700">Progression de la configuration</span>
-        <span className="text-gray-500">
+        <span className="font-medium text-text-primary">Progression de la configuration</span>
+        <span className="text-text-tertiary">
           {configured} / {total} services configurés
         </span>
       </div>
-      <div className="mt-2 h-2 w-full rounded-full bg-gray-100">
+      <div className="mt-2 h-2 w-full rounded-full bg-bg-tertiary">
         <div
           className={`h-2 rounded-full transition-all ${getProgressBarColor(configured, total)}`}
           style={{ width: `${String(getProgressWidth(configured, total))}%` }}
@@ -47,7 +47,7 @@ export function SaveBar({
   }
 
   return (
-    <div className="fixed bottom-0 left-60 right-0 z-50 border-t border-gray-200 bg-white px-6 py-4 shadow-lg">
+    <div className="fixed bottom-0 left-60 right-0 z-50 border-t border-border-default bg-bg-secondary px-6 py-4 shadow-lg">
       <div className="flex items-center justify-between">
         <SaveBarStatus changeCount={changeCount} />
         <SaveBarActions isSaving={isSaving} onCancel={onCancel} onSave={onSave} />
@@ -59,10 +59,10 @@ export function SaveBar({
 function SaveBarStatus({ changeCount }: { changeCount: number }): React.ReactElement {
   return (
     <div className="flex items-center gap-3">
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20 text-warning">
         {changeCount}
       </span>
-      <span className="text-sm text-gray-600">
+      <span className="text-sm text-text-secondary">
         {changeCount === 1 ? 'modification non sauvegardée' : 'modifications non sauvegardées'}
       </span>
     </div>
@@ -81,7 +81,7 @@ function SaveBarActions({
   return (
     <div className="flex items-center gap-3">
       <button
-        className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+        className="btn btn-secondary"
         disabled={isSaving}
         type="button"
         onClick={onCancel}
@@ -89,7 +89,7 @@ function SaveBarActions({
         Annuler
       </button>
       <button
-        className="flex items-center gap-2 rounded-lg bg-burgundy px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-burgundy/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="btn btn-primary"
         disabled={isSaving}
         type="button"
         onClick={onSave}
@@ -130,15 +130,15 @@ export function StatusMessage({
     <div
       className={`mb-6 rounded-xl border p-4 ${
         status.type === 'success'
-          ? 'border-green-200 bg-green-50 text-green-700'
-          : 'border-red-200 bg-red-50 text-red-700'
+          ? 'border-success/30 bg-success/10 text-success'
+          : 'border-error/30 bg-error/10 text-error'
       }`}
     >
       <div className="flex items-center gap-2">
         {status.type === 'success' ? <SuccessIcon /> : <ErrorIcon />}
         <span>{status.message}</span>
         {status.type === 'success' && (
-          <span className="text-sm text-green-600">
+          <span className="text-sm text-success/80">
             Redémarrez Docker pour appliquer les changements.
           </span>
         )}
@@ -166,7 +166,7 @@ function ErrorIcon(): React.ReactElement {
 export function ErrorDisplay({ error }: { error: Error | null }): React.ReactElement {
   return (
     <div className="p-6">
-      <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-700">
+      <div className="rounded-xl border border-error/30 bg-error/10 p-5 text-error">
         <div className="flex items-center gap-3">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -188,7 +188,7 @@ export function ErrorDisplay({ error }: { error: Error | null }): React.ReactEle
 export function RefreshButton({ onRefresh }: { onRefresh: () => void }): React.ReactElement {
   return (
     <button
-      className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 shadow-sm transition-all hover:border-burgundy hover:text-burgundy"
+      className="btn btn-secondary"
       type="button"
       onClick={onRefresh}
     >

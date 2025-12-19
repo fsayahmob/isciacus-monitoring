@@ -105,6 +105,7 @@ class TrackingAnalysis:
     ga4_via_shopify_native: bool = False  # GA4 configured via Shopify Online Store > Preferences
     meta_pixel_configured: bool = False
     meta_pixel_id: str | None = None
+    meta_pixel_via_shopify_native: bool = False  # Meta Pixel configured via Shopify app (Web Pixels)
     gtm_configured: bool = False
     gtm_container_id: str | None = None
 
@@ -115,6 +116,14 @@ class TrackingAnalysis:
     files_analyzed: list[str] = field(default_factory=list)
 
     analyzed_at: str = field(default_factory=lambda: datetime.now(tz=UTC).isoformat())
+
+    # Consent mode detection
+    consent_mode_detected: bool = False
+
+    @property
+    def critical_issues(self) -> list[TrackingIssue]:
+        """Return only critical severity issues."""
+        return [issue for issue in self.issues if issue.severity == "critical"]
 
 
 class ThemeAnalyzerService:
@@ -261,6 +270,70 @@ class ThemeAnalyzerService:
             logger.warning("Error checking Shopify native GA4: %s", e)
             return False, None
 
+    def _check_shopify_native_meta(self) -> tuple[bool, str | None]:
+        """Check if Meta Pixel is configured via Shopify's native integration.
+
+        Shopify allows configuring Meta Pixel via:
+        - Meta Sales Channel app
+        - Facebook & Instagram Sales Channel app
+
+        This checks by fetching the storefront HTML and searching for fbq() calls.
+
+        Returns:
+            Tuple of (is_configured, pixel_id)
+        """
+        try:
+            # Get shop's primary domain
+            query = """
+            query {
+                shop {
+                    primaryDomain {
+                        url
+                    }
+                }
+            }
+            """
+            resp = requests.post(
+                self._graphql_url,
+                headers=self._get_rest_headers(),
+                json={"query": query},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            primary_url = data.get("data", {}).get("shop", {}).get("primaryDomain", {}).get("url")
+            if not primary_url:
+                return False, None
+
+            # Fetch storefront homepage HTML
+            storefront_resp = requests.get(primary_url, timeout=15)
+            if storefront_resp.status_code != 200:
+                return False, None
+
+            html = storefront_resp.text
+
+            # Search for Meta Pixel init: fbq('init', 'PIXEL_ID')
+            pixel_matches = re.findall(
+                r"fbq\s*\(\s*['\"]init['\"]\s*,\s*['\"](\d{10,})['\"]",
+                html
+            )
+            if pixel_matches:
+                # Return first pixel found
+                return True, pixel_matches[0]
+
+            # Fallback: search for any 15-digit number that looks like a Meta Pixel ID
+            # Meta Pixel IDs are typically 15 digits starting with 754...
+            id_matches = re.findall(r"\b(754\d{12})\b", html)
+            if id_matches:
+                logger.info("Found potential Meta Pixel ID in HTML: %s", id_matches[0])
+                return True, id_matches[0]
+
+            return False, None
+        except Exception as e:
+            logger.warning("Error checking Shopify native Meta Pixel via storefront: %s", e)
+            return False, None
+
     def _check_content_for_header_ga4(self, theme_id: str) -> tuple[bool, str | None]:
         """Check if theme.liquid uses content_for_header which includes native GA4.
 
@@ -358,6 +431,14 @@ class ThemeAnalyzerService:
             analysis.ga4_via_shopify_native = True
             if native_ga4_id:
                 analysis.ga4_measurement_id = native_ga4_id
+
+        # Check for Shopify native Meta Pixel configuration (via Meta/Facebook app)
+        native_meta, native_meta_id = self._check_shopify_native_meta()
+        if native_meta:
+            analysis.meta_pixel_configured = True
+            analysis.meta_pixel_via_shopify_native = True
+            if native_meta_id:
+                analysis.meta_pixel_id = native_meta_id
 
         theme_id = self._get_active_theme_id()
         if not theme_id:
@@ -563,6 +644,23 @@ class ThemeAnalyzerService:
         if analysis.meta_pixel_configured:
             for event in self.REQUIRED_META_EVENTS:
                 if event not in analysis.meta_events_found:
+                    # If Meta Pixel is configured via Shopify native (app), reduce severity
+                    # Shopify's native integration handles PageView and Purchase automatically
+                    if analysis.meta_pixel_via_shopify_native:
+                        # Native Shopify app handles PageView and Purchase automatically via Web Pixels
+                        if event in ["PageView", "Purchase"]:
+                            # Don't report these as missing - Shopify handles them
+                            continue
+                        # For other events, report as info/warning since basic tracking works
+                        severity = "low"
+                        description = (
+                            f"Événement Meta Pixel '{event}' non trouvé dans le thème "
+                            f"(Meta Pixel configuré via app Shopify, tracking de base actif)"
+                        )
+                    else:
+                        severity = "high" if event in ["Purchase", "AddToCart"] else "medium"
+                        description = f"Événement Meta Pixel '{event}' non trouvé dans le thème"
+
                     analysis.issues.append(
                         TrackingIssue(
                             issue_type="missing_event",
@@ -570,8 +668,8 @@ class ThemeAnalyzerService:
                             event=event,
                             file_path="",
                             line_number=None,
-                            description=f"Événement Meta Pixel '{event}' non trouvé dans le thème",
-                            severity="error" if event == "Purchase" else "warning",
+                            description=description,
+                            severity=severity,
                             fix_available=True,
                             fix_code=self._generate_event_code(event, TrackingType.META_PIXEL),
                         )
@@ -778,6 +876,7 @@ class ThemeAnalyzerService:
             "ga4_via_shopify_native": analysis.ga4_via_shopify_native,
             "meta_pixel_configured": analysis.meta_pixel_configured,
             "meta_pixel_id": analysis.meta_pixel_id,
+            "meta_pixel_via_shopify_native": analysis.meta_pixel_via_shopify_native,
             "gtm_configured": analysis.gtm_configured,
             "gtm_container_id": analysis.gtm_container_id,
             "ga4_events_found": analysis.ga4_events_found,
@@ -808,6 +907,7 @@ class ThemeAnalyzerService:
             ga4_via_shopify_native=data.get("ga4_via_shopify_native", False),
             meta_pixel_configured=data.get("meta_pixel_configured", False),
             meta_pixel_id=data.get("meta_pixel_id"),
+            meta_pixel_via_shopify_native=data.get("meta_pixel_via_shopify_native", False),
             gtm_configured=data.get("gtm_configured", False),
             gtm_container_id=data.get("gtm_container_id"),
             ga4_events_found=data.get("ga4_events_found", []),
@@ -844,6 +944,7 @@ class ThemeAnalyzerService:
                 "ga4_via_shopify_native": analysis.ga4_via_shopify_native,
                 "meta_pixel": analysis.meta_pixel_configured,
                 "meta_pixel_id": analysis.meta_pixel_id,
+                "meta_pixel_via_shopify_native": analysis.meta_pixel_via_shopify_native,
                 "gtm": analysis.gtm_configured,
                 "gtm_id": analysis.gtm_container_id,
             },

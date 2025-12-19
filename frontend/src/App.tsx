@@ -1,7 +1,6 @@
 /**
  * App Component - ISCIACUS Monitoring Dashboard
- * ==============================================
- * Main application component with layout structure
+ * Modern dark theme inspired by Linear, Vercel, Raycast
  */
 
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -19,7 +18,7 @@ function ProductsPage(): React.ReactElement {
   const { viewMode } = useAppStore()
 
   return (
-    <div className="p-4">{viewMode === VIEW_MODES.LIST ? <ProductTable /> : <ProductGrid />}</div>
+    <div className="p-6">{viewMode === VIEW_MODES.LIST ? <ProductTable /> : <ProductGrid />}</div>
   )
 }
 
@@ -27,20 +26,17 @@ function MainContent(): React.ReactElement {
   const { currentPage } = useAppStore()
 
   return (
-    <main className="ml-60 min-h-screen bg-cream">
+    <main className="ml-56 min-h-screen bg-bg-primary">
       <Header />
-      {/* FilterBar uniquement sur la page Produits */}
       {currentPage === PAGES.PRODUCTS ? <FilterBar /> : null}
 
-      {currentPage === PAGES.PRODUCTS && <ProductsPage />}
-      {currentPage === PAGES.ANALYTICS && <AnalyticsDataPage />}
-      {currentPage === PAGES.BENCHMARKS && <BenchmarksPage />}
-      {currentPage === PAGES.AUDIT && <AuditPage />}
-      {currentPage === PAGES.SETTINGS && <SettingsPage />}
-
-      <footer className="border-t border-burgundy p-4 text-center text-xs text-gray-500">
-        ISCIACUS Monitoring - Données actualisées au chargement
-      </footer>
+      <div className="animate-fade-in">
+        {currentPage === PAGES.PRODUCTS && <ProductsPage />}
+        {currentPage === PAGES.ANALYTICS && <AnalyticsDataPage />}
+        {currentPage === PAGES.BENCHMARKS && <BenchmarksPage />}
+        {currentPage === PAGES.AUDIT && <AuditPage />}
+        {currentPage === PAGES.SETTINGS && <SettingsPage />}
+      </div>
     </main>
   )
 }
@@ -52,7 +48,7 @@ export default function App(): React.ReactElement {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-cream font-sans">
+      <div className="min-h-screen bg-bg-primary font-sans text-text-primary">
         <Sidebar />
         <MainContent />
       </div>

@@ -29,15 +29,15 @@ function MetricCard({
   available: boolean
   source?: 'GA4' | 'Shopify'
 }): React.ReactElement {
-  const borderClass = available ? 'border-gray-200' : 'border-gray-100 bg-gray-50'
-  const valueClass = `font-mono text-xl font-bold ${available ? 'text-burgundy' : 'text-gray-400'}`
+  const borderClass = available ? 'border-border-default bg-bg-secondary' : 'border-border-subtle bg-bg-tertiary'
+  const valueClass = `font-mono text-xl font-bold ${available ? 'text-brand' : 'text-text-muted'}`
   const displayValue = available ? formatValue(value) : '—'
   return (
     <div className={`rounded border p-3 text-center ${borderClass}`}>
       <div className={valueClass}>{displayValue}</div>
-      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-xs text-text-tertiary">{label}</div>
       {source !== undefined && (
-        <div className={`text-xs ${source === 'GA4' ? 'text-blue-500' : 'text-green-600'}`}>
+        <div className={`text-xs ${source === 'GA4' ? 'text-info' : 'text-success'}`}>
           {source}
         </div>
       )}
@@ -53,10 +53,10 @@ function GA4FunnelSection({
   ga4Available: boolean
 }): React.ReactElement {
   return (
-    <div className="border-t border-gray-200 pt-4">
+    <div className="border-t border-border-subtle pt-4">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm font-medium text-gray-700">Funnel GA4</span>
-        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+        <span className="text-sm font-medium text-text-primary">Funnel GA4</span>
+        <span className="text-xs px-2 py-0.5 bg-info/20 text-info rounded">
           Source cohérente
         </span>
       </div>
@@ -105,14 +105,14 @@ function CVRSection({
 }): React.ReactElement {
   return (
     <div className="mt-4 grid grid-cols-2 gap-4">
-      <div className="rounded border border-green-200 bg-green-50 p-3 text-center">
-        <div className="font-mono text-2xl font-bold text-green-700">{globalCvr.toFixed(2)}%</div>
-        <div className="text-xs text-gray-500">CVR Global (GA4 uniquement)</div>
-        <div className="text-xs text-green-600 mt-1">Visiteurs GA4 → Achats GA4</div>
+      <div className="rounded border border-success/30 bg-success/10 p-3 text-center">
+        <div className="font-mono text-2xl font-bold text-success">{globalCvr.toFixed(2)}%</div>
+        <div className="text-xs text-text-tertiary">CVR Global (GA4 uniquement)</div>
+        <div className="text-xs text-success mt-1">Visiteurs GA4 → Achats GA4</div>
       </div>
-      <div className="rounded border border-blue-200 bg-blue-50 p-3 text-center">
-        <div className="font-mono text-2xl font-bold text-blue-700">{checkoutToAchat}%</div>
-        <div className="text-xs text-gray-500">Checkout → Achat</div>
+      <div className="rounded border border-info/30 bg-info/10 p-3 text-center">
+        <div className="font-mono text-2xl font-bold text-info">{checkoutToAchat}%</div>
+        <div className="text-xs text-text-tertiary">Checkout → Achat</div>
       </div>
     </div>
   )
@@ -124,10 +124,10 @@ function ShopifyBusinessSection({
   shopifyData: ShopifyBusinessMetrics
 }): React.ReactElement {
   return (
-    <div className="mt-4 border-t border-gray-200 pt-4">
+    <div className="mt-4 border-t border-border-subtle pt-4">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm font-medium text-gray-700">Métriques Business</span>
-        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">
+        <span className="text-sm font-medium text-text-primary">Métriques Business</span>
+        <span className="text-xs px-2 py-0.5 bg-success/20 text-success rounded">
           Shopify (réel)
         </span>
       </div>
@@ -167,10 +167,10 @@ function TrackingCoverageWarning({
   trackingCoverage: TrackingCoverage
 }): React.ReactElement {
   return (
-    <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3">
+    <div className="mt-4 rounded border border-warning/30 bg-warning/10 p-3">
       <div className="flex items-center gap-2">
         <svg
-          className="h-4 w-4 text-amber-600"
+          className="h-4 w-4 text-warning"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -182,11 +182,11 @@ function TrackingCoverageWarning({
             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
           />
         </svg>
-        <span className="text-sm font-medium text-amber-800">
+        <span className="text-sm font-medium text-warning">
           Couverture tracking : {trackingCoverage.coverage_rate.toFixed(0)}%
         </span>
       </div>
-      <p className="mt-1 text-xs text-amber-700">
+      <p className="mt-1 text-xs text-text-secondary">
         GA4 a tracké {String(trackingCoverage.ga4_purchases)} achats sur{' '}
         {String(trackingCoverage.shopify_orders)} commandes Shopify. {trackingCoverage.note}
       </p>

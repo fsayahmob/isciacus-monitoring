@@ -1,5 +1,6 @@
 /**
  * Coverage Components - Reusable tracking coverage display components
+ * Modern Dark Theme
  */
 
 import React from 'react'
@@ -10,21 +11,21 @@ const MAX_ITEMS_COLLAPSED = 5
 const MAX_MISSING_PREVIEW = 3
 
 const STATUS_COLORS = {
-  ok: 'border-green-200 bg-green-50',
-  warning: 'border-amber-200 bg-amber-50',
-  error: 'border-red-200 bg-red-50',
+  ok: 'border-success/30 bg-success/10',
+  warning: 'border-warning/30 bg-warning/10',
+  error: 'border-error/30 bg-error/10',
 }
 
 const HEADER_COLORS = {
-  ok: 'text-green-700',
-  warning: 'text-amber-700',
-  error: 'text-red-700',
+  ok: 'text-success',
+  warning: 'text-warning',
+  error: 'text-error',
 }
 
 const PROGRESS_COLORS = {
-  ok: 'bg-green-500',
-  warning: 'bg-amber-500',
-  error: 'bg-red-500',
+  ok: 'bg-success',
+  warning: 'bg-warning',
+  error: 'bg-error',
 }
 
 export function PercentageBadge({
@@ -35,9 +36,9 @@ export function PercentageBadge({
   status: 'ok' | 'warning' | 'error'
 }): React.ReactElement {
   const colors = {
-    ok: 'bg-green-100 text-green-800',
-    warning: 'bg-amber-100 text-amber-800',
-    error: 'bg-red-100 text-red-800',
+    ok: 'bg-success/20 text-success',
+    warning: 'bg-warning/20 text-warning',
+    error: 'bg-error/20 text-error',
   }
 
   return (
@@ -60,10 +61,10 @@ function SectionHeader({
     <div className="mb-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className={HEADER_COLORS[section.status]}>{icon}</span>
-        <h3 className="font-medium text-gray-900">{title}</h3>
+        <h3 className="font-medium text-text-primary">{title}</h3>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-text-secondary">
           {String(section.tracked)}/{String(section.total)}
         </span>
         <PercentageBadge percentage={section.rate} status={section.status} />
@@ -83,7 +84,7 @@ function ExpandToggleButton({
 }): React.ReactElement {
   return (
     <button
-      className="mt-3 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+      className="mt-3 flex items-center gap-1 text-sm text-text-tertiary hover:text-text-secondary"
       type="button"
       onClick={onToggle}
     >
@@ -112,8 +113,8 @@ function MissingItemsPreview({ missing }: { missing: string[] }): React.ReactEle
   const remaining = missing.length - MAX_MISSING_PREVIEW
 
   return (
-    <div className="mt-3 rounded-lg bg-white/70 p-2">
-      <p className="text-xs font-medium text-gray-600">
+    <div className="mt-3 rounded-lg bg-bg-tertiary/50 p-2">
+      <p className="text-xs font-medium text-text-secondary">
         Non trackés: {preview}
         {hasMore && ` +${String(remaining)} autres`}
       </p>
@@ -123,10 +124,10 @@ function MissingItemsPreview({ missing }: { missing: string[] }): React.ReactEle
 
 function ChecklistItem({ item }: { item: TrackingCoverageItem }): React.ReactElement {
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-white/50 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-lg bg-bg-tertiary/30 px-3 py-2">
       {item.tracked ? (
         <svg
-          className="h-4 w-4 flex-shrink-0 text-green-600"
+          className="h-4 w-4 flex-shrink-0 text-success"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -135,7 +136,7 @@ function ChecklistItem({ item }: { item: TrackingCoverageItem }): React.ReactEle
         </svg>
       ) : (
         <svg
-          className="h-4 w-4 flex-shrink-0 text-red-500"
+          className="h-4 w-4 flex-shrink-0 text-error"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -148,11 +149,11 @@ function ChecklistItem({ item }: { item: TrackingCoverageItem }): React.ReactEle
           />
         </svg>
       )}
-      <span className={`text-sm ${item.tracked ? 'text-gray-700' : 'text-gray-500'}`}>
+      <span className={`text-sm ${item.tracked ? 'text-text-primary' : 'text-text-tertiary'}`}>
         {item.name}
       </span>
       {item.description !== undefined && (
-        <span className="text-xs text-gray-400">({item.description})</span>
+        <span className="text-xs text-text-muted">({item.description})</span>
       )}
     </div>
   )
@@ -166,7 +167,7 @@ function ProgressBar({
   status: 'ok' | 'warning' | 'error'
 }): React.ReactElement {
   return (
-    <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-white/50">
+    <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-bg-tertiary">
       <div
         className={`h-2 rounded-full transition-all ${PROGRESS_COLORS[status]}`}
         style={{ width: `${String(rate)}%` }}

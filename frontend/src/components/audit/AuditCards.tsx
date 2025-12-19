@@ -1,5 +1,6 @@
 /**
  * Audit Cards - Reusable card components for audit results
+ * Modern Dark Theme
  */
 
 import type { AuditCheck, TrackingAuditData } from '../../services/api'
@@ -14,11 +15,11 @@ export function ResultsHeader({ onRefresh }: { onRefresh: () => void }): React.R
   return (
     <div className="mb-8 flex items-center justify-between">
       <div>
-        <h1 className="font-serif text-3xl text-burgundy">Résultats de l'audit</h1>
-        <p className="mt-1 text-gray-600">Analyse terminée</p>
+        <h1 className="text-3xl font-semibold text-text-primary">Résultats de l'audit</h1>
+        <p className="mt-1 text-text-secondary">Analyse terminée</p>
       </div>
       <button
-        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-burgundy hover:text-burgundy"
+        className="btn btn-secondary flex items-center gap-2"
         type="button"
         onClick={onRefresh}
       >
@@ -30,10 +31,12 @@ export function ResultsHeader({ onRefresh }: { onRefresh: () => void }): React.R
 }
 
 export function ConnectionStatus({ connected }: { connected: boolean }): React.ReactElement {
-  const statusClass = connected ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-  const iconBg = connected ? 'bg-green-100' : 'bg-red-100'
-  const textColor = connected ? 'text-green-800' : 'text-red-800'
-  const subtextColor = connected ? 'text-green-600' : 'text-red-600'
+  const statusClass = connected
+    ? 'bg-success/10 border-success/30'
+    : 'bg-error/10 border-error/30'
+  const iconBg = connected ? 'bg-success/20' : 'bg-error/20'
+  const textColor = connected ? 'text-success' : 'text-error'
+  const subtextColor = connected ? 'text-success/80' : 'text-error/80'
 
   return (
     <div className={`mb-8 rounded-2xl border p-4 ${statusClass}`}>
@@ -79,16 +82,16 @@ function SummaryCard({
   color: 'gray' | 'green' | 'amber' | 'red'
 }): React.ReactElement {
   const colors = {
-    gray: 'bg-white border-gray-200 text-gray-900',
-    green: 'bg-green-50 border-green-200 text-green-600',
-    amber: 'bg-amber-50 border-amber-200 text-amber-600',
-    red: 'bg-red-50 border-red-200 text-red-600',
+    gray: 'bg-bg-secondary border-border-default text-text-primary',
+    green: 'bg-success/10 border-success/30 text-success',
+    amber: 'bg-warning/10 border-warning/30 text-warning',
+    red: 'bg-error/10 border-error/30 text-error',
   }
   const textColors = {
-    gray: 'text-gray-500',
-    green: 'text-green-700',
-    amber: 'text-amber-700',
-    red: 'text-red-700',
+    gray: 'text-text-secondary',
+    green: 'text-success/80',
+    amber: 'text-warning/80',
+    red: 'text-error/80',
   }
   return (
     <div className={`rounded-xl border p-4 text-center ${colors[color]}`}>
@@ -110,26 +113,26 @@ export function CoverageChart({
   const percentage = total > 0 ? Math.round((tracked / total) * PERCENT_100) : 0
   const getColor = (): string => {
     if (percentage >= GOOD_THRESHOLD) {
-      return 'bg-green-500'
+      return 'bg-success'
     }
     if (percentage >= WARNING_THRESHOLD) {
-      return 'bg-amber-500'
+      return 'bg-warning'
     }
-    return 'bg-red-500'
+    return 'bg-error'
   }
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="card-elevated rounded-xl p-5">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-gray-900">{label}</span>
-        <span className="text-2xl font-bold text-gray-900">{String(percentage)}%</span>
+        <span className="font-medium text-text-primary">{label}</span>
+        <span className="text-2xl font-bold text-text-primary">{String(percentage)}%</span>
       </div>
-      <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-gray-100">
+      <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-bg-tertiary">
         <div
           className={`h-3 rounded-full transition-all ${getColor()}`}
           style={{ width: `${String(percentage)}%` }}
         />
       </div>
-      <p className="mt-2 text-sm text-gray-500">
+      <p className="mt-2 text-sm text-text-tertiary">
         {String(tracked)} / {String(total)} trackés
       </p>
     </div>
@@ -138,8 +141,8 @@ export function CoverageChart({
 
 export function MissingCollections({ collections }: { collections: string[] }): React.ReactElement {
   return (
-    <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-5">
-      <h3 className="mb-3 flex items-center gap-2 font-medium text-amber-900">
+    <div className="mb-8 rounded-xl border border-warning/30 bg-warning/10 p-5">
+      <h3 className="mb-3 flex items-center gap-2 font-medium text-warning">
         <WarningIcon />
         Collections non trackées dans GA4
       </h3>
@@ -147,7 +150,7 @@ export function MissingCollections({ collections }: { collections: string[] }): 
         {collections.map((collection) => (
           <span
             key={collection}
-            className="rounded-full bg-amber-100 px-3 py-1 text-sm text-amber-800"
+            className="rounded-full bg-warning/20 px-3 py-1 text-sm text-warning"
           >
             {collection}
           </span>
@@ -159,8 +162,8 @@ export function MissingCollections({ collections }: { collections: string[] }): 
 
 export function ChecksSection({ checks }: { checks: AuditCheck[] }): React.ReactElement {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 font-medium text-gray-900">Détail des vérifications</h3>
+    <div className="card-elevated rounded-2xl p-6">
+      <h3 className="mb-4 font-medium text-text-primary">Détail des vérifications</h3>
       <div className="space-y-4">
         {checks.map((check) => (
           <AuditCheckCard key={check.name} check={check} />
@@ -172,22 +175,22 @@ export function ChecksSection({ checks }: { checks: AuditCheck[] }): React.React
 
 function AuditCheckCard({ check }: { check: AuditCheck }): React.ReactElement {
   const statusStyles = {
-    ok: 'border-l-green-500 bg-green-50/50',
-    warning: 'border-l-amber-500 bg-amber-50/50',
-    error: 'border-l-red-500 bg-red-50/50',
+    ok: 'border-l-success bg-success/10',
+    warning: 'border-l-warning bg-warning/10',
+    error: 'border-l-error bg-error/10',
   }
   const badgeStyles = {
-    ok: 'bg-green-100 text-green-800',
-    warning: 'bg-amber-100 text-amber-800',
-    error: 'bg-red-100 text-red-800',
+    ok: 'bg-success/20 text-success',
+    warning: 'bg-warning/20 text-warning',
+    error: 'bg-error/20 text-error',
   }
   const icons = { ok: '✓', warning: '⚠', error: '✗' }
   return (
     <div className={`rounded-lg border-l-4 p-4 ${statusStyles[check.status]}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <h4 className="font-medium text-gray-900">{check.name}</h4>
-          <p className="mt-1 text-sm text-gray-600">{check.message}</p>
+          <h4 className="font-medium text-text-primary">{check.name}</h4>
+          <p className="mt-1 text-sm text-text-secondary">{check.message}</p>
         </div>
         <span
           className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${badgeStyles[check.status]}`}
@@ -199,8 +202,8 @@ function AuditCheckCard({ check }: { check: AuditCheck }): React.ReactElement {
         <CheckDetails details={check.details} />
       )}
       {check.recommendation !== undefined && (
-        <div className="mt-3 rounded-lg bg-blue-50 p-3">
-          <p className="text-xs text-blue-800">
+        <div className="mt-3 rounded-lg bg-info/10 p-3">
+          <p className="text-xs text-info">
             <strong>Recommandation:</strong> {check.recommendation}
           </p>
         </div>
@@ -211,17 +214,17 @@ function AuditCheckCard({ check }: { check: AuditCheck }): React.ReactElement {
 
 function CheckDetails({ details }: { details: string[] }): React.ReactElement {
   return (
-    <div className="mt-3 rounded-lg bg-white/80 p-3">
-      <p className="mb-1 text-xs font-medium text-gray-500">Détails:</p>
+    <div className="mt-3 rounded-lg bg-bg-tertiary/50 p-3">
+      <p className="mb-1 text-xs font-medium text-text-tertiary">Détails:</p>
       <ul className="space-y-1">
         {details.slice(0, MAX_DETAILS_SHOWN).map((detail) => (
-          <li key={detail} className="flex items-start gap-2 text-xs text-gray-600">
-            <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-gray-400" />
+          <li key={detail} className="flex items-start gap-2 text-xs text-text-secondary">
+            <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-text-muted" />
             {detail}
           </li>
         ))}
         {details.length > MAX_DETAILS_SHOWN && (
-          <li className="text-xs text-gray-400">
+          <li className="text-xs text-text-muted">
             +{String(details.length - MAX_DETAILS_SHOWN)} autres...
           </li>
         )}

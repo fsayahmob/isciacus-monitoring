@@ -23,6 +23,7 @@ STEPS = [
     {"id": "gmc_connection", "name": "Connexion GMC", "description": "Connexion au Merchant Center"},
     {"id": "products_status", "name": "Statut Produits", "description": "Analyse des produits GMC"},
     {"id": "feed_sync", "name": "Synchronisation Feed", "description": "Vérification de la sync"},
+    {"id": "issues_check", "name": "Problèmes", "description": "Détection des problèmes"},
 ]
 
 
@@ -578,8 +579,32 @@ def create_gmc_audit_function() -> inngest.Function | None:
 
         google_pub_status = step3_result["google_pub_status"]
 
+        # Step 4: Issues check
+        step4 = {
+            "id": "issues_check",
+            "name": "Problèmes",
+            "description": "Détection des problèmes",
+            "status": "running",
+            "started_at": datetime.now(tz=UTC).isoformat(),
+            "completed_at": None,
+            "duration_ms": None,
+            "result": None,
+            "error_message": None,
+        }
+        start_time = datetime.now(tz=UTC)
+
         # Build issues
         result["issues"] = _build_issues(merchant_id, products_data, google_pub_status, account_issues)
+
+        # Determine step status based on issues
+        has_critical = any(i.get("severity") == "critical" for i in result["issues"])
+        has_high = any(i.get("severity") == "high" for i in result["issues"])
+        step4["status"] = "error" if has_critical else ("warning" if has_high else "success")
+        step4["result"] = {"issues_count": len(result["issues"])}
+        step4["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step4["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        result["steps"].append(step4)
+        _save_progress(result)
 
         # Finalize
         final_result = _finalize_result(result, products_data, google_pub_status)

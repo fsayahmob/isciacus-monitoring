@@ -1,6 +1,5 @@
 /**
- * CustomerStats Component - ISCIACUS Monitoring Dashboard
- * ========================================================
+ * CustomerStats Component - Modern Dark Theme
  */
 
 import { useCustomerStats } from '../../hooks/useAnalytics'
@@ -16,13 +15,13 @@ interface StatCardProps {
 
 function StatCard({ title, value, subtitle, benchmark }: StatCardProps): React.ReactElement {
   return (
-    <div className="border-2 border-burgundy bg-white p-4">
+    <div className="card p-4">
       <div className="flex items-start justify-between">
         <div>
-          <div className="font-serif text-3xl text-burgundy">{value}</div>
-          <div className="text-sm text-gray-600">{title}</div>
+          <div className="font-mono text-3xl font-bold text-brand">{value}</div>
+          <div className="text-sm text-text-secondary">{title}</div>
           {subtitle !== undefined && subtitle !== '' ? (
-            <div className="mt-1 text-xs text-gray-500">{subtitle}</div>
+            <div className="mt-1 text-xs text-text-tertiary">{subtitle}</div>
           ) : null}
         </div>
         {benchmark !== undefined ? <div>{benchmark}</div> : null}
@@ -33,9 +32,9 @@ function StatCard({ title, value, subtitle, benchmark }: StatCardProps): React.R
 
 function LoadingCard(): React.ReactElement {
   return (
-    <div className="animate-pulse border-2 border-gray-200 bg-white p-4">
-      <div className="h-8 w-16 rounded bg-gray-200" />
-      <div className="mt-2 h-4 w-24 rounded bg-gray-200" />
+    <div className="card animate-pulse p-4">
+      <div className="skeleton h-8 w-16" />
+      <div className="skeleton mt-2 h-4 w-24" />
     </div>
   )
 }
@@ -94,7 +93,7 @@ export function CustomerStatsSection(): React.ReactElement {
 
   if (error !== null) {
     return (
-      <div className="border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-error">
         Erreur lors du chargement des statistiques clients: {error.message}
       </div>
     )
@@ -105,9 +104,9 @@ export function CustomerStatsSection(): React.ReactElement {
   return (
     <div className="mb-8">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-serif text-xl text-burgundy">Analytics DATA - Clients</h3>
+        <h3 className="text-lg font-semibold text-text-primary">Analytics DATA - Clients</h3>
         <button
-          className="flex items-center gap-2 rounded border border-burgundy px-3 py-1.5 text-sm text-burgundy hover:bg-burgundy hover:text-white"
+          className="btn btn-secondary"
           disabled={isLoading}
           type="button"
           onClick={refetch}
@@ -134,7 +133,7 @@ export function CustomerStatsSection(): React.ReactElement {
       </div>
 
       {lastUpdated !== undefined && lastUpdated !== '' ? (
-        <div className="mt-2 text-right text-xs text-gray-400">
+        <div className="mt-2 text-right text-xs text-text-muted">
           Dernière mise à jour: {new Date(lastUpdated).toLocaleString('fr-FR')}
         </div>
       ) : null}

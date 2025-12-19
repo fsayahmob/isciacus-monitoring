@@ -1,5 +1,5 @@
 /**
- * Stepper configuration - colors, animations, and status mapping
+ * Stepper configuration - Modern Dark Theme colors, animations, and status mapping
  */
 
 import type { AuditStepStatus } from '../../services/api'
@@ -12,40 +12,40 @@ export const ANIMATION = {
   STAGGER_DELAY: 0.05,
 } as const
 
-// Status colors and icons
+// Status colors and icons - Dark Theme
 export const STATUS_CONFIG: Record<
   AuditStepStatus,
   { bg: string; border: string; text: string }
 > = {
   pending: {
-    bg: 'bg-gray-100',
-    border: 'border-gray-300',
-    text: 'text-gray-400',
+    bg: 'bg-bg-tertiary',
+    border: 'border-border-subtle',
+    text: 'text-text-muted',
   },
   running: {
-    bg: 'bg-blue-100',
-    border: 'border-blue-400',
-    text: 'text-blue-600',
+    bg: 'bg-info/20',
+    border: 'border-info',
+    text: 'text-info',
   },
   success: {
-    bg: 'bg-emerald-100',
-    border: 'border-emerald-500',
-    text: 'text-emerald-700',
+    bg: 'bg-success/20',
+    border: 'border-success',
+    text: 'text-success',
   },
   warning: {
-    bg: 'bg-amber-100',
-    border: 'border-amber-500',
-    text: 'text-amber-700',
+    bg: 'bg-warning/20',
+    border: 'border-warning',
+    text: 'text-warning',
   },
   error: {
-    bg: 'bg-red-100',
-    border: 'border-red-500',
-    text: 'text-red-700',
+    bg: 'bg-error/20',
+    border: 'border-error',
+    text: 'text-error',
   },
   skipped: {
-    bg: 'bg-gray-50',
-    border: 'border-gray-200',
-    text: 'text-gray-400',
+    bg: 'bg-bg-tertiary',
+    border: 'border-border-subtle',
+    text: 'text-text-muted',
   },
 }
 
@@ -55,10 +55,10 @@ export function isStepCompleted(status: AuditStepStatus): boolean {
 
 export function getLineColor(status: AuditStepStatus): string {
   if (status === 'success' || status === 'warning') {
-    return 'bg-emerald-400'
+    return 'bg-success'
   }
   if (status === 'error') {
-    return 'bg-red-400'
+    return 'bg-error'
   }
-  return 'bg-gray-200'
+  return 'bg-border-subtle'
 }

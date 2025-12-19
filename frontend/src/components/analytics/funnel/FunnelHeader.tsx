@@ -17,16 +17,16 @@ interface FunnelHeaderProps {
 function GA4StatusBadge({ available }: { available?: boolean }): React.ReactElement | null {
   if (available === true) {
     return (
-      <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-        <span className="mr-1 h-1.5 w-1.5 rounded-full bg-green-500" />
+      <span className="inline-flex items-center rounded-full bg-success/20 px-2 py-0.5 text-xs font-medium text-success">
+        <span className="mr-1 h-1.5 w-1.5 rounded-full bg-success" />
         GA4 connecté
       </span>
     )
   }
   if (available === false) {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-        <span className="mr-1 h-1.5 w-1.5 rounded-full bg-amber-500" />
+      <span className="inline-flex items-center rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
+        <span className="mr-1 h-1.5 w-1.5 rounded-full bg-warning" />
         Shopify uniquement
       </span>
     )
@@ -53,7 +53,7 @@ function AuditStatusBadge(): React.ReactElement | null {
   if (auditStatus.last_audit === null) {
     return (
       <button
-        className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-200"
+        className="inline-flex items-center rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-secondary"
         type="button"
         onClick={handleClick}
         title="Aucun audit effectué - Cliquez pour lancer"
@@ -67,12 +67,12 @@ function AuditStatusBadge(): React.ReactElement | null {
   if (auditStatus.has_issues) {
     return (
       <button
-        className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-200"
+        className="inline-flex items-center rounded-full bg-error/20 px-2 py-0.5 text-xs font-medium text-error hover:bg-error/30"
         type="button"
         onClick={handleClick}
         title="Problèmes de tracking détectés - Cliquez pour voir"
       >
-        <span className="mr-1 h-1.5 w-1.5 rounded-full bg-red-500" />
+        <span className="mr-1 h-1.5 w-1.5 rounded-full bg-error" />
         Audit: problèmes
       </button>
     )
@@ -80,12 +80,12 @@ function AuditStatusBadge(): React.ReactElement | null {
 
   return (
     <button
-      className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200"
+      className="inline-flex items-center rounded-full bg-success/20 px-2 py-0.5 text-xs font-medium text-success hover:bg-success/30"
       type="button"
       onClick={handleClick}
       title="Tracking conforme - Cliquez pour détails"
     >
-      <span className="mr-1 h-1.5 w-1.5 rounded-full bg-green-500" />
+      <span className="mr-1 h-1.5 w-1.5 rounded-full bg-success" />
       Audit OK
     </button>
   )
@@ -107,13 +107,13 @@ export function FunnelHeader({
   return (
     <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
       <div className="flex items-center gap-3">
-        <h3 className="font-serif text-xl text-burgundy">Tunnel de Conversion</h3>
+        <h3 className="text-xl font-semibold text-text-primary">Tunnel de Conversion</h3>
         <GA4StatusBadge available={ga4Available} />
         <AuditStatusBadge />
       </div>
       <div className="flex items-center gap-4">
         <select
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+          className="input"
           value={period}
           onChange={(e) => {
             onPeriodChange(Number(e.target.value))
@@ -126,7 +126,7 @@ export function FunnelHeader({
           ))}
         </select>
         <button
-          className="flex items-center gap-2 rounded border border-burgundy px-3 py-1.5 text-sm text-burgundy hover:bg-burgundy hover:text-white"
+          className="btn btn-secondary"
           disabled={isLoading}
           type="button"
           onClick={onRefetch}

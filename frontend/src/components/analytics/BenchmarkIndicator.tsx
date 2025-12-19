@@ -1,15 +1,14 @@
 /**
- * BenchmarkIndicator Component - ISCIACUS Monitoring Dashboard
- * =============================================================
+ * BenchmarkIndicator Component - Modern Dark Theme
  */
 
 import type { BenchmarkEvaluation, BenchmarkStatus } from '../../types/analytics'
 
 const STATUS_CONFIG: Record<BenchmarkStatus, { bg: string; icon: string; label: string }> = {
-  bad: { bg: 'bg-red-100 text-red-800', icon: '🔴', label: 'Insuffisant' },
-  ok: { bg: 'bg-yellow-100 text-yellow-800', icon: '🟡', label: 'Acceptable' },
-  good: { bg: 'bg-green-100 text-green-800', icon: '🟢', label: 'Bon' },
-  unknown: { bg: 'bg-gray-100 text-gray-600', icon: '⚪', label: 'Inconnu' },
+  bad: { bg: 'bg-error/20 text-error', icon: '🔴', label: 'Insuffisant' },
+  ok: { bg: 'bg-warning/20 text-warning', icon: '🟡', label: 'Acceptable' },
+  good: { bg: 'bg-success/20 text-success', icon: '🟢', label: 'Bon' },
+  unknown: { bg: 'bg-bg-tertiary text-text-tertiary', icon: '⚪', label: 'Inconnu' },
 }
 
 interface BenchmarkIndicatorProps {

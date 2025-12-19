@@ -21,7 +21,7 @@ export function FilterSelect({
 }: FilterSelectProps): React.ReactElement {
   return (
     <select
-      className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+      className="filter-select"
       value={value}
       onChange={(e) => {
         onChange(e.target.value)
@@ -46,7 +46,7 @@ export function StockLevelSelect({
 }): React.ReactElement {
   return (
     <select
-      className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+      className="filter-select"
       value={value}
       onChange={(e) => {
         onChange(e.target.value)
@@ -77,7 +77,7 @@ export function BooleanFilterSelect({
 }): React.ReactElement {
   return (
     <select
-      className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+      className="filter-select"
       value={value}
       onChange={(e) => {
         onChange(e.target.value)
@@ -102,9 +102,9 @@ export function ActiveFilterBadge({
   onClear,
 }: ActiveFilterBadgeProps): React.ReactElement {
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-burgundy px-2 py-1 text-xs text-white">
+    <span className="inline-flex items-center gap-1 rounded bg-brand px-2 py-1 text-xs text-white">
       {filterKey}: {value}
-      <button className="hover:text-cream-dark" type="button" onClick={onClear}>
+      <button className="hover:text-white/70" type="button" onClick={onClear}>
         &times;
       </button>
     </span>

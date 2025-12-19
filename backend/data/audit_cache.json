@@ -10,7 +10,7 @@
     {
       "name": "Couverture Collections",
       "status": "ok",
-      "message": "72/56 collections trackees (129%)",
+      "message": "71/56 collections trackees (127%)",
       "details": [
         "carte-cadeaux",
         "vetements-2",
@@ -28,7 +28,7 @@
     {
       "name": "Couverture Produits",
       "status": "ok",
-      "message": "606/665 produits tracks (91%)",
+      "message": "602/665 produits tracks (91%)",
       "details": [
         "emeric-me",
         "boxer-w",
@@ -46,7 +46,7 @@
     {
       "name": "Transactions GA4 vs Shopify",
       "status": "ok",
-      "message": "16 transactions GA4 / 17 commandes Shopify (94%)",
+      "message": "18 transactions GA4 / 18 commandes Shopify (100%)",
       "recommendation": null
     },
     {
@@ -59,7 +59,7 @@
     {
       "name": "Impact Ad Blockers estime",
       "status": "ok",
-      "message": "~6% des visites potentiellement bloquees",
+      "message": "~0% des visites potentiellement bloquees",
       "recommendation": null
     }
   ],
@@ -72,7 +72,7 @@
   "tracking_coverage": {
     "collections": {
       "total": 56,
-      "tracked": 72,
+      "tracked": 71,
       "missing": [
         "carte-cadeaux",
         "vetements-2",
@@ -87,7 +87,7 @@
         "de-50",
         "idees-cadeaux"
       ],
-      "rate": 128.57142857142858,
+      "rate": 126.78571428571428,
       "status": "ok",
       "items": [
         {
@@ -374,7 +374,7 @@
     },
     "products": {
       "total": 665,
-      "tracked": 606,
+      "tracked": 602,
       "missing": [
         "emeric-me",
         "boxer-w",
@@ -397,7 +397,7 @@
         "jean-breezy-britt-black-word",
         "sweat-fred-ivy-black"
       ],
-      "rate": 91.12781954887218,
+      "rate": 90.52631578947368,
       "status": "ok",
       "sample": [
         {
@@ -544,7 +544,7 @@
   },
   "collections_coverage": {
     "shopify_total": 56,
-    "ga4_tracked": 72,
+    "ga4_tracked": 71,
     "missing": [
       "carte-cadeaux",
       "vetements-2",
@@ -561,9 +561,9 @@
     ]
   },
   "transactions_match": {
-    "shopify_orders": 17,
-    "ga4_transactions": 16,
-    "match_rate": 0.9411764705882353
+    "shopify_orders": 18,
+    "ga4_transactions": 18,
+    "match_rate": 1.0
   },
-  "last_audit": "2025-12-18T19:28:08.896452+00:00"
+  "last_audit": "2025-12-19T20:14:51.620820+00:00"
 }

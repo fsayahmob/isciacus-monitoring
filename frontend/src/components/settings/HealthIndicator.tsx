@@ -11,32 +11,32 @@ const HEALTH_CHECK_INTERVAL = 30000 // 30 seconds
 function getStatusColor(status: ServiceHealth['status']): string {
   switch (status) {
     case 'healthy':
-      return 'bg-green-500'
+      return 'bg-success'
     case 'configured':
-      return 'bg-blue-500'
+      return 'bg-info'
     case 'degraded':
-      return 'bg-amber-500'
+      return 'bg-warning'
     case 'not_configured':
     case 'disabled':
-      return 'bg-gray-400'
+      return 'bg-text-muted'
     default:
-      return 'bg-gray-300'
+      return 'bg-text-muted'
   }
 }
 
 function getStatusBgColor(status: ServiceHealth['status']): string {
   switch (status) {
     case 'healthy':
-      return 'bg-green-50 border-green-200'
+      return 'bg-success/10 border-success/30'
     case 'configured':
-      return 'bg-blue-50 border-blue-200'
+      return 'bg-info/10 border-info/30'
     case 'degraded':
-      return 'bg-amber-50 border-amber-200'
+      return 'bg-warning/10 border-warning/30'
     case 'not_configured':
     case 'disabled':
-      return 'bg-gray-50 border-gray-200'
+      return 'bg-bg-tertiary border-border-subtle'
     default:
-      return 'bg-gray-50 border-gray-200'
+      return 'bg-bg-tertiary border-border-subtle'
   }
 }
 
@@ -53,8 +53,8 @@ function ServiceStatus({
     >
       <span className={`h-3 w-3 rounded-full ${getStatusColor(service.status)} animate-pulse`} />
       <div>
-        <span className="font-medium text-gray-900">{name}</span>
-        <span className="ml-2 text-sm text-gray-600">{service.message}</span>
+        <span className="font-medium text-text-primary">{name}</span>
+        <span className="ml-2 text-sm text-text-secondary">{service.message}</span>
       </div>
     </div>
   )
@@ -74,10 +74,10 @@ export function HealthIndicator(): React.ReactElement {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-border-default bg-bg-secondary p-4 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-burgundy border-t-transparent" />
-          <span className="text-sm text-gray-600">Vérification des services...</span>
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+          <span className="text-sm text-text-secondary">Vérification des services...</span>
         </div>
       </div>
     )
@@ -85,24 +85,24 @@ export function HealthIndicator(): React.ReactElement {
 
   if (error !== null || health === undefined) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+      <div className="rounded-xl border border-error/30 bg-error/10 p-4 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-red-500" />
-          <span className="text-sm text-red-700">Impossible de vérifier les services</span>
+          <span className="h-3 w-3 rounded-full bg-error" />
+          <span className="text-sm text-error">Impossible de vérifier les services</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-border-default bg-bg-secondary p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-medium text-gray-900">État des services</h3>
+        <h3 className="font-medium text-text-primary">État des services</h3>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
             health.overall_status === 'healthy'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-amber-100 text-amber-800'
+              ? 'bg-success/20 text-success'
+              : 'bg-warning/20 text-warning'
           }`}
         >
           {health.overall_status === 'healthy' ? 'Tous opérationnels' : 'Dégradé'}

@@ -12,10 +12,10 @@ export function StatusIndicator({ isConfigured }: { isConfigured: boolean }): Re
   return (
     <div
       className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
-        isConfigured ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+        isConfigured ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
       }`}
     >
-      <span className={`h-2 w-2 rounded-full ${isConfigured ? 'bg-green-500' : 'bg-amber-500'}`} />
+      <span className={`h-2 w-2 rounded-full ${isConfigured ? 'bg-success' : 'bg-warning'}`} />
       {isConfigured ? 'Configuré' : 'Non configuré'}
     </div>
   )
@@ -35,8 +35,8 @@ export function ConnectionTestButton({
       <button
         className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
           isLoading
-            ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-            : 'bg-burgundy text-white hover:bg-burgundy/90 active:scale-95'
+            ? 'cursor-not-allowed bg-bg-tertiary text-text-muted'
+            : 'bg-brand text-white hover:bg-brand/90 active:scale-95'
         }`}
         disabled={isLoading}
         type="button"
@@ -65,7 +65,7 @@ export function ConnectionTestButton({
       {result !== null && !isLoading && (
         <div
           className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-            result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            result.success ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
           }`}
         >
           <span>{result.success ? '✓' : '✗'}</span>
@@ -92,7 +92,7 @@ export function ConfigSectionCard({
   onValueChange: (key: string, value: string) => void
 }): React.ReactElement {
   return (
-    <div className="overflow-hidden rounded-2xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50 shadow-sm transition-all hover:shadow-md">
+    <div className="overflow-hidden rounded-2xl border border-border-default bg-bg-secondary shadow-sm transition-all hover:shadow-md">
       <ConfigSectionHeader
         section={section}
         testLoading={testLoading}
@@ -125,21 +125,21 @@ function ConfigSectionHeader({
   onTestConnection: (sectionId: string) => void
 }): React.ReactElement {
   return (
-    <div className="border-b border-gray-200 bg-white px-6 py-5">
+    <div className="border-b border-border-subtle bg-bg-tertiary px-6 py-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div
             className={`rounded-xl p-3 ${
               section.is_configured
-                ? 'bg-gradient-to-br from-burgundy to-burgundy/80 text-white'
-                : 'bg-gray-100 text-gray-400'
+                ? 'bg-gradient-to-br from-brand to-brand/80 text-white'
+                : 'bg-bg-secondary text-text-muted'
             }`}
           >
             <SectionIcon sectionId={section.id} />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">{section.name}</h3>
-            <p className="mt-0.5 text-sm text-gray-500">{section.description}</p>
+            <h3 className="text-xl font-semibold text-text-primary">{section.name}</h3>
+            <p className="mt-0.5 text-sm text-text-tertiary">{section.description}</p>
           </div>
         </div>
         <StatusIndicator isConfigured={section.is_configured} />
@@ -164,17 +164,17 @@ export function LoadingSkeleton(): React.ReactElement {
   return (
     <div className="space-y-6">
       {SKELETON_ITEMS.map((i) => (
-        <div key={i} className="animate-pulse rounded-2xl border-2 border-gray-200 bg-white p-6">
+        <div key={i} className="animate-pulse rounded-2xl border border-border-default bg-bg-secondary p-6">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-gray-200" />
+            <div className="skeleton h-12 w-12 rounded-xl" />
             <div className="flex-1">
-              <div className="h-6 w-48 rounded bg-gray-200" />
-              <div className="mt-2 h-4 w-72 rounded bg-gray-100" />
+              <div className="skeleton h-6 w-48 rounded" />
+              <div className="skeleton mt-2 h-4 w-72 rounded" />
             </div>
           </div>
           <div className="mt-6 space-y-4">
-            <div className="h-24 rounded-xl bg-gray-100" />
-            <div className="h-24 rounded-xl bg-gray-100" />
+            <div className="skeleton h-24 rounded-xl" />
+            <div className="skeleton h-24 rounded-xl" />
           </div>
         </div>
       ))}
@@ -184,10 +184,10 @@ export function LoadingSkeleton(): React.ReactElement {
 
 export function EnvFileInfo(): React.ReactElement {
   return (
-    <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+    <div className="rounded-xl border border-info/30 bg-info/10 p-5">
       <div className="flex items-start gap-3">
         <svg
-          className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600"
+          className="mt-0.5 h-5 w-5 flex-shrink-0 text-info"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -200,15 +200,15 @@ export function EnvFileInfo(): React.ReactElement {
           />
         </svg>
         <div>
-          <h4 className="font-medium text-blue-900">Configuration via fichier .env</h4>
-          <p className="mt-1 text-sm text-blue-700">
+          <h4 className="font-medium text-info">Configuration via fichier .env</h4>
+          <p className="mt-1 text-sm text-text-secondary">
             Les variables sont configurées dans le fichier{' '}
-            <code className="rounded bg-blue-100 px-1.5 py-0.5 text-xs">.env</code> du backend.
+            <code className="rounded bg-info/20 px-1.5 py-0.5 text-xs text-info">.env</code> du backend.
             Modifiez ce fichier puis redémarrez les containers Docker pour appliquer les
             changements.
           </p>
-          <div className="mt-3 rounded-lg bg-white/80 p-3">
-            <code className="text-xs text-gray-700">
+          <div className="mt-3 rounded-lg bg-bg-tertiary p-3">
+            <code className="text-xs text-text-secondary">
               docker-compose down && docker-compose up --build -d
             </code>
           </div>

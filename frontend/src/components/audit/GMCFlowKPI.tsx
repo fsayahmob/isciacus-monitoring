@@ -1,5 +1,5 @@
 /**
- * GMC Flow KPI - Visual product flow display
+ * GMC Flow KPI - Modern Dark Theme
  * Shows the pipeline: Shopify → Google Channel → GMC → Approved
  */
 
@@ -36,13 +36,13 @@ function FlowStage({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center rounded-xl border-2 bg-white p-4 transition-all hover:shadow-md ${onClick ? 'cursor-pointer' : 'cursor-default'} ${color}`}
+      className={`flex flex-col items-center rounded-xl border-2 bg-bg-secondary p-4 transition-all hover:bg-bg-tertiary ${onClick ? 'cursor-pointer' : 'cursor-default'} ${color}`}
     >
       <div className="mb-2 text-3xl">{icon}</div>
-      <div className="text-2xl font-bold text-gray-900">{count.toLocaleString()}</div>
-      <div className="text-sm font-medium text-gray-700">{label}</div>
+      <div className="text-2xl font-bold text-text-primary">{count.toLocaleString()}</div>
+      <div className="text-sm font-medium text-text-secondary">{label}</div>
       {sublabel !== undefined && sublabel !== '' && (
-        <div className="mt-1 text-xs text-gray-500">{sublabel}</div>
+        <div className="mt-1 text-xs text-text-tertiary">{sublabel}</div>
       )}
     </button>
   )
@@ -67,9 +67,9 @@ function FlowArrow({
     <div className="flex flex-col items-center justify-center px-2">
       {/* Arrow */}
       <div className="flex items-center">
-        <div className={`h-1 w-8 ${hasLoss ? 'bg-red-300' : 'bg-green-300'}`} />
+        <div className={`h-1 w-8 ${hasLoss ? 'bg-error/50' : 'bg-success/50'}`} />
         <svg
-          className={`h-4 w-4 ${hasLoss ? 'text-red-400' : 'text-green-400'}`}
+          className={`h-4 w-4 ${hasLoss ? 'text-error' : 'text-success'}`}
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -92,8 +92,8 @@ function FlowArrow({
           }}
           className={`mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${
             issueId !== undefined && issueId !== '' && onNavigateToIssue !== undefined
-              ? 'cursor-pointer bg-red-100 text-red-700 hover:bg-red-200'
-              : 'bg-red-50 text-red-600'
+              ? 'cursor-pointer bg-error/20 text-error hover:bg-error/30'
+              : 'bg-error/10 text-error/80'
           }`}
         >
           -{loss.toLocaleString()} {lossLabel}
@@ -151,20 +151,20 @@ const MEDIUM_APPROVAL_THRESHOLD = 80
 
 function getApprovalRateColor(rate: number): string {
   if (rate >= HIGH_APPROVAL_THRESHOLD) {
-    return 'bg-green-100 text-green-700'
+    return 'bg-success/20 text-success'
   }
   if (rate >= MEDIUM_APPROVAL_THRESHOLD) {
-    return 'bg-yellow-100 text-yellow-700'
+    return 'bg-warning/20 text-warning'
   }
-  return 'bg-red-100 text-red-700'
+  return 'bg-error/20 text-error'
 }
 
 function GMCFlowHeader({ approvalRate }: { approvalRate: number }): React.ReactElement {
   return (
     <div className="mb-6 flex items-center justify-between">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Flux Produits Google Shopping</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="text-lg font-semibold text-text-primary">Flux Produits Google Shopping</h2>
+        <p className="text-sm text-text-tertiary">
           Suivez vos produits de Shopify jusqu'à Google Shopping
         </p>
       </div>
@@ -208,7 +208,7 @@ function FlowVisualization({
         label="Canal Google"
         count={data.google_channel_published}
         sublabel="publiés"
-        color="border-blue-400"
+        color="border-info"
       />
       <FlowArrow
         loss={losses.channelToGMC > 0 ? losses.channelToGMC : 0}
@@ -221,7 +221,7 @@ function FlowVisualization({
         label="GMC"
         count={data.gmc_received}
         sublabel="variantes reçues"
-        color="border-blue-500"
+        color="border-info"
       />
       <FlowArrow
         loss={losses.gmcToApproved}
@@ -234,7 +234,7 @@ function FlowVisualization({
         label="Approuvés"
         count={data.gmc_approved}
         sublabel="sur Google Shopping"
-        color="border-green-500"
+        color="border-success"
       />
     </div>
   )
@@ -247,15 +247,15 @@ interface FlowLegendProps {
 
 function FlowLegend({ data, onNavigateToIssue }: FlowLegendProps): React.ReactElement {
   return (
-    <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-200 pt-4">
+    <div className="mt-4 grid grid-cols-3 gap-4 border-t border-border-subtle pt-4">
       {data.gmc_pending > 0 && (
-        <div className="flex items-center gap-2 rounded-lg bg-yellow-50 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-3 py-2">
           <span className="text-xl">⏳</span>
           <div>
-            <div className="text-sm font-medium text-yellow-800">
+            <div className="text-sm font-medium text-warning">
               {data.gmc_pending.toLocaleString()} en attente
             </div>
-            <div className="text-xs text-yellow-600">En cours de validation GMC</div>
+            <div className="text-xs text-warning/70">En cours de validation GMC</div>
           </div>
         </div>
       )}
@@ -263,14 +263,14 @@ function FlowLegend({ data, onNavigateToIssue }: FlowLegendProps): React.ReactEl
         <button
           type="button"
           onClick={() => onNavigateToIssue?.('gmc_issues_summary')}
-          className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-left transition-colors hover:bg-red-100"
+          className="flex items-center gap-2 rounded-lg bg-error/10 px-3 py-2 text-left transition-colors hover:bg-error/20"
         >
           <span className="text-xl">❌</span>
           <div>
-            <div className="text-sm font-medium text-red-800">
+            <div className="text-sm font-medium text-error">
               {data.gmc_disapproved.toLocaleString()} rejetés
             </div>
-            <div className="text-xs text-red-600">Voir les raisons →</div>
+            <div className="text-xs text-error/70">Voir les raisons →</div>
           </div>
         </button>
       )}
@@ -278,14 +278,14 @@ function FlowLegend({ data, onNavigateToIssue }: FlowLegendProps): React.ReactEl
         <button
           type="button"
           onClick={() => onNavigateToIssue?.('gmc_not_published_google')}
-          className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2 text-left transition-colors hover:bg-orange-100"
+          className="flex items-center gap-2 rounded-lg bg-orange-500/10 px-3 py-2 text-left transition-colors hover:bg-orange-500/20"
         >
           <span className="text-xl">🛍️</span>
           <div>
-            <div className="text-sm font-medium text-orange-800">
+            <div className="text-sm font-medium text-orange-400">
               {data.google_channel_not_published.toLocaleString()} non publiés
             </div>
-            <div className="text-xs text-orange-600">Non envoyés au canal →</div>
+            <div className="text-xs text-orange-400/70">Non envoyés au canal →</div>
           </div>
         </button>
       )}
@@ -295,7 +295,7 @@ function FlowLegend({ data, onNavigateToIssue }: FlowLegendProps): React.ReactEl
 
 function FlowInfoNote(): React.ReactElement {
   return (
-    <div className="mt-4 flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+    <div className="mt-4 flex items-start gap-2 rounded-lg bg-info/10 px-3 py-2 text-xs text-info">
       <span className="text-sm">ℹ️</span>
       <div>
         <strong>Note:</strong> GMC compte les variantes (taille, couleur...) tandis que Shopify
@@ -320,7 +320,7 @@ export function GMCFlowKPI({ data, onNavigateToIssue }: GMCFlowKPIProps): React.
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-gradient-to-r from-white to-gray-50 p-6">
+    <div className="card-elevated p-6">
       <GMCFlowHeader approvalRate={approvalRate} />
       <FlowVisualization data={data} losses={losses} onNavigateToIssue={onNavigateToIssue} />
       <FlowLegend data={data} onNavigateToIssue={onNavigateToIssue} />

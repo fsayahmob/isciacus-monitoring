@@ -1,7 +1,6 @@
+/* eslint-disable max-lines */
 /**
- * SalesAnalysis Component - ISCIACUS Monitoring Dashboard
- * ========================================================
- * Analyse des ventes par Tag ou Collection avec sélecteur déroulant
+ * SalesAnalysis Component - Modern Dark Theme
  */
 
 import { useState } from 'react'
@@ -31,11 +30,11 @@ function ProductRow({ product, rank, showViews }: ProductRowProps): React.ReactE
   const hasCVR = product.cvr !== undefined && product.cvr > 0
 
   return (
-    <tr className="border-b border-gray-100">
-      <td className="py-2 text-center text-gray-400">{rank}</td>
-      <td className="py-2">
+    <tr className="border-b border-border-subtle">
+      <td className="py-3 text-center text-text-muted">{rank}</td>
+      <td className="py-3">
         <a
-          className="text-burgundy hover:underline"
+          className="text-brand hover:text-brand-light hover:underline"
           href={`https://www.isciacusstore.com/products/${product.product_handle}`}
           rel="noopener noreferrer"
           target="_blank"
@@ -43,18 +42,16 @@ function ProductRow({ product, rank, showViews }: ProductRowProps): React.ReactE
           {product.product_title}
         </a>
       </td>
-      <td className="py-2 text-center font-mono">{product.quantity_sold}</td>
-      <td className="py-2 text-center text-gray-500">{product.order_count}</td>
+      <td className="py-3 text-center font-mono text-text-primary">{product.quantity_sold}</td>
+      <td className="py-3 text-center text-text-secondary">{product.order_count}</td>
       {showViews ? (
         <>
-          <td className="py-2 text-center font-mono text-gray-600">
+          <td className="py-3 text-center font-mono text-text-secondary">
             {hasViews ? product.views : '-'}
           </td>
-          <td className="py-2 text-center font-mono">
+          <td className="py-3 text-center font-mono">
             {hasCVR ? (
-              <span className="rounded bg-green-100 px-2 py-0.5 text-green-700">
-                {product.cvr?.toFixed(1)}%
-              </span>
+              <span className="badge badge-success">{product.cvr?.toFixed(1)}%</span>
             ) : (
               '-'
             )}
@@ -67,11 +64,11 @@ function ProductRow({ product, rank, showViews }: ProductRowProps): React.ReactE
 
 function LoadingSkeleton(): React.ReactElement {
   return (
-    <div className="animate-pulse space-y-3">
-      <div className="h-6 w-32 rounded bg-gray-200" />
-      <div className="h-4 w-48 rounded bg-gray-200" />
+    <div className="space-y-3">
+      <div className="skeleton h-6 w-32" />
+      <div className="skeleton h-4 w-48" />
       {Array.from({ length: SKELETON_ROWS }, (_, i) => (
-        <div key={i} className="h-10 rounded bg-gray-200" />
+        <div key={i} className="skeleton h-10 w-full" />
       ))}
     </div>
   )
@@ -81,38 +78,38 @@ function SalesResultsSummary({ data }: { data: FilteredSalesAnalysis }): React.R
   const hasViews = data.ga4_available === true && data.total_views !== undefined
 
   return (
-    <div className={`mb-4 grid ${hasViews ? 'grid-cols-5' : 'grid-cols-3'} gap-4`}>
-      <div className="rounded border border-gray-200 p-3 text-center">
-        <div className="font-mono text-2xl font-bold text-burgundy">
+    <div className={`mb-6 grid ${hasViews ? 'grid-cols-5' : 'grid-cols-3'} gap-4`}>
+      <div className="card p-4 text-center">
+        <div className="font-mono text-2xl font-bold text-text-primary">
           {data.total_quantity.toLocaleString('fr-FR')}
         </div>
-        <div className="text-xs text-gray-500">Unités vendues</div>
+        <div className="text-xs text-text-tertiary">Unités vendues</div>
       </div>
-      <div className="rounded border border-gray-200 p-3 text-center">
-        <div className="font-mono text-2xl font-bold text-burgundy">
+      <div className="card p-4 text-center">
+        <div className="font-mono text-2xl font-bold text-text-primary">
           {data.unique_orders.toLocaleString('fr-FR')}
         </div>
-        <div className="text-xs text-gray-500">Commandes</div>
+        <div className="text-xs text-text-tertiary">Commandes</div>
       </div>
-      <div className="rounded border border-gray-200 p-3 text-center">
-        <div className="font-mono text-2xl font-bold text-burgundy">
+      <div className="card p-4 text-center">
+        <div className="font-mono text-2xl font-bold text-text-primary">
           {data.products.length.toLocaleString('fr-FR')}
         </div>
-        <div className="text-xs text-gray-500">Produits</div>
+        <div className="text-xs text-text-tertiary">Produits</div>
       </div>
       {hasViews ? (
         <>
-          <div className="rounded border border-blue-200 bg-blue-50 p-3 text-center">
-            <div className="font-mono text-2xl font-bold text-blue-700">
+          <div className="card border-info/30 bg-info/10 p-4 text-center">
+            <div className="font-mono text-2xl font-bold text-info">
               {data.total_views?.toLocaleString('fr-FR') ?? '-'}
             </div>
-            <div className="text-xs text-blue-600">Vues (GA4)</div>
+            <div className="text-xs text-info/80">Vues (GA4)</div>
           </div>
-          <div className="rounded border border-green-200 bg-green-50 p-3 text-center">
-            <div className="font-mono text-2xl font-bold text-green-700">
+          <div className="card border-success/30 bg-success/10 p-4 text-center">
+            <div className="font-mono text-2xl font-bold text-success">
               {data.overall_cvr !== undefined ? `${data.overall_cvr.toFixed(1)}%` : '-'}
             </div>
-            <div className="text-xs text-green-600">CVR Global</div>
+            <div className="text-xs text-success/80">CVR Global</div>
           </div>
         </>
       ) : null}
@@ -130,15 +127,27 @@ function SalesResultsTable({
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b-2 border-burgundy text-left">
-          <th className="pb-2 text-center font-medium text-gray-600">#</th>
-          <th className="pb-2 font-medium text-gray-600">Produit</th>
-          <th className="pb-2 text-center font-medium text-gray-600">Qté</th>
-          <th className="pb-2 text-center font-medium text-gray-600">Commandes</th>
+        <tr className="border-b border-border-default text-left">
+          <th className="pb-3 text-center text-xs font-medium uppercase tracking-wider text-text-tertiary">
+            #
+          </th>
+          <th className="pb-3 text-xs font-medium uppercase tracking-wider text-text-tertiary">
+            Produit
+          </th>
+          <th className="pb-3 text-center text-xs font-medium uppercase tracking-wider text-text-tertiary">
+            Qté
+          </th>
+          <th className="pb-3 text-center text-xs font-medium uppercase tracking-wider text-text-tertiary">
+            Commandes
+          </th>
           {showViews ? (
             <>
-              <th className="pb-2 text-center font-medium text-blue-600">Vues</th>
-              <th className="pb-2 text-center font-medium text-green-600">CVR</th>
+              <th className="pb-3 text-center text-xs font-medium uppercase tracking-wider text-info">
+                Vues
+              </th>
+              <th className="pb-3 text-center text-xs font-medium uppercase tracking-wider text-success">
+                CVR
+              </th>
             </>
           ) : null}
         </tr>
@@ -172,7 +181,7 @@ function SalesResults({
   }
   if (data.products.length === 0) {
     return (
-      <div className="py-8 text-center text-gray-500">
+      <div className="py-8 text-center text-text-tertiary">
         Aucun produit vendu avec ce filtre sur la période.
       </div>
     )
@@ -185,14 +194,14 @@ function SalesResults({
     <div>
       <SalesResultsSummary data={data} />
       <SalesResultsTable products={data.products} showViews={hasViews} />
-      <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+      <div className="mt-4 flex items-center justify-between text-xs text-text-muted">
         <span>
           Données: {filterLabel} &quot;{data.filter_value}&quot; • Période: {data.period}
         </span>
         <span>Sources: Shopify{hasViews ? ' + GA4' : ''}</span>
       </div>
       {!hasViews ? (
-        <div className="mt-2 text-xs text-amber-600">
+        <div className="mt-2 text-xs text-warning">
           Note: Les colonnes Vues et CVR apparaîtront quand GA4 sera disponible.
         </div>
       ) : null}
@@ -208,12 +217,16 @@ function FilterTypeSelector({
   onChange: (type: FilterType) => void
 }): React.ReactElement {
   const getButtonClass = (type: FilterType): string =>
-    `px-4 py-2 text-sm ${filterType === type ? 'bg-burgundy text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`
+    `px-4 py-2 text-sm font-medium transition-colors ${
+      filterType === type
+        ? 'bg-brand text-white'
+        : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+    }`
 
   return (
     <div className="mb-4 flex items-center gap-4">
-      <span className="text-sm text-gray-600">Filtrer par:</span>
-      <div className="flex rounded border border-gray-300">
+      <span className="text-sm text-text-secondary">Filtrer par:</span>
+      <div className="flex overflow-hidden rounded-lg border border-border-subtle">
         <button
           className={getButtonClass('collection')}
           type="button"
@@ -281,13 +294,13 @@ export function SalesAnalysisSection(): React.ReactElement {
   return (
     <div className="mb-8">
       <div className="mb-4">
-        <h3 className="font-serif text-xl text-burgundy">Analyse des Ventes</h3>
-        <p className="mt-1 text-xs text-gray-500">
-          Sélectionnez un tag ou une collection pour voir les produits vendus • Source: Shopify
+        <h3 className="text-lg font-semibold text-text-primary">Analyse des Ventes</h3>
+        <p className="mt-1 text-xs text-text-tertiary">
+          Sélectionnez un tag ou une collection pour voir les produits vendus
         </p>
       </div>
 
-      <div className="border-2 border-burgundy bg-white p-6">
+      <div className="card-elevated p-6">
         <FilterTypeSelector filterType={filterType} onChange={handleFilterTypeChange} />
         <div className="mb-6">
           <FilterDropdown
@@ -308,7 +321,7 @@ export function SalesAnalysisSection(): React.ReactElement {
         {hasSelection ? (
           <SalesResults data={currentData} isLoading={isLoading} />
         ) : (
-          <div className="py-8 text-center text-gray-400">
+          <div className="py-8 text-center text-text-muted">
             Sélectionnez {placeholder} pour voir l&apos;analyse
           </div>
         )}

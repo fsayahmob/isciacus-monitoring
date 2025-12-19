@@ -1,6 +1,5 @@
 /**
- * FunnelChart Component - ISCIACUS Monitoring Dashboard
- * ======================================================
+ * FunnelChart Component - Modern Dark Theme
  */
 
 import { useState } from 'react'
@@ -24,9 +23,9 @@ function FunnelLoading(): React.ReactElement {
     <div className="animate-pulse space-y-4">
       {Array.from({ length: SKELETON_COUNT }, (_, i) => i).map((i) => (
         <div key={i} className="flex items-center gap-4">
-          <div className="h-4 w-24 rounded bg-gray-200" />
-          <div className="h-8 flex-1 rounded bg-gray-200" />
-          <div className="h-4 w-20 rounded bg-gray-200" />
+          <div className="skeleton h-4 w-24" />
+          <div className="skeleton h-8 flex-1" />
+          <div className="skeleton h-4 w-20" />
         </div>
       ))}
     </div>
@@ -54,16 +53,12 @@ function FunnelContent({
     <>
       {/* Full Funnel Visualization */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <h4 className="text-sm font-medium text-gray-700">Tunnel de conversion</h4>
+        <div className="mb-3 flex items-center gap-2">
+          <h4 className="text-sm font-medium text-text-primary">Tunnel de conversion</h4>
           {ga4Available ? (
-            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
-              100% GA4 - CVR fiable
-            </span>
+            <span className="badge badge-info">100% GA4 - CVR fiable</span>
           ) : (
-            <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded">
-              GA4 requis
-            </span>
+            <span className="badge badge-warning">GA4 requis</span>
           )}
         </div>
         <div className="space-y-3">
@@ -77,8 +72,8 @@ function FunnelContent({
 
       {/* GA4 Error Notice */}
       {funnel.ga4_error !== null && funnel.ga4_error !== undefined ? (
-        <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs text-amber-700">
+        <div className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-3">
+          <p className="text-xs text-warning">
             <strong>GA4 :</strong> {funnel.ga4_error}
           </p>
         </div>
@@ -107,7 +102,7 @@ export function FunnelChartSection(): React.ReactElement {
 
   if (error !== null) {
     return (
-      <div className="border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-error">
         Erreur lors du chargement du tunnel de conversion: {error.message}
       </div>
     )
@@ -124,7 +119,7 @@ export function FunnelChartSection(): React.ReactElement {
         onPeriodChange={setPeriod}
         onRefetch={refetch}
       />
-      <div className="border-2 border-burgundy bg-white p-6 overflow-hidden">
+      <div className="card-elevated overflow-hidden p-6">
         {isLoading ? <FunnelLoading /> : null}
         {!isLoading && funnel !== undefined ? (
           <FunnelContent
@@ -138,7 +133,7 @@ export function FunnelChartSection(): React.ReactElement {
         ) : null}
       </div>
       {lastUpdated !== undefined && lastUpdated !== '' ? (
-        <div className="mt-2 text-right text-xs text-gray-400">
+        <div className="mt-2 text-right text-xs text-text-muted">
           Dernière mise à jour: {new Date(lastUpdated).toLocaleString('fr-FR')}
         </div>
       ) : null}

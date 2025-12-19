@@ -14,17 +14,17 @@ export function VariableBadges({
   return (
     <>
       {isRequired && (
-        <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+        <span className="rounded bg-error/20 px-1.5 py-0.5 text-xs font-medium text-error">
           Requis
         </span>
       )}
       {isSecret && (
-        <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
+        <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-xs font-medium text-violet-400">
           Secret
         </span>
       )}
       {hasChanges && (
-        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+        <span className="rounded bg-warning/20 px-1.5 py-0.5 text-xs font-medium text-warning">
           Modifié
         </span>
       )}
@@ -48,12 +48,12 @@ export function VariableInput({
   onChange: (value: string) => void
 }): React.ReactElement {
   const inputClassName = hasChanges
-    ? 'border-amber-300 bg-white focus:border-amber-500 focus:ring-amber-500'
-    : 'border-gray-300 bg-gray-50 focus:border-burgundy focus:ring-burgundy'
+    ? 'border-warning/50 bg-bg-secondary focus:border-warning focus:ring-warning'
+    : 'border-border-default bg-bg-tertiary focus:border-brand focus:ring-brand'
 
   return (
     <input
-      className={`w-full rounded-lg border px-4 py-2.5 text-sm font-mono transition-colors ${inputClassName} focus:outline-none focus:ring-1`}
+      className={`w-full rounded-lg border px-4 py-2.5 text-sm font-mono text-text-primary transition-colors ${inputClassName} focus:outline-none focus:ring-1`}
       placeholder={isSet ? '••••••••' : 'Non défini - entrez une valeur'}
       type={isSecret && !showSecret ? 'password' : 'text'}
       value={currentValue}
@@ -105,7 +105,7 @@ export function SecretToggleButton({
 }): React.ReactElement {
   return (
     <button
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
       type="button"
       onClick={onToggle}
     >
@@ -126,7 +126,7 @@ export function VariableHelpSection({
   return (
     <>
       <button
-        className="mt-3 flex items-center gap-1 text-xs text-burgundy hover:underline"
+        className="mt-3 flex items-center gap-1 text-xs text-brand hover:underline"
         type="button"
         onClick={onToggle}
       >
@@ -142,8 +142,8 @@ export function VariableHelpSection({
       </button>
 
       {showHelp && (
-        <div className="mt-3 rounded-lg bg-blue-50 p-4">
-          <p className="text-sm text-blue-800 whitespace-pre-line">{howToGet}</p>
+        <div className="mt-3 rounded-lg bg-info/10 p-4">
+          <p className="text-sm text-info whitespace-pre-line">{howToGet}</p>
         </div>
       )}
     </>

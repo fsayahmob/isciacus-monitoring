@@ -1,5 +1,5 @@
 /**
- * Audit Pipeline - Issue Card Components
+ * Audit Pipeline - Issue Card Components - Modern Dark Theme
  */
 
 import React from 'react'
@@ -18,15 +18,15 @@ function IssueDetails({ details }: { details: string[] }): React.ReactElement {
     <div className="mt-2">
       <ul className="space-y-1">
         {visibleDetails.map((detail, i) => (
-          <li key={i} className="flex items-start gap-1 text-xs text-gray-500">
-            <span className="mt-1.5 h-1 w-1 rounded-full bg-gray-400" />
+          <li key={i} className="flex items-start gap-1 text-xs text-text-tertiary">
+            <span className="mt-1.5 h-1 w-1 rounded-full bg-text-muted" />
             {detail}
           </li>
         ))}
       </ul>
       {hasMore && (
         <button
-          className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+          className="mt-2 flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary"
           type="button"
           onClick={() => {
             setExpanded(!expanded)
@@ -99,11 +99,11 @@ function ActionButton({
   onExecuteAction: () => void
 }): React.ReactElement {
   const actionStatusColors: Record<string, string> = {
-    available: 'bg-burgundy text-white hover:bg-burgundy/90',
-    running: 'bg-blue-500 text-white',
-    completed: 'bg-green-500 text-white',
-    failed: 'bg-red-500 text-white',
-    not_available: 'bg-gray-200 text-gray-400 cursor-not-allowed',
+    available: 'bg-brand text-white hover:bg-brand-light',
+    running: 'bg-info text-white',
+    completed: 'bg-success text-white',
+    failed: 'bg-error text-white',
+    not_available: 'bg-bg-tertiary text-text-muted cursor-not-allowed',
   }
 
   const buttonLabel = getActionButtonLabel(actionStatus, actionLabel, actionPending)
@@ -152,21 +152,21 @@ export function IssueCard({
   actionPending: boolean
 }): React.ReactElement {
   const severityColors: Record<string, string> = {
-    critical: 'border-l-red-500 bg-red-50',
-    high: 'border-l-orange-500 bg-orange-50',
-    medium: 'border-l-amber-500 bg-amber-50',
-    low: 'border-l-blue-500 bg-blue-50',
-    warning: 'border-l-yellow-500 bg-yellow-50',
-    info: 'border-l-green-500 bg-green-50',
+    critical: 'border-l-error bg-error/10',
+    high: 'border-l-orange-500 bg-orange-500/10',
+    medium: 'border-l-warning bg-warning/10',
+    low: 'border-l-info bg-info/10',
+    warning: 'border-l-warning bg-warning/10',
+    info: 'border-l-success bg-success/10',
   }
 
   const severityBadge: Record<string, string> = {
-    critical: 'bg-red-100 text-red-800',
-    high: 'bg-orange-100 text-orange-800',
-    medium: 'bg-amber-100 text-amber-800',
-    low: 'bg-blue-100 text-blue-800',
-    warning: 'bg-yellow-100 text-yellow-800',
-    info: 'bg-green-100 text-green-800',
+    critical: 'bg-error/20 text-error',
+    high: 'bg-orange-500/20 text-orange-400',
+    medium: 'bg-warning/20 text-warning',
+    low: 'bg-info/20 text-info',
+    warning: 'bg-warning/20 text-warning',
+    info: 'bg-success/20 text-success',
   }
 
   return (
@@ -177,14 +177,14 @@ export function IssueCard({
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h4 className="font-medium text-gray-900">{issue.title}</h4>
+            <h4 className="font-medium text-text-primary">{issue.title}</h4>
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${severityBadge[issue.severity]}`}
             >
               {issue.severity}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-600">{issue.description}</p>
+          <p className="mt-1 text-sm text-text-secondary">{issue.description}</p>
 
           {issue.details !== null && issue.details.length > 0 && (
             <IssueDetails details={issue.details} />
@@ -207,10 +207,10 @@ export function IssueCard({
 
 function SuccessPanel(): React.ReactElement {
   return (
-    <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
-      <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+    <div className="rounded-xl border border-success/30 bg-success/10 p-6 text-center">
+      <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-success/20">
         <svg
-          className="h-6 w-6 text-green-600"
+          className="h-6 w-6 text-success"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -218,8 +218,8 @@ function SuccessPanel(): React.ReactElement {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <p className="font-medium text-green-800">Aucun problème détecté</p>
-      <p className="text-sm text-green-600">Votre tracking est correctement configuré</p>
+      <p className="font-medium text-success">Aucun problème détecté</p>
+      <p className="text-sm text-success/80">Votre tracking est correctement configuré</p>
     </div>
   )
 }
@@ -239,8 +239,8 @@ export function IssuesPanel({
 }): React.ReactElement | null {
   if (issues.length > 0) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <h2 className="mb-4 font-medium text-gray-900">
+      <div className="card-elevated p-6">
+        <h2 className="mb-4 font-medium text-text-primary">
           Problèmes détectés ({String(issues.length)})
         </h2>
 

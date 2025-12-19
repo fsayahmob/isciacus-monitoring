@@ -27,10 +27,10 @@ function getMarginClass(marginValue: number): string {
     return ''
   }
   if (marginValue >= MARGIN_THRESHOLDS.HIGH) {
-    return 'text-green-600'
+    return 'text-success'
   }
   if (marginValue < MARGIN_THRESHOLDS.LOW) {
-    return 'text-red-600'
+    return 'text-error'
   }
   return ''
 }
@@ -79,12 +79,12 @@ function SortableHeader({
 
   return (
     <th
-      className={`sortable cursor-pointer p-2 text-${align} select-none hover:bg-burgundy-dark ${isActive ? 'active' : ''}`}
+      className={`cursor-pointer p-2 text-${align} select-none hover:bg-brand/80 transition-colors ${isActive ? 'bg-brand/70' : ''}`}
       onClick={handleClick}
     >
       <span className={`flex items-center gap-1 ${alignClass}`}>
         {children}
-        <span className={`sort-icon ${isActive ? 'opacity-100' : 'opacity-50'}`}>
+        <span className={isActive ? 'opacity-100' : 'opacity-50'}>
           {getSortIcon(isActive, sortDirection)}
         </span>
       </span>
@@ -104,7 +104,7 @@ function ProductRow({ product }: { product: Product }): React.ReactElement {
 
   return (
     <tr
-      className="product-row cursor-pointer border-b border-gray-200 odd:bg-white even:bg-gray-50 hover:bg-cream-dark"
+      className="cursor-pointer border-b border-border-subtle odd:bg-bg-secondary even:bg-bg-tertiary hover:bg-brand/10 transition-colors"
       onClick={handleClick}
     >
       <td className="p-2">
@@ -116,35 +116,35 @@ function ProductRow({ product }: { product: Product }): React.ReactElement {
             src={product.image_url}
           />
         ) : (
-          <div className="h-10 w-10 rounded bg-gray-200" />
+          <div className="h-10 w-10 rounded bg-bg-tertiary" />
         )}
       </td>
-      <td className="max-w-[200px] truncate p-2" title={product.titre}>
+      <td className="max-w-[200px] truncate p-2 text-text-primary" title={product.titre}>
         {product.titre}
       </td>
-      <td className="p-2 text-xs">{product.variante}</td>
-      <td className="p-2 font-mono text-xs">{product.sku}</td>
+      <td className="p-2 text-xs text-text-secondary">{product.variante}</td>
+      <td className="p-2 font-mono text-xs text-text-secondary">{product.sku}</td>
       <td className="p-2 text-center">
         <StockBadge level={product.stock_level} stock={product.stock} />
       </td>
-      <td className="p-2 text-right">{formatCurrency(product.prix_ttc)}</td>
+      <td className="p-2 text-right text-text-primary">{formatCurrency(product.prix_ttc)}</td>
       <td className={`p-2 text-right font-medium ${marginClass}`}>
         {product.marge_pct !== '' ? product.marge_pct : '-'}
       </td>
       <td className="p-2 text-center">
         {product.publie ? (
-          <span className="text-green-600">✓</span>
+          <span className="text-success">✓</span>
         ) : (
-          <span className="text-red-500">✗</span>
+          <span className="text-error">✗</span>
         )}
       </td>
-      <td className="max-w-[120px] truncate p-2 text-xs" title={product.channels.join(', ')}>
+      <td className="max-w-[120px] truncate p-2 text-xs text-text-tertiary" title={product.channels.join(', ')}>
         {product.channels.slice(0, 2).join(', ')}
       </td>
       <td className="p-2">
         <div className="flex flex-wrap gap-1">
           {product.shopify_tags.slice(0, 2).map((tag) => (
-            <span key={tag} className="rounded bg-gray-100 px-1 text-xs">
+            <span key={tag} className="rounded bg-bg-tertiary px-1 text-xs text-text-secondary">
               {tag}
             </span>
           ))}
@@ -156,7 +156,7 @@ function ProductRow({ product }: { product: Product }): React.ReactElement {
 
 function SkeletonRow(): React.ReactElement {
   return (
-    <tr className="border-b border-gray-200">
+    <tr className="border-b border-border-subtle">
       <td className="p-2">
         <div className="skeleton h-10 w-10 rounded" />
       </td>
@@ -197,9 +197,9 @@ export function ProductTable(): React.ReactElement {
   const { products, isLoading } = useProducts()
 
   return (
-    <div className="overflow-x-auto border border-burgundy bg-white">
+    <div className="overflow-x-auto border border-border-default bg-bg-secondary rounded-lg">
       <table className="w-full text-sm">
-        <thead className="bg-burgundy text-white">
+        <thead className="bg-brand text-white">
           <tr>
             <th className="w-12 p-2 text-left">Img</th>
             <SortableHeader field="titre">Produit</SortableHeader>

@@ -1,5 +1,5 @@
 /**
- * FilterDropdown Component - Tag/Collection selector for sales analysis
+ * FilterDropdown Component - Modern Dark Theme
  */
 
 import type { AvailableFilters } from '../../../types/analytics'
@@ -41,7 +41,7 @@ function TagInfo({
   const tagCount = filters.tags.length
   const sourceLabel = filters.source === 'catalog' ? 'catalogue complet' : 'produits vendus'
   return (
-    <span className="text-xs text-gray-400">
+    <span className="text-xs text-text-muted">
       ({tagCount} tags - {sourceLabel})
     </span>
   )
@@ -55,10 +55,10 @@ function AllCatalogCheckbox({
   onToggle: () => void
 }): React.ReactElement {
   return (
-    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
       <input
         checked={showAllCatalog}
-        className="rounded border-gray-300 text-burgundy focus:ring-burgundy"
+        className="rounded border-border-default bg-bg-tertiary text-brand focus:ring-brand"
         type="checkbox"
         onChange={onToggle}
       />
@@ -78,7 +78,7 @@ export function FilterDropdown({
   onToggleAllCatalog,
 }: FilterDropdownProps): React.ReactElement {
   if (filtersLoading) {
-    return <div className="h-10 w-64 animate-pulse rounded bg-gray-200" />
+    return <div className="skeleton h-10 w-64" />
   }
 
   const currentValue = filterType === 'tag' ? (selectedTag ?? '') : (selectedCollection ?? '')
@@ -91,7 +91,7 @@ export function FilterDropdown({
     <div className="space-y-2">
       <div className="flex items-center gap-4">
         <select
-          className="w-full max-w-md rounded border border-gray-300 px-3 py-2 text-sm focus:border-burgundy focus:outline-none focus:ring-1 focus:ring-burgundy"
+          className="input w-full max-w-md"
           value={currentValue}
           onChange={(e) => {
             onChange(e.target.value)

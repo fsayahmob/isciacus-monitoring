@@ -22,7 +22,7 @@ export function AuditResults({
   onRefresh: () => void
 }): React.ReactElement {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream to-cream-dark p-6">
+    <div className="min-h-screen bg-bg-primary p-6">
       <ResultsHeader onRefresh={onRefresh} />
       <ConnectionStatus connected={audit.ga4_connected} />
       <SummaryCards summary={audit.summary} />
@@ -45,7 +45,7 @@ function TrackingCoverageChecklist({
 }): React.ReactElement {
   return (
     <div className="mb-8 space-y-4">
-      <h2 className="font-serif text-xl text-burgundy">Couverture du Tracking</h2>
+      <h2 className="text-xl font-semibold text-text-primary">Couverture du Tracking</h2>
       <CoverageChecklistSection
         title="Événements E-commerce"
         icon={<EventsIcon />}

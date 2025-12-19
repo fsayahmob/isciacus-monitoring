@@ -42,7 +42,7 @@ function ProductCard({ product }: { product: Product }): React.ReactElement {
 
   return (
     <div
-      className="cursor-pointer border border-burgundy bg-white transition-shadow hover:shadow-lg"
+      className="cursor-pointer border border-border-default bg-bg-secondary rounded-lg transition-all hover:shadow-lg hover:border-brand/50"
       role="button"
       tabIndex={0}
       onClick={handleClick}
@@ -53,7 +53,7 @@ function ProductCard({ product }: { product: Product }): React.ReactElement {
       }}
     >
       {/* Image */}
-      <div className="aspect-square overflow-hidden bg-gray-100">
+      <div className="aspect-square overflow-hidden bg-bg-tertiary rounded-t-lg">
         {product.image_url !== null ? (
           <img
             alt={product.titre}
@@ -62,7 +62,7 @@ function ProductCard({ product }: { product: Product }): React.ReactElement {
             src={product.image_url}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-400">
+          <div className="flex h-full w-full items-center justify-center bg-bg-tertiary text-text-muted">
             <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
@@ -77,20 +77,20 @@ function ProductCard({ product }: { product: Product }): React.ReactElement {
 
       {/* Content */}
       <div className="p-3">
-        <h3 className="truncate text-sm font-medium" title={product.titre}>
+        <h3 className="truncate text-sm font-medium text-text-primary" title={product.titre}>
           {product.titre}
         </h3>
-        <p className="truncate text-xs text-gray-500">{product.variante}</p>
+        <p className="truncate text-xs text-text-tertiary">{product.variante}</p>
 
         <div className="mt-2 flex items-center justify-between">
-          <span className="font-serif text-lg text-burgundy">
+          <span className="font-semibold text-lg text-brand">
             {formatCurrency(product.prix_ttc)}
           </span>
           <StockBadge level={product.stock_level} stock={product.stock} />
         </div>
 
         {product.marge_pct !== '' && (
-          <div className="mt-1 text-xs text-gray-500">Marge: {product.marge_pct}</div>
+          <div className="mt-1 text-xs text-text-tertiary">Marge: {product.marge_pct}</div>
         )}
       </div>
     </div>
@@ -99,8 +99,8 @@ function ProductCard({ product }: { product: Product }): React.ReactElement {
 
 function SkeletonCard(): React.ReactElement {
   return (
-    <div className="border border-burgundy bg-white">
-      <div className="skeleton aspect-square" />
+    <div className="border border-border-default bg-bg-secondary rounded-lg">
+      <div className="skeleton aspect-square rounded-t-lg" />
       <div className="p-3">
         <div className="skeleton mb-2 h-4 w-3/4 rounded" />
         <div className="skeleton mb-2 h-3 w-1/2 rounded" />

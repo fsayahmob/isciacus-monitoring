@@ -115,7 +115,7 @@ export function SettingsPage(): React.ReactElement {
   const changeCount = Object.keys(editedValues).length
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream to-cream-dark p-6 pb-24">
+    <div className="min-h-screen p-6 pb-24">
       <SettingsHeader onRefresh={handleRefreshAll} />
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <HealthIndicator />
@@ -150,8 +150,8 @@ function SettingsHeader({ onRefresh }: { onRefresh: () => void }): React.ReactEl
     <div className="mb-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-serif text-3xl text-burgundy">Configuration</h2>
-          <p className="mt-2 text-gray-600">
+          <h2 className="text-3xl font-semibold text-text-primary">Configuration</h2>
+          <p className="mt-2 text-text-secondary">
             Gérez vos intégrations et paramètres de connexion aux services externes.
           </p>
         </div>

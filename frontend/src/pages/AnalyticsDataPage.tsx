@@ -1,6 +1,5 @@
 /**
- * Analytics Data Page - ISCIACUS Monitoring Dashboard
- * ====================================================
+ * Analytics Data Page - Modern Dark Theme
  */
 
 import {
@@ -11,20 +10,16 @@ import {
 
 export function AnalyticsDataPage(): React.ReactElement {
   return (
-    <div className="p-4">
-      <h2 className="mb-6 font-serif text-2xl text-burgundy">Analytics DATA</h2>
-      <p className="mb-6 text-sm text-gray-500">
-        Données clients et conversions • Source: Shopify GraphQL API (e-commerce uniquement, hors
-        POS)
-      </p>
+    <div className="p-6">
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold tracking-tight text-text-primary">Analytics</h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          Données clients et conversions • Source: Shopify GraphQL API
+        </p>
+      </div>
 
-      {/* Customer Stats Section */}
       <CustomerStatsSection />
-
-      {/* Conversion Funnel Section */}
       <FunnelChartSection />
-
-      {/* Sales Analysis by Tag/Collection */}
       <SalesAnalysisSection />
     </div>
   )

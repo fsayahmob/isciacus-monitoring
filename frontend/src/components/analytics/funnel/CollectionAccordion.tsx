@@ -12,13 +12,13 @@ interface CollectionAccordionProps {
 }
 
 const BENCHMARK_COLORS: Record<string, string> = {
-  good: 'bg-green-100 text-green-700',
-  ok: 'bg-yellow-100 text-yellow-700',
-  bad: 'bg-red-100 text-red-700',
+  good: 'bg-success/20 text-success',
+  ok: 'bg-warning/20 text-warning',
+  bad: 'bg-error/20 text-error',
 }
 
 function getBenchmarkColor(status: string): string {
-  return BENCHMARK_COLORS[status] ?? 'bg-gray-100 text-gray-500'
+  return BENCHMARK_COLORS[status] ?? 'bg-bg-tertiary text-text-muted'
 }
 
 interface CollectionRowProps {
@@ -31,14 +31,14 @@ function CollectionRow({ collection, ga4Available }: CollectionRowProps): React.
   const hasCVR = collection.cvr > 0
 
   return (
-    <tr className="border-b border-gray-100">
-      <td className="py-2">{collection.collection_name}</td>
+    <tr className="border-b border-border-subtle">
+      <td className="py-2 text-text-primary">{collection.collection_name}</td>
       {ga4Available ? (
-        <td className="py-2 text-right font-mono text-blue-600">
+        <td className="py-2 text-right font-mono text-info">
           {hasVisitors ? collection.visitors.toLocaleString('fr-FR') : '-'}
         </td>
       ) : null}
-      <td className="py-2 text-right font-mono">{collection.purchases.toLocaleString('fr-FR')}</td>
+      <td className="py-2 text-right font-mono text-text-primary">{collection.purchases.toLocaleString('fr-FR')}</td>
       {ga4Available ? (
         <td className="py-2 text-right">
           {hasCVR ? (
@@ -48,7 +48,7 @@ function CollectionRow({ collection, ga4Available }: CollectionRowProps): React.
               {collection.cvr.toFixed(2)}%
             </span>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-text-muted">-</span>
           )}
         </td>
       ) : null}
@@ -68,25 +68,25 @@ export function CollectionAccordion({
   const showGlobalCVR = ga4Available && totalVisitors > 0
 
   return (
-    <div className="border-t border-gray-200 pt-4">
+    <div className="border-t border-border-subtle pt-4">
       <button
         className="flex w-full items-center justify-between text-left"
         type="button"
         onClick={onToggle}
       >
-        <span className="text-sm font-medium text-burgundy">
+        <span className="text-sm font-medium text-brand">
           CVR par collection ({collections.length})
-          <span className="ml-2 text-xs font-normal text-gray-500">
+          <span className="ml-2 text-xs font-normal text-text-tertiary">
             (Sources: Shopify{ga4Available ? ' + GA4' : ''})
           </span>
           {showGlobalCVR ? (
-            <span className="ml-2 rounded bg-burgundy/10 px-2 py-0.5 text-xs font-bold text-burgundy">
+            <span className="ml-2 rounded bg-brand/10 px-2 py-0.5 text-xs font-bold text-brand">
               CVR Global: {globalCVR.toFixed(2)}%
             </span>
           ) : null}
         </span>
         <svg
-          className={`h-5 w-5 text-burgundy transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`h-5 w-5 text-brand transition-transform ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -99,14 +99,14 @@ export function CollectionAccordion({
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left">
-                <th className="pb-2 font-medium text-gray-600">Collection</th>
+              <tr className="border-b border-border-default text-left">
+                <th className="pb-2 font-medium text-text-secondary">Collection</th>
                 {ga4Available ? (
-                  <th className="pb-2 text-right font-medium text-blue-600">Visiteurs</th>
+                  <th className="pb-2 text-right font-medium text-info">Visiteurs</th>
                 ) : null}
-                <th className="pb-2 text-right font-medium text-gray-600">Achats</th>
+                <th className="pb-2 text-right font-medium text-text-secondary">Achats</th>
                 {ga4Available ? (
-                  <th className="pb-2 text-right font-medium text-green-600">CVR</th>
+                  <th className="pb-2 text-right font-medium text-success">CVR</th>
                 ) : null}
               </tr>
             </thead>
@@ -121,7 +121,7 @@ export function CollectionAccordion({
             </tbody>
           </table>
           {!ga4Available ? (
-            <p className="mt-3 text-xs text-amber-600 italic">
+            <p className="mt-3 text-xs text-warning italic">
               Note: Le CVR par collection requiert l&apos;intégration GA4 pour les visiteurs.
             </p>
           ) : null}

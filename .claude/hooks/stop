@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Hook Stop pour Claude Code
+# Extrait les vraies données de la conversation et les sauvegarde pour le plugin VSCode
+
+# Lire l'input JSON du hook depuis stdin
+input=$(cat)
+
+# Extraire les paramètres
+session_id=$(echo "$input" | jq -r '.session_id')
+transcript_path=$(echo "$input" | jq -r '.transcript_path')
+cwd=$(echo "$input" | jq -r '.cwd')
+stop_hook_active=$(echo "$input" | jq -r '.stop_hook_active')
+
+# Prévenir les boucles infinies
+if [ "$stop_hook_active" = "true" ]; then
+  exit 0
+fi
+
+# Étendre le chemin ~ vers le répertoire home
+transcript_path="${transcript_path/#\~/$HOME}"
+
+# Vérifier que le fichier transcript existe
+if [ ! -f "$transcript_path" ]; then
+  echo "Error: transcript file not found at $transcript_path" >&2
+  exit 1
+fi
+
+# Extraire le dernier message texte de Claude (assistant)
+# Il faut chercher dans tous les content[] car content[0] peut être un tool_use
+last_claude_message=$(tac "$transcript_path" | jq -s '.[] | select(.type == "assistant") | .message.content[] | select(.type == "text") | .text' -r 2>/dev/null | head -1)
+if [ -z "$last_claude_message" ]; then
+  last_claude_message="<No message found>"
+fi
+
+# Conversation ID = session_id
+conversation_id="$session_id"
+
+# Extraire le nom de la conversation depuis le chemin transcript
+conversation_name=$(echo "$transcript_path" | sed -E 's|.*/\.claude/projects/([^/]+)/.*|\1|')
+if [ "$conversation_name" = "$transcript_path" ]; then
+  conversation_name=$(basename "$cwd")
+fi
+
+# Repository name depuis git
+git_dir=$(cd "$cwd" && git rev-parse --show-toplevel 2>/dev/null)
+if [ $? -eq 0 ] && [ -n "$git_dir" ]; then
+  repository_name=$(basename "$git_dir")
+else
+  repository_name=$(basename "$cwd")
+fi
+
+# Timestamp
+timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Créer le fichier JSON pour le plugin VSCode
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLAUDE_DIR="$(dirname "$SCRIPT_DIR")"
+HOOK_DATA_FILE="$CLAUDE_DIR/hook-data.json"
+
+cat > "$HOOK_DATA_FILE" <<EOF
+{
+  "lastMessage": $(echo "$last_claude_message" | jq -Rs .),
+  "repoName": "$repository_name",
+  "conversationId": "$conversation_id",
+  "conversationName": "$conversation_name",
+  "timestamp": "$timestamp"
+}
+EOF
+
+echo "✓ Hook stop exécuté - données sauvegardées"
+exit 0

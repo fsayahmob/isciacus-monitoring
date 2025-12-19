@@ -1,8 +1,5 @@
 /**
- * Audit Pipeline - GitHub Actions style audit progress display
- *
- * Uses React Query for state management with proper step reconciliation.
- * Steps are always displayed progressively, never replaced wholesale.
+ * Audit Pipeline - Modern Dark Theme Dashboard
  */
 
 import React from 'react'
@@ -20,15 +17,15 @@ const HIGHLIGHT_DURATION_MS = 2000
 export function AuditPipeline(): React.ReactElement {
   const queryClient = useQueryClient()
 
-  // Use the new consolidated hook for all audit state
   const {
     session,
     availableAudits,
     currentResult,
     selectedAudit,
-    isRunning,
+    isSelectedAuditRunning,
     selectAudit,
-    runSelectedAudit,
+    runAudit,
+    isAuditRunning,
   } = useAuditSession()
 
   const executeActionMutation = useMutation({
@@ -41,34 +38,26 @@ export function AuditPipeline(): React.ReactElement {
 
   const { audits } = availableAudits
 
-  const handleRunAudit = (auditType: string): void => {
-    runSelectedAudit(auditType)
-  }
-
   const handleExecuteAction = (auditType: string, actionId: string): void => {
     executeActionMutation.mutate({ auditType, actionId })
   }
 
-  const handleSelectAudit = (auditType: string): void => {
-    selectAudit(auditType)
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream to-cream-dark p-6">
+    <div className="min-h-screen bg-bg-primary p-6">
       <div className="mx-auto max-w-6xl">
         <PageHeader />
         <AuditCardsGrid
           audits={audits}
           selectedAudit={selectedAudit}
-          isRunning={isRunning}
-          onRun={handleRunAudit}
-          onSelect={handleSelectAudit}
+          isAuditRunning={isAuditRunning}
+          onRun={runAudit}
+          onSelect={selectAudit}
         />
         <AuditResultSection
           currentResult={currentResult}
           selectedAudit={selectedAudit}
           session={session}
-          isRunning={isRunning}
+          isRunning={isSelectedAuditRunning}
           onExecuteAction={handleExecuteAction}
           actionPending={executeActionMutation.isPending}
         />
@@ -80,8 +69,10 @@ export function AuditPipeline(): React.ReactElement {
 function PageHeader(): React.ReactElement {
   return (
     <div className="mb-8">
-      <h1 className="font-serif text-3xl text-burgundy">Audits Tracking</h1>
-      <p className="mt-1 text-gray-600">Vérifiez la configuration de vos outils de tracking</p>
+      <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Audits Tracking</h1>
+      <p className="mt-1 text-sm text-text-secondary">
+        Vérifiez la configuration de vos outils de tracking
+      </p>
     </div>
   )
 }
@@ -105,7 +96,7 @@ function AuditResultSection({
     return (
       <AuditResultPanel
         result={currentResult}
-        isRunning={isRunning && selectedAudit === currentResult.audit_type}
+        isRunning={isRunning}
         onExecuteAction={onExecuteAction}
         actionPending={actionPending}
       />
@@ -114,9 +105,22 @@ function AuditResultSection({
 
   if (selectedAudit === null && session === null) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
-        <p className="text-gray-500">
-          Sélectionnez un audit ci-dessus pour voir les détails ou lancez un nouvel audit.
+      <div className="card-elevated animate-fade-in p-12 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-bg-tertiary">
+          <svg className="h-6 w-6 text-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+            />
+          </svg>
+        </div>
+        <p className="text-text-secondary">
+          Sélectionnez un audit ci-dessus pour voir les détails
+        </p>
+        <p className="mt-1 text-sm text-text-tertiary">
+          ou lancez un nouvel audit pour commencer
         </p>
       </div>
     )
@@ -136,34 +140,29 @@ function AuditResultPanel({
   onExecuteAction: (auditType: string, actionId: string) => void
   actionPending: boolean
 }): React.ReactElement {
-  // Extract KPI data for GMC audits
   const kpiData = result.summary.kpi as GMCFlowData | undefined
 
-  // Function to scroll to issue when clicking on KPI elements
   const handleNavigateToIssue = (issueId: string): void => {
     const element = document.getElementById(`issue-${issueId}`)
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      // Add highlight effect
-      element.classList.add('ring-2', 'ring-burgundy', 'ring-offset-2')
+      element.classList.add('ring-2', 'ring-brand', 'ring-offset-2', 'ring-offset-bg-primary')
       setTimeout(() => {
-        element.classList.remove('ring-2', 'ring-burgundy', 'ring-offset-2')
+        element.classList.remove('ring-2', 'ring-brand', 'ring-offset-2', 'ring-offset-bg-primary')
       }, HIGHLIGHT_DURATION_MS)
     }
   }
 
-  // Filter out the kpi_summary issue since we now show it visually
   const filteredIssues = result.issues.filter((issue) => issue.id !== 'kpi_summary')
 
   return (
-    <div className="space-y-6">
+    <div className="animate-slide-up space-y-6">
       <PipelineStepsPanel
         steps={result.steps}
         isRunning={isRunning}
         executionMode={result.execution_mode}
       />
 
-      {/* GMC Flow KPI Visualization - only show for merchant_center audit when complete */}
       {result.audit_type === 'merchant_center' && kpiData && !isRunning && (
         <GMCFlowKPI data={kpiData} onNavigateToIssue={handleNavigateToIssue} />
       )}

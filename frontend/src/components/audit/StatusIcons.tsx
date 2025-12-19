@@ -1,5 +1,6 @@
 /**
  * Audit Pipeline - Status Icons and Badges
+ * Modern Dark Theme
  */
 
 import React from 'react'
@@ -17,23 +18,23 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' }): React.R
 
 export function PendingIcon(): React.ReactElement {
   return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-300 bg-white">
-      <div className="h-2 w-2 rounded-full bg-gray-300" />
+    <div className="flex h-6 w-6 items-center justify-center rounded-full border border-border-default bg-bg-tertiary">
+      <div className="h-2 w-2 rounded-full bg-text-muted" />
     </div>
   )
 }
 
 export function RunningIcon(): React.ReactElement {
   return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-blue-500 bg-blue-50">
-      <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+    <div className="flex h-6 w-6 items-center justify-center rounded-full border border-info/50 bg-info/10">
+      <div className="h-3 w-3 animate-spin rounded-full border-2 border-info border-t-transparent" />
     </div>
   )
 }
 
 export function SuccessIcon(): React.ReactElement {
   return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
+    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-success">
       <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
       </svg>
@@ -43,8 +44,8 @@ export function SuccessIcon(): React.ReactElement {
 
 export function WarningIcon(): React.ReactElement {
   return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500">
-      <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-warning">
+      <svg className="h-4 w-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01" />
       </svg>
     </div>
@@ -53,7 +54,7 @@ export function WarningIcon(): React.ReactElement {
 
 export function ErrorIcon(): React.ReactElement {
   return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500">
+    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-error">
       <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
@@ -68,8 +69,8 @@ export function ErrorIcon(): React.ReactElement {
 
 export function SkippedIcon(): React.ReactElement {
   return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-300 bg-gray-100">
-      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="flex h-6 w-6 items-center justify-center rounded-full border border-border-default bg-bg-tertiary">
+      <svg className="h-4 w-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
       </svg>
     </div>
@@ -107,34 +108,33 @@ export function StatusBadge({
   issuesCount: number
 }): React.ReactElement {
   const colors: Record<AuditStepStatus, string> = {
-    success: 'bg-green-100 text-green-800',
-    warning: 'bg-amber-100 text-amber-800',
-    error: 'bg-red-100 text-red-800',
-    running: 'bg-blue-100 text-blue-800',
-    pending: 'bg-gray-100 text-gray-800',
-    skipped: 'bg-gray-100 text-gray-500',
+    success: 'badge-success',
+    warning: 'badge-warning',
+    error: 'badge-error',
+    running: 'badge-info',
+    pending: 'badge-neutral',
+    skipped: 'badge-neutral',
   }
 
   const label = getStatusLabel(status, issuesCount)
 
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[status]}`}>
-      {label}
-    </span>
-  )
+  return <span className={`badge ${colors[status]}`}>{label}</span>
 }
 
 function getIconBgColor(status: AuditStepStatus | null): string {
   if (status === 'success') {
-    return 'bg-green-100 text-green-600'
+    return 'bg-success/20 text-success'
   }
   if (status === 'warning') {
-    return 'bg-amber-100 text-amber-600'
+    return 'bg-warning/20 text-warning'
   }
   if (status === 'error') {
-    return 'bg-red-100 text-red-600'
+    return 'bg-error/20 text-error'
   }
-  return 'bg-gray-100 text-gray-600'
+  if (status === 'running') {
+    return 'bg-info/20 text-info'
+  }
+  return 'bg-bg-tertiary text-text-tertiary'
 }
 
 function getIconPath(icon: string): string {
@@ -164,7 +164,7 @@ export function AuditIcon({
   return (
     <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${bgColor}`}>
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={iconPath} />
       </svg>
     </div>
   )

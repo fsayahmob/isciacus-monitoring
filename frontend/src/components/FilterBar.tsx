@@ -180,7 +180,7 @@ export function FilterBar(): React.ReactElement {
   ).length
 
   return (
-    <div className="border-b border-gray-200 bg-white p-4">
+    <div className="border-b border-border-default bg-bg-secondary p-4">
       <div className="flex flex-wrap items-center gap-3">
         <FilterControls
           channels={channels}
@@ -191,7 +191,7 @@ export function FilterBar(): React.ReactElement {
         />
         {activeFiltersCount > 0 && (
           <button
-            className="ml-2 text-sm text-burgundy hover:underline"
+            className="ml-2 text-sm text-brand hover:underline"
             type="button"
             onClick={clearFilters}
           >

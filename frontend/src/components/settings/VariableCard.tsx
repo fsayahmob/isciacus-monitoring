@@ -29,22 +29,22 @@ export function VariableCard({
 
   return (
     <div
-      className={`rounded-xl border bg-white p-5 transition-all ${
-        hasChanges ? 'border-amber-300 bg-amber-50/30' : 'border-gray-200 hover:border-burgundy/30'
+      className={`rounded-xl border p-5 transition-all ${
+        hasChanges ? 'border-warning/50 bg-warning/5' : 'border-border-default bg-bg-secondary hover:border-brand/30'
       }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h4 className="font-medium text-gray-900">{variable.label}</h4>
+            <h4 className="font-medium text-text-primary">{variable.label}</h4>
             <VariableBadges
               hasChanges={hasChanges}
               isRequired={variable.required}
               isSecret={variable.is_secret}
             />
           </div>
-          <p className="mt-1 text-sm text-gray-500">{variable.description}</p>
-          <code className="mt-2 inline-block rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">
+          <p className="mt-1 text-sm text-text-tertiary">{variable.description}</p>
+          <code className="mt-2 inline-block rounded bg-bg-tertiary px-2 py-1 text-xs text-text-secondary">
             {variable.key}
           </code>
         </div>

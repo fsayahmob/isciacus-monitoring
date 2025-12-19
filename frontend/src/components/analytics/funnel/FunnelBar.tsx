@@ -5,11 +5,11 @@
 import type { BenchmarkEvaluation, FunnelStage } from '../../../types/analytics'
 
 const FUNNEL_COLORS = [
-  'bg-burgundy',
-  'bg-burgundy/80',
-  'bg-burgundy/60',
-  'bg-burgundy/40',
-  'bg-burgundy/30',
+  'bg-brand',
+  'bg-brand/80',
+  'bg-brand/60',
+  'bg-brand/40',
+  'bg-brand/30',
 ]
 const PERCENT_100 = 100
 
@@ -22,13 +22,13 @@ interface FunnelBarProps {
 function getBenchmarkColor(status: string | undefined): string {
   switch (status) {
     case 'good':
-      return 'text-green-600'
+      return 'text-success'
     case 'ok':
-      return 'text-yellow-600'
+      return 'text-warning'
     case 'bad':
-      return 'text-red-600'
+      return 'text-error'
     default:
-      return 'text-gray-400'
+      return 'text-text-muted'
   }
 }
 
@@ -77,7 +77,7 @@ function FunnelBarContent({
   return (
     <span className="flex items-center justify-end gap-1">
       <span
-        className={`font-mono ${hasBenchmark ? getBenchmarkColor(benchmarkStatus) : 'text-gray-500'}`}
+        className={`font-mono ${hasBenchmark ? getBenchmarkColor(benchmarkStatus) : 'text-text-tertiary'}`}
       >
         {stage.rate}%
       </span>
@@ -93,26 +93,26 @@ function FunnelBarContent({
 export function FunnelBar({ stage, maxValue, index }: FunnelBarProps): React.ReactElement {
   const requiresGA4 = stage.benchmark_status === 'requires_ga4'
   const width = maxValue > 0 && !requiresGA4 ? (stage.value / maxValue) * PERCENT_100 : 0
-  const colorClass = requiresGA4 ? 'bg-gray-300' : (FUNNEL_COLORS[index] ?? 'bg-burgundy/20')
+  const colorClass = requiresGA4 ? 'bg-bg-tertiary' : (FUNNEL_COLORS[index] ?? 'bg-brand/20')
 
   const benchmarkStatus = stage.benchmark_status
   const hasBenchmark = stage.benchmark !== undefined && benchmarkStatus !== 'requires_ga4'
   const benchmarkRange = getBenchmarkRange(stage.benchmark)
 
-  const nameClass = `w-28 flex-shrink-0 text-right text-sm ${requiresGA4 ? 'text-gray-400' : 'text-gray-600'}`
-  const valueClass = `w-16 flex-shrink-0 text-right font-mono text-sm ${requiresGA4 ? 'text-gray-400' : ''}`
-  const rateClass = `w-28 flex-shrink-0 text-right text-sm ${requiresGA4 ? 'text-gray-400' : ''}`
+  const nameClass = `w-28 flex-shrink-0 text-right text-sm ${requiresGA4 ? 'text-text-muted' : 'text-text-secondary'}`
+  const valueClass = `w-16 flex-shrink-0 text-right font-mono text-sm ${requiresGA4 ? 'text-text-muted' : 'text-text-primary'}`
+  const rateClass = `w-28 flex-shrink-0 text-right text-sm ${requiresGA4 ? 'text-text-muted' : ''}`
 
   return (
     <div className="flex items-center gap-3">
       <div className={nameClass}>{stage.name}</div>
       <div className="flex-1 min-w-0">
         {requiresGA4 ? (
-          <div className="flex h-8 items-center rounded bg-gray-100 px-3">
-            <span className="text-xs text-gray-400 italic">Requiert GA4</span>
+          <div className="flex h-8 items-center rounded bg-bg-tertiary px-3">
+            <span className="text-xs text-text-muted italic">Requiert GA4</span>
           </div>
         ) : (
-          <div className="h-8 w-full rounded bg-gray-100 overflow-hidden">
+          <div className="h-8 w-full rounded bg-bg-tertiary overflow-hidden">
             <div
               className={`h-8 rounded ${colorClass} transition-all duration-300`}
               style={{ width: `${String(Math.min(width, PERCENT_100))}%` }}
@@ -132,7 +132,7 @@ export function FunnelBar({ stage, maxValue, index }: FunnelBarProps): React.Rea
           />
         )}
       </div>
-      <div className="w-24 flex-shrink-0 text-right text-xs text-gray-400">
+      <div className="w-24 flex-shrink-0 text-right text-xs text-text-muted">
         {hasBenchmark && benchmarkRange !== '' ? benchmarkRange : (stage.rate_label ?? '')}
       </div>
     </div>
