@@ -137,7 +137,11 @@ def _step_1_detect_pixel(configured_pixel_id: str) -> dict[str, Any]:
     }
 
 
-def _step_2_check_config(pixel_in_theme: bool, theme_pixel_id: str | None, configured_pixel_id: str) -> dict[str, Any]:
+def _step_2_check_config(
+    pixel_in_theme: bool,  # noqa: FBT001
+    theme_pixel_id: str | None,
+    configured_pixel_id: str,
+) -> dict[str, Any]:
     """Step 2: Check pixel configuration."""
     step = {
         "id": "pixel_config",
@@ -156,7 +160,11 @@ def _step_2_check_config(pixel_in_theme: bool, theme_pixel_id: str | None, confi
     if pixel_in_theme:
         if configured_pixel_id and theme_pixel_id != configured_pixel_id:
             step["status"] = "warning"
-            step["result"] = {"theme_pixel_id": theme_pixel_id, "configured_pixel_id": configured_pixel_id, "match": False}
+            step["result"] = {
+                "theme_pixel_id": theme_pixel_id,
+                "configured_pixel_id": configured_pixel_id,
+                "match": False,
+            }
             issues.append({
                 "id": "meta_pixel_mismatch",
                 "audit_type": "meta_pixel",
@@ -176,7 +184,10 @@ def _step_2_check_config(pixel_in_theme: bool, theme_pixel_id: str | None, confi
             "audit_type": "meta_pixel",
             "severity": "high",
             "title": "Meta Pixel non installé dans le thème",
-            "description": f"Le Pixel {configured_pixel_id} est configuré mais non détecté dans le thème",
+            "description": (
+                f"Le Pixel {configured_pixel_id} est configuré "
+                "mais non détecté dans le thème"
+            ),
             "action_available": True,
             "action_label": "Guide d'installation",
             "action_url": "https://www.facebook.com/business/help/952192354843755",
@@ -218,8 +229,8 @@ def _step_3_check_events(meta_events_found: list[str]) -> dict[str, Any]:
         step["status"] = "error"
         step["result"] = {"found": meta_events_found, "missing": missing_events}
 
-    for event in missing_events:
-        issues.append({
+    issues.extend(
+        {
             "id": f"meta_missing_event_{event}",
             "audit_type": "meta_pixel",
             "severity": "high" if event in ["Purchase", "AddToCart"] else "medium",
@@ -229,7 +240,9 @@ def _step_3_check_events(meta_events_found: list[str]) -> dict[str, Any]:
             "action_label": f"Ajouter {event} au thème",
             "action_id": f"fix_meta_event_{event}",
             "action_status": "available",
-        })
+        }
+        for event in missing_events
+    )
 
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
@@ -340,17 +353,28 @@ def create_meta_audit_function() -> inngest.Function | None:
 
         # Step 1: Detect pixel
         _save_progress(result)
-        step1_result = await ctx.step.run("detect-meta-pixel", lambda: _step_1_detect_pixel(configured_pixel_id))
+        step1_result = await ctx.step.run(
+            "detect-meta-pixel",
+            lambda: _step_1_detect_pixel(configured_pixel_id),
+        )
         result["steps"].append(step1_result["step"])
         _save_progress(result)
 
         if not step1_result["success"]:
             for step_def in STEPS[1:]:
-                result["steps"].append({
-                    "id": step_def["id"], "name": step_def["name"], "description": step_def["description"],
-                    "status": "skipped", "started_at": None, "completed_at": None,
-                    "duration_ms": None, "result": None, "error_message": None,
-                })
+                result["steps"].append(
+                    {
+                        "id": step_def["id"],
+                        "name": step_def["name"],
+                        "description": step_def["description"],
+                        "status": "skipped",
+                        "started_at": None,
+                        "completed_at": None,
+                        "duration_ms": None,
+                        "result": None,
+                        "error_message": None,
+                    }
+                )
             result["status"] = "error"
             result["issues"].append({
                 "id": "meta_no_pixel",
@@ -376,7 +400,9 @@ def create_meta_audit_function() -> inngest.Function | None:
         _save_progress(result)
         step2_result = await ctx.step.run(
             "check-pixel-config",
-            lambda: _step_2_check_config(pixel_in_theme, theme_pixel_id, configured_pixel_id),
+            lambda: _step_2_check_config(
+                pixel_in_theme, theme_pixel_id, configured_pixel_id
+            ),
         )
         result["steps"].append(step2_result["step"])
         result["issues"].extend(step2_result["issues"])
@@ -384,7 +410,10 @@ def create_meta_audit_function() -> inngest.Function | None:
 
         # Step 3: Check events
         _save_progress(result)
-        step3_result = await ctx.step.run("check-meta-events", lambda: _step_3_check_events(meta_events_found))
+        step3_result = await ctx.step.run(
+            "check-meta-events",
+            lambda: _step_3_check_events(meta_events_found),
+        )
         result["steps"].append(step3_result["step"])
         result["issues"].extend(step3_result["issues"])
         _save_progress(result)

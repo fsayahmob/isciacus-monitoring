@@ -46,12 +46,13 @@ def setup_inngest(app: FastAPI) -> bool:
         return False
 
     from .audit_workflow import inngest_client
-    from .workflows.onboarding import onboarding_audit_function
+
     # Import dedicated audit workflows
     from .workflows.ga4_audit import ga4_audit_function
     from .workflows.gmc_audit import gmc_audit_function
     from .workflows.gsc_audit import gsc_audit_function
     from .workflows.meta_audit import meta_audit_function
+    from .workflows.onboarding import onboarding_audit_function
     from .workflows.theme_audit import theme_audit_function
 
     if inngest_client is None:

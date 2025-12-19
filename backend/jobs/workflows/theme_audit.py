@@ -174,8 +174,8 @@ def _step_2_ga4_code(analysis: dict[str, Any], ga4_measurement_id: str) -> dict[
         # Check if GA4 is receiving data anyway
         ga4_receiving_data = False
         try:
-            from services.ga4_analytics import GA4AnalyticsService
             from services.config_service import ConfigService
+            from services.ga4_analytics import GA4AnalyticsService
             ga4_service = GA4AnalyticsService(ConfigService())
             if ga4_service.is_available():
                 metrics = ga4_service.get_funnel_metrics(days=7, force_refresh=True)

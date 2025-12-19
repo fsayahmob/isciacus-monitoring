@@ -11,12 +11,11 @@ Requirements:
     - Docker containers must be running: docker compose up
 """
 
-import json
 import sys
 import time
-from pathlib import Path
 
 import requests
+
 
 BASE_URL = "http://localhost:8080"
 TIMEOUT_SEC = 120  # Increased for slow workflows like ga4_tracking
@@ -125,7 +124,7 @@ def test_workflow(audit_type: str, expected_steps: list[str]) -> bool:
     print(f"  Trigger: {GREEN}OK{RESET} (run_id: {run_id})")
 
     # Wait for completion
-    print(f"  Waiting for completion...", end="", flush=True)
+    print("  Waiting for completion...", end="", flush=True)
     status, result = wait_for_completion(audit_type)
 
     if status == "timeout":
@@ -153,7 +152,7 @@ def test_workflow(audit_type: str, expected_steps: list[str]) -> bool:
 
     # Show step summary
     steps = result.get("steps", [])
-    print(f"  Steps:")
+    print("  Steps:")
     for step in steps:
         status = step["status"]
         icon = "✓" if status == "success" else "○" if status == "warning" else "✗" if status == "error" else "⊘"

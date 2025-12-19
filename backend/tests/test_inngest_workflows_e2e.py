@@ -14,12 +14,12 @@ These tests verify:
 4. Final result is saved to session file
 """
 
-import json
 import time
 from pathlib import Path
 
 import pytest
 import requests
+
 
 # Configuration
 BASE_URL = "http://localhost:8080"
