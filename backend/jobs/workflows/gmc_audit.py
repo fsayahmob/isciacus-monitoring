@@ -36,6 +36,11 @@ STEPS = [
         "description": "Vérification de la sync",
     },
     {
+        "id": "feed_quality",
+        "name": "Qualité du Feed",
+        "description": "Analyse GTIN, images, descriptions",
+    },
+    {
         "id": "issues_check",
         "name": "Problèmes",
         "description": "Détection des problèmes",
@@ -422,6 +427,110 @@ def _step_3_feed_sync(_merchant_id: str, products_data: dict[str, Any]) -> dict[
     }
 
 
+def _step_5_feed_quality(
+    merchant_id: str, token: str, products_data: dict[str, Any]
+) -> dict[str, Any]:
+    """
+    Step 5: Analyze feed quality (GTIN, images, descriptions).
+
+    Checks product data quality for better Google Shopping performance.
+    """
+    step = {
+        "id": "feed_quality",
+        "name": "Qualité du Feed",
+        "description": "Analyse GTIN, images, descriptions",
+        "status": "running",
+        "started_at": datetime.now(tz=UTC).isoformat(),
+        "completed_at": None,
+        "duration_ms": None,
+        "result": None,
+        "error_message": None,
+    }
+    start_time = datetime.now(tz=UTC)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Fetch sample of products to analyze quality
+    total_products = products_data.get("total_products", 0)
+    sample_size = min(100, total_products)  # Analyze up to 100 products
+
+    try:
+        # Fetch products with full data (not just statuses)
+        url = (
+            f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/"
+            f"products?maxResults={sample_size}"
+        )
+        resp = requests.get(url, headers=headers, timeout=60)
+
+        if resp.status_code != 200:
+            step["status"] = "warning"
+            step["result"] = {"error": "Could not fetch product data"}
+            step["completed_at"] = datetime.now(tz=UTC).isoformat()
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+            return {"step": step, "quality_metrics": {}}
+
+        products = resp.json().get("resources", [])
+
+        # Analyze quality
+        with_gtin = 0
+        high_quality_images = 0
+        good_descriptions = 0
+
+        for product in products:
+            # Check GTIN
+            if product.get("gtin"):
+                with_gtin += 1
+
+            # Check image quality (>= 800x800)
+            image_link = product.get("imageLink", "")
+            if image_link and any(
+                size in image_link for size in ["_800x", "_1024x", "_2048x", "large"]
+            ):
+                high_quality_images += 1
+
+            # Check description quality (> 200 chars)
+            description = product.get("description", "")
+            if len(description) > 200:
+                good_descriptions += 1
+
+        # Calculate percentages
+        total_analyzed = len(products)
+        gtin_coverage = round((with_gtin / total_analyzed * 100), 1) if total_analyzed > 0 else 0
+        image_quality = (
+            round((high_quality_images / total_analyzed * 100), 1) if total_analyzed > 0 else 0
+        )
+        desc_quality = (
+            round((good_descriptions / total_analyzed * 100), 1) if total_analyzed > 0 else 0
+        )
+
+        # Determine status based on benchmarks
+        # Good: GTIN >80%, Images >90%, Desc >70%
+        status = "success"
+        if gtin_coverage < 50 or image_quality < 70 or gtin_coverage < 80 or image_quality < 90:
+            status = "warning"
+
+        quality_metrics = {
+            "total_analyzed": total_analyzed,
+            "gtin_coverage_pct": gtin_coverage,
+            "high_quality_images_pct": image_quality,
+            "good_descriptions_pct": desc_quality,
+        }
+
+        step["status"] = status
+        step["result"] = quality_metrics
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+
+        return {"step": step, "quality_metrics": quality_metrics}
+
+    except Exception as e:
+        step["status"] = "warning"
+        step["result"] = {"error": str(e)}
+        step["error_message"] = str(e)
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        return {"step": step, "quality_metrics": {}}
+
+
 def _build_issues(
     merchant_id: str,
     products_data: dict[str, Any],
@@ -567,6 +676,7 @@ def _finalize_result(
     result: dict[str, Any],
     products_data: dict[str, Any],
     google_pub_status: dict[str, Any],
+    quality_metrics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Finalize the audit result."""
     total_products = products_data.get("total_products", 0)
@@ -604,6 +714,7 @@ def _finalize_result(
             "gmc_pending": pending,
             "gmc_disapproved": disapproved,
         },
+        "feed_quality": quality_metrics or {},
     }
 
     return result
@@ -692,8 +803,19 @@ def create_gmc_audit_function() -> inngest.Function | None:
 
         google_pub_status = step3_result["google_pub_status"]
 
-        # Step 4: Issues check
-        step4 = {
+        # Step 4: Feed quality
+        _save_progress(result)
+        step4_result = await ctx.step.run(
+            "analyze-feed-quality",
+            lambda: _step_5_feed_quality(merchant_id, token, products_data),
+        )
+        result["steps"].append(step4_result["step"])
+        _save_progress(result)
+
+        quality_metrics = step4_result["quality_metrics"]
+
+        # Step 5: Issues check
+        step5 = {
             "id": "issues_check",
             "name": "Problèmes",
             "description": "Détection des problèmes",
@@ -714,15 +836,15 @@ def create_gmc_audit_function() -> inngest.Function | None:
         # Determine step status based on issues
         has_critical = any(i.get("severity") == "critical" for i in result["issues"])
         has_high = any(i.get("severity") == "high" for i in result["issues"])
-        step4["status"] = "error" if has_critical else ("warning" if has_high else "success")
-        step4["result"] = {"issues_count": len(result["issues"])}
-        step4["completed_at"] = datetime.now(tz=UTC).isoformat()
-        step4["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
-        result["steps"].append(step4)
+        step5["status"] = "error" if has_critical else ("warning" if has_high else "success")
+        step5["result"] = {"issues_count": len(result["issues"])}
+        step5["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step5["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        result["steps"].append(step5)
         _save_progress(result)
 
         # Finalize
-        final_result = _finalize_result(result, products_data, google_pub_status)
+        final_result = _finalize_result(result, products_data, google_pub_status, quality_metrics)
         _save_progress(final_result)
 
         return final_result
