@@ -85,6 +85,18 @@ function findCompletedAudits(
       return
     }
 
+    // Check if this result is from the CURRENT run (not an old cached result)
+    // Compare started_at timestamps with tolerance for clock skew
+    const serverStarted = new Date(result.started_at).getTime()
+    const ourTrigger = new Date(runInfo.startedAt).getTime()
+    const isFromCurrentRun = serverStarted >= ourTrigger - CLOCK_SKEW_TOLERANCE_MS
+
+    // Only mark as completed if it's from the current run AND has final status
+    if (!isFromCurrentRun) {
+      // This is an old result, wait for new one
+      return
+    }
+
     // Inngest pattern: Check if run has reached final status
     // Final statuses: 'success', 'warning', 'error', 'skipped'
     // Running statuses: 'running', 'pending'
