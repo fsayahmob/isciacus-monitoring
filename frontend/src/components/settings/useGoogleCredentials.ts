@@ -23,9 +23,7 @@ export interface UploadStatus {
 }
 
 export function useGoogleCredentials(): {
-  uploadMutation: ReturnType<
-    typeof useMutation<UploadResponse, Error, File, unknown>
-  >
+  uploadMutation: ReturnType<typeof useMutation<UploadResponse, Error, File, unknown>>
   deleteMutation: ReturnType<
     typeof useMutation<{ success: boolean; message: string }, Error, void, unknown>
   >

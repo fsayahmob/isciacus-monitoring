@@ -113,9 +113,7 @@ export function UploadDropzone({
           />
         </svg>
         <div>
-          <p className="font-medium text-text-primary">
-            Glissez-déposez votre fichier JSON ici
-          </p>
+          <p className="font-medium text-text-primary">Glissez-déposez votre fichier JSON ici</p>
           <p className="mt-1 text-sm text-text-tertiary">ou cliquez pour sélectionner</p>
         </div>
         <div className="mt-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-all hover:bg-brand/90">
