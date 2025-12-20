@@ -47,11 +47,8 @@ export function AuditPipeline(): React.ReactElement {
         .map((audit) => audit.type)
       markAllAuditsAsRunning(availableAuditTypes)
     },
-    onSuccess: (response) => {
-      // Audit trigger success - use console.info for informational logs
-      const count = String(response.triggered_count)
-      // eslint-disable-next-line no-console
-      console.log(`✅ ${count} audits lancés en parallèle`)
+    onSuccess: () => {
+      // Invalidate queries to fetch updated audit session
       void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
     },
   })

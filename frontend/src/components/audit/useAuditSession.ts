@@ -104,8 +104,7 @@ function findCompletedAudits(
     const isFinalStatus = FINAL_STATUSES.includes(result.status)
 
     if (isFinalStatus && result.completed_at !== null) {
-      // eslint-disable-next-line no-console
-      console.log(`✅ Audit ${auditType} completed: ${result.status}`)
+      // Mark audit as completed - will be removed from running map
       completed.push(auditType)
       return
     }
