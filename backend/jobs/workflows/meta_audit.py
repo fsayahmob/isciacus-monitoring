@@ -55,6 +55,7 @@ def _init_result(run_id: str) -> dict[str, Any]:
     return {
         "id": run_id,
         "audit_type": "meta_pixel",
+        "audit_category": "config",
         "status": "running",
         "execution_mode": "inngest",
         "started_at": datetime.now(tz=UTC).isoformat(),

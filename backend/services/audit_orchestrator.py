@@ -39,6 +39,8 @@ class AuditType(Enum):
     THEME_CODE = "theme_code"
     ADS_READINESS = "ads_readiness"  # Global Ads readiness score
     CAPI = "capi"  # Meta Conversion API audit
+    CUSTOMER_DATA = "customer_data"  # Customer data readiness for Ads
+    CART_RECOVERY = "cart_recovery"  # Cart abandonment analysis for retargeting
 
 
 class AuditStepStatus(Enum):

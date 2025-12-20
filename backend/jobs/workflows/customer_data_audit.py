@@ -19,6 +19,7 @@ from services.customer_data_analyzer import CustomerDataAnalyzer
 def _init_result() -> dict[str, Any]:
     """Initialize empty audit result structure."""
     return {
+        "audit_category": "metrics",
         "status": "running",
         "progress": 0,
         "steps": {

@@ -50,6 +50,7 @@ def setup_inngest(app: FastAPI) -> bool:
     # Import dedicated audit workflows
     from .workflows.ads_readiness_audit import ads_readiness_audit_function
     from .workflows.capi_audit import create_capi_audit_function
+    from .workflows.cart_recovery_audit import create_cart_recovery_audit_workflow
     from .workflows.customer_data_audit import create_customer_data_audit_workflow
     from .workflows.ga4_audit import ga4_audit_function
     from .workflows.gmc_audit import gmc_audit_function
@@ -80,6 +81,8 @@ def setup_inngest(app: FastAPI) -> bool:
     if fn := create_capi_audit_function():
         functions.append(fn)
     if fn := create_customer_data_audit_workflow(inngest_client):
+        functions.append(fn)
+    if fn := create_cart_recovery_audit_workflow(inngest_client):
         functions.append(fn)
 
     if not functions:
@@ -326,12 +329,36 @@ async def trigger_customer_data_audit() -> dict[str, str]:
         return {"status": "error", "message": str(e)}
 
 
+async def trigger_cart_recovery_audit() -> dict[str, str]:
+    """Trigger Cart Recovery Analysis audit workflow."""
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="audit/cart-recovery.trigger",
+                data={"run_id": run_id},
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": "cart_recovery"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 async def trigger_audit(audit_type: str, period: int = 30) -> dict[str, str]:
     """
     Trigger any audit type via its dedicated Inngest workflow.
 
     Supported types: ga4_tracking, theme_code, meta_pixel, merchant_center,
-    search_console, ads_readiness, capi, customer_data
+    search_console, ads_readiness, capi, customer_data, cart_recovery
     """
     trigger_map = {
         "ga4_tracking": lambda: trigger_ga4_audit(period),
@@ -342,6 +369,7 @@ async def trigger_audit(audit_type: str, period: int = 30) -> dict[str, str]:
         "ads_readiness": trigger_ads_readiness_audit,
         "capi": trigger_capi_audit,
         "customer_data": trigger_customer_data_audit,
+        "cart_recovery": trigger_cart_recovery_audit,
     }
 
     trigger_func = trigger_map.get(audit_type)

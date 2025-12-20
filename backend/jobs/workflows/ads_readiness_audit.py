@@ -83,6 +83,7 @@ def _init_result(run_id: str) -> dict[str, Any]:
     return {
         "id": run_id,
         "audit_type": "ads_readiness",
+        "audit_category": "metrics",
         "status": "running",
         "execution_mode": "inngest",
         "started_at": datetime.now(tz=UTC).isoformat(),

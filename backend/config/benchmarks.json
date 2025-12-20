@@ -27,6 +27,26 @@
       "name": "Klaviyo",
       "url": "https://www.klaviyo.com/",
       "metric": "sms_optin"
+    },
+    {
+      "name": "Meta Business",
+      "url": "https://www.facebook.com/business/help/164749007013531",
+      "metric": "customer_count_ads"
+    },
+    {
+      "name": "Meta Ads Best Practices",
+      "url": "https://www.facebook.com/business/help/",
+      "metric": "cart_recovery_thresholds"
+    },
+    {
+      "name": "Google Ads Help - Audience Segments",
+      "url": "https://support.google.com/google-ads/answer/2472738",
+      "metric": "google_ads_audiences"
+    },
+    {
+      "name": "Define Digital Academy - Conversions Volume",
+      "url": "https://www.definedigitalacademy.com/blog/how-many-conversions-do-you-need-in-google-why",
+      "metric": "google_ads_conversions_volume"
     }
   ],
   "thresholds": {
@@ -93,6 +113,70 @@
       "ok": { "min": 10, "max": 20 },
       "good": { "min": 20 },
       "description": "Taux de clients avec numéro de téléphone"
+    },
+    "customer_count_ads": {
+      "label": "Nombre de Clients (Ads)",
+      "unit": "clients",
+      "bad": { "max": 1000 },
+      "ok": { "min": 1000, "max": 5000 },
+      "good": { "min": 5000 },
+      "description": "Nombre minimum de clients pour Meta Lookalike Audiences (1000+)"
+    },
+    "data_history_days": {
+      "label": "Historique de Données",
+      "unit": "jours",
+      "bad": { "max": 90 },
+      "ok": { "min": 90, "max": 180 },
+      "good": { "min": 180 },
+      "description": "Durée d'historique nécessaire pour identifier les patterns saisonniers"
+    },
+    "data_quality_score": {
+      "label": "Qualité des Données",
+      "unit": "%",
+      "bad": { "max": 80 },
+      "ok": { "min": 80, "max": 90 },
+      "good": { "min": 90 },
+      "description": "Score de qualité des données client (emails, commandes, dépenses)"
+    },
+    "cart_abandonment_volume": {
+      "label": "Volume Paniers Abandonnés",
+      "unit": "paniers/mois",
+      "bad": { "max": 50 },
+      "ok": { "min": 50, "max": 200 },
+      "good": { "min": 200 },
+      "description": "Volume mensuel minimum pour campagnes de retargeting efficaces"
+    },
+    "cart_email_capture_rate": {
+      "label": "Capture Email (Checkout)",
+      "unit": "%",
+      "bad": { "max": 60 },
+      "ok": { "min": 60, "max": 80 },
+      "good": { "min": 80 },
+      "description": "Taux de capture email dans le processus de checkout"
+    },
+    "cart_recovery_rate": {
+      "label": "Taux de Récupération",
+      "unit": "%",
+      "bad": { "max": 10 },
+      "ok": { "min": 10, "max": 15 },
+      "good": { "min": 15 },
+      "description": "Taux de conversion des campagnes de récupération de paniers"
+    },
+    "google_ads_audiences": {
+      "label": "Audiences Google Ads",
+      "unit": "audiences",
+      "bad": { "max": 1 },
+      "ok": { "min": 1, "max": 3 },
+      "good": { "min": 3 },
+      "description": "Nombre d'audiences de remarketing actives pour tester différents segments"
+    },
+    "google_ads_conversions_volume": {
+      "label": "Volume Conversions Google Ads",
+      "unit": "conversions/semaine",
+      "bad": { "max": 7 },
+      "ok": { "min": 7, "max": 12 },
+      "good": { "min": 12 },
+      "description": "Volume hebdomadaire de conversions (min 30/mois pour Maximize Conversions, 50/mois idéal)"
     }
   }
 }

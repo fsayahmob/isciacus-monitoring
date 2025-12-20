@@ -46,6 +46,11 @@ STEPS = [
         "name": "Match Transactions",
         "description": "Comparaison GA4 vs Shopify",
     },
+    {
+        "id": "google_ads_integration",
+        "name": "Google Ads Integration",
+        "description": "Liaison GA4 → Google Ads",
+    },
 ]
 
 
@@ -78,6 +83,7 @@ def _init_result(run_id: str) -> dict[str, Any]:
     return {
         "id": run_id,
         "audit_type": "ga4_tracking",
+        "audit_category": "config",
         "status": "running",
         "execution_mode": "inngest",
         "started_at": datetime.now(tz=UTC).isoformat(),
@@ -248,6 +254,49 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
     return steps
+
+
+def _step_google_ads_integration() -> dict[str, Any]:
+    """
+    Step 6: Check Google Ads integration with GA4.
+
+    Verifies:
+    1. GA4 is linked to Google Ads
+    2. Conversion imports are active
+    3. Remarketing audiences exist
+    4. Conversion volume is sufficient
+    """
+    step = {
+        "id": "google_ads_integration",
+        "name": "Google Ads Integration",
+        "description": "Liaison GA4 → Google Ads",
+        "status": "running",
+        "started_at": datetime.now(tz=UTC).isoformat(),
+        "completed_at": None,
+        "duration_ms": None,
+        "result": None,
+        "error_message": None,
+    }
+    start_time = datetime.now(tz=UTC)
+
+    # This is a placeholder implementation
+    # In production, you would check:
+    # 1. Google Ads API to verify GA4 property is linked
+    # 2. Check if conversion imports are configured
+    # 3. Count remarketing audiences
+    # 4. Fetch conversion volume from last 7 days
+
+    # For now, return a "not configured" status
+    step["status"] = "warning"
+    step["result"] = {
+        "linked": False,
+        "message": "Google Ads integration check requires Google Ads API credentials",
+        "note": "This step will be implemented when Google Ads API is configured",
+    }
+    step["completed_at"] = datetime.now(tz=UTC).isoformat()
+    step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+
+    return {"step": step, "issues": []}
 
 
 def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
@@ -446,8 +495,17 @@ def create_ga4_audit_function() -> inngest.Function | None:
             result["steps"].append(step)
             _save_progress(result)
 
+        # Step 6: Google Ads Integration
+        google_ads_result = await ctx.step.run(
+            "check-google-ads-integration",
+            _step_google_ads_integration,
+        )
+        result["steps"].append(google_ads_result["step"])
+        result["issues"].extend(google_ads_result["issues"])
+        _save_progress(result)
+
         # Build issues
-        result["issues"] = _build_issues(full_audit)
+        result["issues"].extend(_build_issues(full_audit))
 
         # Finalize
         has_errors = any(s.get("status") == "error" for s in result["steps"])

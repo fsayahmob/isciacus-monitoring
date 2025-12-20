@@ -13,6 +13,8 @@ from typing import Any
 
 import requests
 
+from services.benchmarks import benchmarks_service
+
 
 class CustomerDataAnalyzer:
     """Analyzes customer data for Ads campaign readiness."""
@@ -50,9 +52,10 @@ class CustomerDataAnalyzer:
             data = response.json()
             count = data.get("count", 0)
 
-            # Meta Lookalike Audiences require minimum 1000 customers
-            # https://www.facebook.com/business/help/164749007013531
-            min_required = 1000
+            # Get threshold from benchmarks
+            thresholds = benchmarks_service.get_thresholds()
+            threshold = thresholds.get("customer_count_ads")
+            min_required = int(threshold.bad.max) if threshold else 1000
 
             return {
                 "count": count,
@@ -135,8 +138,10 @@ class CustomerDataAnalyzer:
 
             days_span = (newest_date - oldest_date).days
 
-            # Minimum 90 days recommended for seasonal patterns
-            min_required = 90
+            # Get threshold from benchmarks
+            thresholds = benchmarks_service.get_thresholds()
+            threshold = thresholds.get("data_history_days")
+            min_required = int(threshold.bad.max) if threshold else 90
 
             return {
                 "days": days_span,
@@ -213,8 +218,10 @@ class CustomerDataAnalyzer:
             # Email is critical (50%), orders and spend are important (25% each)
             quality_score = int((email_rate * 0.5) + (order_rate * 0.25) + (spend_rate * 0.25))
 
-            # Require 80%+ quality for Ads readiness
-            min_quality = 80
+            # Get threshold from benchmarks
+            thresholds = benchmarks_service.get_thresholds()
+            threshold = thresholds.get("data_quality_score")
+            min_quality = int(threshold.bad.max) if threshold else 80
 
             return {
                 "quality_score": quality_score,
