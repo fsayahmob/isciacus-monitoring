@@ -50,18 +50,16 @@ jobs:
       - name: Create test environment file
         run: |
           cat > backend/.env << EOF
-          TEST_MODE=true
-          SHOPIFY_STORE_URL=test-store.myshopify.com
-          SHOPIFY_ACCESS_TOKEN=test_token
-          GA4_PROPERTY_ID=properties/123456789
-          GA4_MEASUREMENT_ID=G-XXXXXXXXXX
           INNGEST_DEV=true
           EOF
 
-      - name: Initialize database
-        run: |
-          cd backend
-          python -c "from services.config_service import ConfigService; ConfigService()"
+      - name: Initialize database with ISCIACUS credentials
+        run: cd backend && python init_test_db.py
+        env:
+          SHOPIFY_STORE_URL: ${{ secrets.SHOPIFY_STORE_URL }}
+          SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
 
       - name: Run E2E tests
         run: npm run test:e2e
