@@ -49,7 +49,7 @@ function getOnboardingButtonText(isRunning: boolean, lastStatus: string | null):
 
 function getOnboardingHelpText(isRunning: boolean, lastRun: string | null): string {
   if (isRunning) {
-    return 'Analyse en cours...'
+    return 'Vérification de tous les services...'
   }
   if (lastRun !== null) {
     return `Dernière vérification: ${formatRelativeTime(lastRun)}`
@@ -130,7 +130,7 @@ function OnboardingButton({
     return (
       <button className="btn btn-secondary cursor-not-allowed opacity-50" disabled type="button">
         <LoadingSpinner size="sm" />
-        Analyse en cours...
+        En cours...
       </button>
     )
   }
