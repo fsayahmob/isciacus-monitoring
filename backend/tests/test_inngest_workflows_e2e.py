@@ -213,6 +213,8 @@ class TestAuditWorkflowsE2E:
             "meta_config",
             "gmc_config",
             "gsc_config",
+            "google_credentials",
+            "meta_permissions",
         ]
         self._verify_steps_structure(result, expected_steps)
 

@@ -115,6 +115,7 @@ class ConfigService:
         """Get all configuration sections with current values."""
         sections = [
             self._get_shopify_config(),
+            self._get_google_service_account_config(),  # New: centralized Google credentials
             self._get_ga4_config(),
             self._get_meta_config(),
             self._get_search_console_config(),
@@ -245,11 +246,83 @@ Note: Le token commence par "shpat_" """,
             is_configured=is_configured,
         )
 
+    def _get_google_service_account_config(self) -> ConfigSection:
+        """Get Google Service Account configuration (centralized for all Google services)."""
+        from pathlib import Path
+
+        # Check if file exists
+        creds_path = Path(__file__).parent.parent / "credentials" / "google-service-account.json"
+        file_exists = creds_path.exists()
+
+        # Try to get info from file if it exists
+        project_id = None
+        service_account_email = None
+        if file_exists:
+            try:
+                import json
+
+                with open(creds_path) as f:
+                    creds_data = json.load(f)
+                    project_id = creds_data.get("project_id")
+                    service_account_email = creds_data.get("client_email")
+            except Exception:
+                pass
+
+        variables = [
+            ConfigVariable(
+                key="GOOGLE_SERVICE_ACCOUNT_FILE",
+                label="Fichier Service Account (JSON)",
+                description="Fichier JSON du Service Account Google pour accéder aux APIs",
+                how_to_get="""Ce Service Account donne accès à :
+• Google Analytics 4 Data API
+• Google Merchant Center API
+• Google Search Console API
+
+📋 ÉTAPES DE CONFIGURATION :
+
+1. Créer le Service Account :
+   → Allez sur console.cloud.google.com
+   → Créez un projet ou sélectionnez-en un
+   → IAM & Admin > Service Accounts > Create Service Account
+   → Nom: "isciacus-api" (ou autre)
+
+2. Activer les APIs nécessaires :
+   → APIs & Services > Enable APIs and Services
+   → Activez : Analytics Data API, Content API for Shopping
+
+3. Télécharger le fichier JSON :
+   → Dans Service Accounts, cliquez sur votre compte
+   → Keys > Add Key > Create New Key > JSON
+   → Téléchargez le fichier
+
+4. Uploader le fichier :
+   → Utilisez le bouton "Upload" ci-dessous
+   → Le fichier sera validé et stocké en sécurité
+
+5. Donner les permissions :
+   → GA4: Ajoutez l'email du Service Account en lecture
+   → GMC: Ajoutez l'email comme utilisateur
+   → GSC: Ajoutez l'email comme propriétaire""",
+                value=f"✅ Configuré ({service_account_email})" if file_exists else None,
+                is_set=file_exists,
+                is_secret=False,  # Display info only, not the actual file
+                required=True,
+            ),
+        ]
+
+        return ConfigSection(
+            id="google_service_account",
+            name="Google Service Account",
+            description="Credentials partagées pour tous les services Google (GA4, GMC, GSC)",
+            icon="google",
+            variables=variables,
+            is_configured=file_exists,
+        )
+
     def _get_ga4_config(self) -> ConfigSection:
         """Get Google Analytics 4 configuration."""
         property_id = self._get_value("GA4_PROPERTY_ID")
         measurement_id = self._get_value("GA4_MEASUREMENT_ID")
-        credentials_path = self._get_value("GOOGLE_APPLICATION_CREDENTIALS")
 
         variables = [
             ConfigVariable(
@@ -261,7 +334,8 @@ Note: Le token commence par "shpat_" """,
 3. Dans la colonne "Property", cliquez sur "Property Settings"
 4. L'ID est affiché en haut: "PROPERTY ID" (ex: 123456789)
 
-Note: C'est un nombre, pas le nom de la propriété""",
+Note: C'est un nombre, pas le nom de la propriété
+⚠️ Assurez-vous que le Google Service Account a accès à cette propriété GA4""",
                 value=property_id or None,
                 is_set=bool(property_id),
                 is_secret=False,
@@ -279,24 +353,6 @@ Note: C'est un nombre, pas le nom de la propriété""",
 Note: Commence toujours par "G-" suivi de caractères alphanumériques""",
                 value=measurement_id or None,
                 is_set=bool(measurement_id),
-                is_secret=False,
-                required=True,
-            ),
-            ConfigVariable(
-                key="GOOGLE_APPLICATION_CREDENTIALS",
-                label="Fichier credentials Service Account",
-                description="Chemin vers le fichier JSON du Service Account Google",
-                how_to_get="""1. Allez sur Google Cloud Console (console.cloud.google.com)
-2. Créez un projet ou sélectionnez-en un existant
-3. Allez dans "IAM & Admin" > "Service Accounts"
-4. Créez un nouveau Service Account avec le rôle "Analytics Viewer"
-5. Créez une clé JSON et téléchargez-la
-6. Placez le fichier dans le dossier backend (ex: ./credentials/ga4-service-account.json)
-7. Dans Google Analytics, ajoutez l'email du Service Account en lecture
-
-Important: N'exposez jamais ce fichier publiquement!""",
-                value=credentials_path or None,
-                is_set=bool(credentials_path) and self._has_google_service_account(),
                 is_secret=False,
                 required=True,
             ),
@@ -397,8 +453,6 @@ L'ID ressemble à: 61584823689208""",
     def _get_search_console_config(self) -> ConfigSection:
         """Get Google Search Console configuration."""
         property_url = self._get_value("GOOGLE_SEARCH_CONSOLE_PROPERTY")
-        service_account_email = self._get_value("GOOGLE_SERVICE_ACCOUNT_EMAIL")
-        service_account_key = self._get_value("GOOGLE_SERVICE_ACCOUNT_KEY_PATH")
 
         variables = [
             ConfigVariable(
@@ -412,42 +466,15 @@ L'ID ressemble à: 61584823689208""",
 
 Exemples:
 - sc-domain:isciacusstore.com (domaine entier)
-- https://www.isciacusstore.com/ (préfixe URL)""",
-                value=property_url or None,
-                is_set=bool(property_url),
-                is_secret=False,
-                required=True,
-            ),
-            ConfigVariable(
-                key="GOOGLE_SERVICE_ACCOUNT_EMAIL",
-                label="Email du Service Account",
-                description="Email du compte de service Google pour l'authentification",
-                how_to_get="""1. Utilisez le même Service Account que pour GA4
-2. L'email ressemble à: nom@projet.iam.gserviceaccount.com
-3. Ajoutez cet email comme utilisateur dans Search Console:
+- https://www.isciacusstore.com/ (préfixe URL)
+
+⚠️ Important: Ajoutez l'email du Google Service Account comme utilisateur dans Search Console:
    - Allez dans Settings > Users and permissions
    - Cliquez sur "Add user"
-   - Entrez l'email et donnez les droits "Full" ou "Restricted"
-
-Note: Le même Service Account peut être utilisé pour GA4 et Search Console""",
-                value=service_account_email or None,
-                is_set=bool(service_account_email),
-                is_secret=False,
-                required=True,
-            ),
-            ConfigVariable(
-                key="GOOGLE_SERVICE_ACCOUNT_KEY_PATH",
-                label="Fichier clé Service Account",
-                description="Chemin vers le fichier JSON de la clé du Service Account",
-                how_to_get="""1. C'est le même fichier JSON utilisé pour GA4
-2. Placez-le dans le dossier backend
-3. Indiquez le chemin relatif ou absolu
-
-Exemple: merchant-center-1709227937606-64ee8fa5e1b0.json
-
-Note: Ce fichier contient la clé privée, ne le partagez jamais!""",
-                value=service_account_key or None,
-                is_set=bool(service_account_key) and self._has_google_service_account(),
+   - Entrez l'email du Service Account (visible dans la section "Google Service Account")
+   - Donnez les droits "Full" ou "Restricted\"""",
+                value=property_url or None,
+                is_set=bool(property_url),
                 is_secret=False,
                 required=True,
             ),
@@ -526,7 +553,10 @@ Pour la production, un accès Standard ou Basic est requis.""",
 2. L'ID est visible en haut à gauche de l'interface
 3. C'est un nombre (ex: 123456789)
 
-Note: Assurez-vous que le Service Account Google a accès à ce compte.""",
+⚠️ Important: Assurez-vous que le Google Service Account a accès à ce compte:
+   - Allez dans Settings > Users
+   - Ajoutez l'email du Service Account (visible dans la section "Google Service Account")
+   - Donnez les droits "Admin" ou "Standard\"""",
                 value=merchant_id or None,
                 is_set=bool(merchant_id),
                 is_secret=False,

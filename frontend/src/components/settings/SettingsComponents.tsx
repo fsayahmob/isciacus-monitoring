@@ -5,6 +5,7 @@
  */
 
 import type { ConfigSection, ConnectionTestResult } from '../../services/api'
+import { GoogleServiceAccountUpload } from './GoogleServiceAccountUpload'
 import { SectionIcon } from './SectionIcons'
 import { VariableCard } from './VariableCard'
 
@@ -91,6 +92,15 @@ export function ConfigSectionCard({
   editedValues: Record<string, string>
   onValueChange: (key: string, value: string) => void
 }): React.ReactElement {
+  // Special handling for Google Service Account section
+  const isGoogleServiceAccount = section.id === 'google_service_account'
+
+  // Extract project_id and service_account_email from variables if present
+  const projectId = section.variables.find((v) => v.key === 'GOOGLE_PROJECT_ID')?.value
+  const serviceAccountEmail = section.variables.find(
+    (v) => v.key === 'GOOGLE_SERVICE_ACCOUNT_EMAIL'
+  )?.value
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border-default bg-bg-secondary shadow-sm transition-all hover:shadow-md">
       <ConfigSectionHeader
@@ -100,14 +110,22 @@ export function ConfigSectionCard({
         onTestConnection={onTestConnection}
       />
       <div className="space-y-4 p-6">
-        {section.variables.map((variable) => (
-          <VariableCard
-            key={variable.key}
-            editedValue={editedValues[variable.key]}
-            variable={variable}
-            onValueChange={onValueChange}
+        {isGoogleServiceAccount ? (
+          <GoogleServiceAccountUpload
+            isConfigured={section.is_configured}
+            projectId={projectId}
+            serviceAccountEmail={serviceAccountEmail}
           />
-        ))}
+        ) : (
+          section.variables.map((variable) => (
+            <VariableCard
+              key={variable.key}
+              editedValue={editedValues[variable.key]}
+              variable={variable}
+              onValueChange={onValueChange}
+            />
+          ))
+        )}
       </div>
     </div>
   )

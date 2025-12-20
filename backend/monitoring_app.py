@@ -340,6 +340,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include credentials management routes
+try:
+    from routes.credentials import router as credentials_router
+
+    app.include_router(credentials_router)
+except ImportError:
+    pass  # Credentials routes optional
+
 
 @app.get("/api/products")
 async def get_products(

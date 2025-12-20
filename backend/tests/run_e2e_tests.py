@@ -152,6 +152,8 @@ def main() -> None:
             "meta_config",
             "gmc_config",
             "gsc_config",
+            "google_credentials",
+            "meta_permissions",
         ],
         "theme_code": [
             "theme_access",

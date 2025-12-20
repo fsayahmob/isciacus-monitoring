@@ -12,6 +12,8 @@ export {
   VariableCard,
 } from './SettingsComponents'
 
+export { GoogleServiceAccountUpload } from './GoogleServiceAccountUpload'
+
 export { DefaultSectionIcon, SectionIcon } from './SectionIcons'
 
 export { ErrorDisplay, ProgressBar, RefreshButton, SaveBar, StatusMessage } from './SettingsHelpers'
