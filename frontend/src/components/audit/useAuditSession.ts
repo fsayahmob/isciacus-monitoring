@@ -68,17 +68,38 @@ function findCompletedAudits(
   }
 
   const completed: string[] = []
+  const now = Date.now()
+
   runningAudits.forEach((runInfo, auditType) => {
     const result = session.audits[auditType] as AuditResult | undefined
-    if (result !== undefined) {
-      // Only mark as completed if:
-      // 1. The result is from our current run (started after we triggered)
-      // 2. AND the status is not 'running'
-      if (isResultFromCurrentRun(result, runInfo) && result.status !== 'running') {
-        completed.push(auditType)
-      }
+
+    // No result yet - audit still running
+    if (result === undefined) {
+      return
+    }
+
+    // Check if audit has completed (simpler logic, no timestamp check)
+    const hasCompleted =
+      result.status !== 'running' &&  // Has final status
+      result.status !== 'pending' &&  // Not waiting to start
+      result.completed_at !== null    // Has completion timestamp
+
+    if (hasCompleted) {
+      console.log(`✅ Audit ${auditType} completed with status: ${result.status}`)
+      completed.push(auditType)
+      return
+    }
+
+    // Safety timeout: if audit running for > 2 minutes, force complete
+    const elapsed = now - new Date(runInfo.startedAt).getTime()
+    const MAX_DURATION_MS = 120000 // 2 minutes
+
+    if (elapsed > MAX_DURATION_MS) {
+      console.warn(`⏱️ Audit ${auditType} timeout after ${(elapsed / 1000).toFixed(0)}s`)
+      completed.push(auditType)
     }
   })
+
   return completed
 }
 
