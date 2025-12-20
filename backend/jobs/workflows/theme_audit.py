@@ -304,20 +304,93 @@ def _step_4_gtm_code(analysis: dict[str, Any]) -> dict[str, Any]:
         "error_message": None,
     }
     start_time = datetime.now(tz=UTC)
+    issues = []
 
     gtm_configured = analysis.get("gtm_configured", False)
     gtm_container_id = analysis.get("gtm_container_id")
 
+    # GTM n'est pas obligatoire mais fortement recommandé
     step["status"] = "success" if gtm_configured else "warning"
+
+    # Message explicatif pour l'UI
+    if gtm_configured:
+        message = f"GTM configuré : {gtm_container_id}"
+    else:
+        message = (
+            "GTM non détecté - Recommandé pour attribution avancée et gestion centralisée des tags"
+        )
+        # Ajouter une issue pour guider l'utilisateur
+        issues.append(
+            {
+                "id": "gtm_not_configured",
+                "audit_type": "theme_code",
+                "severity": "medium",
+                "title": "Google Tag Manager non configuré - Attribution avancée recommandée",
+                "description": (
+                    "GTM permet d'optimiser vos campagnes Ads grâce à : attribution multi-touch "
+                    "avancée, gestion centralisée des tags (Meta, TikTok, etc.), A/B testing "
+                    "facilité, et meilleur suivi des UTM parameters."
+                ),
+                "details": [
+                    "📋 GUIDE D'INSTALLATION (5 minutes)",
+                    "",
+                    "ÉTAPE 1 : Créer un compte GTM",
+                    "→ Allez sur tagmanager.google.com",
+                    "→ Créez un conteneur de type 'Web'",
+                    "→ Notez votre Container ID (ex: GTM-ABC123)",
+                    "",
+                    "ÉTAPE 2 : Installer dans Shopify",
+                    "→ Online Store > Themes > Actions > Edit Code",
+                    "→ Fichier : layout/theme.liquid",
+                    "",
+                    "📝 Code à ajouter dans <head> (après l'ouverture) :",
+                    "<!-- Google Tag Manager -->",
+                    "<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':",
+                    "new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+                    "j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=",
+                    "'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);",
+                    "})(window,document,'script','dataLayer','GTM-XXXXXXX');</script>",
+                    "<!-- End Google Tag Manager -->",
+                    "",
+                    "📝 Code à ajouter après <body> (juste après l'ouverture) :",
+                    "<!-- Google Tag Manager (noscript) -->",
+                    (
+                        "<noscript><iframe "
+                        'src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" '
+                        'height="0" width="0" '
+                        'style="display:none;visibility:hidden"></iframe></noscript>'
+                    ),
+                    "<!-- End Google Tag Manager (noscript) -->",
+                    "",
+                    "⚠️ Remplacez GTM-XXXXXXX par votre vrai Container ID",
+                    "",
+                    "ÉTAPE 3 : Vérifier l'installation",
+                    "→ Installez l'extension Chrome 'Tag Assistant Legacy'",
+                    "→ Visitez votre boutique et vérifiez que GTM est détecté",
+                    "→ Ou relancez cet audit pour confirmer la détection",
+                    "",
+                    "💡 BONUS : Configurer les tags dans GTM",
+                    "→ Ajoutez GA4 et Meta Pixel comme tags",
+                    "→ Configurez les triggers pour les événements e-commerce",
+                    "→ Testez avec le mode Preview de GTM",
+                ],
+                "action_available": True,
+                "action_label": "Créer compte GTM",
+                "action_url": "https://tagmanager.google.com",
+                "action_status": "available",
+            }
+        )
+
     step["result"] = {
         "configured": gtm_configured,
         "container_id": gtm_container_id,
+        "message": message,
     }
 
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
 
-    return {"step": step, "issues": []}
+    return {"step": step, "issues": issues}
 
 
 def _step_5_issues_detection(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -494,6 +567,7 @@ def create_theme_audit_function() -> inngest.Function | None:
         _save_progress(result)
         step4_result = await ctx.step.run("analyze-gtm-code", lambda: _step_4_gtm_code(analysis))
         result["steps"].append(step4_result["step"])
+        result["issues"].extend(step4_result["issues"])
         _save_progress(result)
 
         _save_progress(result)
