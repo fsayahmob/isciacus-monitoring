@@ -5,7 +5,6 @@ Tests cart abandonment analysis for Ads retargeting readiness.
 """
 
 import os
-from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest

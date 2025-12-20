@@ -418,10 +418,12 @@ def _validate_consent_mode_v2(analysis: dict[str, Any]) -> dict[str, Any]:
 
     # Placeholder validation result
     # In production, this would scan theme files for these parameters
+    detected = ["ad_storage", "analytics_storage"] if consent_mode_detected else []
+    missing = ["ad_user_data", "ad_personalization"] if consent_mode_detected else required_params
     validation = {
         "v2_compliant": False,
-        "detected_params": ["ad_storage", "analytics_storage"] if consent_mode_detected else [],
-        "missing_params": ["ad_user_data", "ad_personalization"] if consent_mode_detected else required_params,
+        "detected_params": detected,
+        "missing_params": missing,
         "status": "needs_upgrade" if consent_mode_detected else "not_configured",
     }
 
