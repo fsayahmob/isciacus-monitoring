@@ -38,6 +38,7 @@ class AuditType(Enum):
     SEARCH_CONSOLE = "search_console"
     THEME_CODE = "theme_code"
     ADS_READINESS = "ads_readiness"  # Global Ads readiness score
+    CAPI = "capi"  # Meta Conversion API audit
 
 
 class AuditStepStatus(Enum):
