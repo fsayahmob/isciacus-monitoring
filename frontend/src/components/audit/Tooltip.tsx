@@ -26,11 +26,13 @@ function InfoIcon(): React.ReactElement {
 
 export function AuditTooltip({ auditType }: { auditType: string }): React.ReactElement | null {
   const [isOpen, setIsOpen] = useState(false)
-  const tooltipData = AUDIT_TOOLTIPS[auditType]
 
-  if (tooltipData === undefined) {
+  // Check if audit type has tooltip data
+  if (!(auditType in AUDIT_TOOLTIPS)) {
     return null
   }
+
+  const tooltipData = AUDIT_TOOLTIPS[auditType]
 
   return (
     <div className="relative">

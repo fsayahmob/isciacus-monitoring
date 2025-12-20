@@ -76,7 +76,7 @@ function SegmentCard({ segment }: { segment: RFMSegment }): React.ReactElement {
       </div>
 
       <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-bg-tertiary">
-        <div className={`h-2 rounded-full ${segment.color}`} style={{ width: `${segment.percentage}%` }} />
+        <div className={`h-2 rounded-full ${segment.color}`} style={{ width: `${String(segment.percentage)}%` }} />
       </div>
     </div>
   )

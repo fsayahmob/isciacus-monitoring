@@ -244,6 +244,63 @@ function useAuditMutation(
   })
 }
 
+/**
+ * Setup audit control callbacks
+ */
+function useAuditControls(
+  setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>,
+  runAuditMutation: ReturnType<typeof useMutation<Awaited<ReturnType<typeof runAudit>>, Error, string>>,
+  runningAudits: Map<string, RunningAuditInfo>,
+  setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
+  setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>
+): {
+  selectAudit: (auditType: string) => void
+  handleRunAudit: (auditType: string) => void
+  isAuditRunning: (auditType: string) => boolean
+  markAllAuditsAsRunning: (auditTypes: string[]) => void
+} {
+  const selectAudit = React.useCallback((auditType: string): void => {
+    setSelectedAudit(auditType)
+  }, [setSelectedAudit])
+
+  const handleRunAudit = React.useCallback(
+    (auditType: string): void => {
+      runAuditMutation.mutate(auditType)
+    },
+    [runAuditMutation]
+  )
+
+  const isAuditRunning = React.useCallback(
+    (auditType: string): boolean => {
+      return runningAudits.has(auditType)
+    },
+    [runningAudits]
+  )
+
+  const markAllAuditsAsRunning = React.useCallback(
+    (auditTypes: string[]): void => {
+      const startedAt = new Date().toISOString()
+      setRunningAudits((prev) => {
+        const next = new Map(prev)
+        auditTypes.forEach((auditType) => {
+          next.set(auditType, { startedAt })
+        })
+        return next
+      })
+      setOptimisticResults((prev) => {
+        const next = new Map(prev)
+        auditTypes.forEach((auditType) => {
+          next.set(auditType, createRunningResult(auditType))
+        })
+        return next
+      })
+    },
+    [setRunningAudits, setOptimisticResults]
+  )
+
+  return { selectAudit, handleRunAudit, isAuditRunning, markAllAuditsAsRunning }
+}
+
 export function useAuditSession(): UseAuditSessionReturn {
   const queryClient = useQueryClient()
   const [selectedAudit, setSelectedAudit] = React.useState<string | null>(null)
@@ -294,45 +351,12 @@ export function useAuditSession(): UseAuditSessionReturn {
     [selectedAudit, session, optimisticResults, runningAudits]
   )
 
-  const selectAudit = React.useCallback((auditType: string): void => {
-    setSelectedAudit(auditType)
-  }, [])
-
-  const handleRunAudit = React.useCallback(
-    (auditType: string): void => {
-      runAuditMutation.mutate(auditType)
-    },
-    [runAuditMutation]
-  )
-
-  const isAuditRunning = React.useCallback(
-    (auditType: string): boolean => {
-      return runningAudits.has(auditType)
-    },
-    [runningAudits]
-  )
-
-  // Mark all available audits as running when "Run All" is triggered
-  const markAllAuditsAsRunning = React.useCallback(
-    (auditTypes: string[]): void => {
-      const startedAt = new Date().toISOString()
-      setRunningAudits((prev) => {
-        const next = new Map(prev)
-        auditTypes.forEach((auditType) => {
-          next.set(auditType, { startedAt })
-        })
-        return next
-      })
-      // Create optimistic results for all
-      setOptimisticResults((prev) => {
-        const next = new Map(prev)
-        auditTypes.forEach((auditType) => {
-          next.set(auditType, createRunningResult(auditType))
-        })
-        return next
-      })
-    },
-    []
+  const controls = useAuditControls(
+    setSelectedAudit,
+    runAuditMutation,
+    runningAudits,
+    setRunningAudits,
+    setOptimisticResults
   )
 
   return {
@@ -342,9 +366,9 @@ export function useAuditSession(): UseAuditSessionReturn {
     selectedAudit,
     runningAudits,
     isSelectedAuditRunning: selectedAudit !== null && runningAudits.has(selectedAudit),
-    selectAudit,
-    runAudit: handleRunAudit,
-    isAuditRunning,
-    markAllAuditsAsRunning,
+    selectAudit: controls.selectAudit,
+    runAudit: controls.handleRunAudit,
+    isAuditRunning: controls.isAuditRunning,
+    markAllAuditsAsRunning: controls.markAllAuditsAsRunning,
   }
 }
