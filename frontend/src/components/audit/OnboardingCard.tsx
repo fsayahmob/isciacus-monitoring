@@ -7,6 +7,7 @@ import React from 'react'
 
 import type { AuditStepStatus, AvailableAudit } from '../../services/api'
 import { LoadingSpinner, StatusBadge } from './StatusIcons'
+import { AuditTooltip } from './Tooltip'
 import { formatRelativeTime } from './utils'
 
 interface ExtendedAudit extends AvailableAudit {
@@ -196,8 +197,11 @@ export function OnboardingCard({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <OnboardingIcon isRunning={isRunning} />
-          <div>
-            <h3 className="text-lg font-semibold text-text-primary">{audit.name}</h3>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-text-primary">{audit.name}</h3>
+              <AuditTooltip auditType={audit.type} />
+            </div>
             <p className="mt-1 text-sm text-text-secondary">{audit.description}</p>
           </div>
         </div>

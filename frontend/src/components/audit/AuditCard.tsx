@@ -7,6 +7,7 @@ import React from 'react'
 import type { AuditStepStatus, AvailableAudit } from '../../services/api'
 import { OnboardingCard } from './OnboardingCard'
 import { AuditIcon, LoadingSpinner, StatusBadge } from './StatusIcons'
+import { AuditTooltip } from './Tooltip'
 import { formatRelativeTime } from './utils'
 
 interface ExtendedAudit extends AvailableAudit {
@@ -117,8 +118,11 @@ export function AuditCard({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <AuditIcon icon={audit.icon} status={iconStatus} />
-          <div>
-            <h3 className="text-sm font-medium text-text-primary">{audit.name}</h3>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium text-text-primary">{audit.name}</h3>
+              <AuditTooltip auditType={audit.type} />
+            </div>
             <p className="mt-0.5 text-xs text-text-tertiary">{audit.description}</p>
           </div>
         </div>
