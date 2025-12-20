@@ -47,6 +47,16 @@
       "name": "Define Digital Academy - Conversions Volume",
       "url": "https://www.definedigitalacademy.com/blog/how-many-conversions-do-you-need-in-google-why",
       "metric": "google_ads_conversions_volume"
+    },
+    {
+      "name": "Meta Business Help - Event Match Quality",
+      "url": "https://www.facebook.com/business/help/765081237991954",
+      "metric": "meta_emq_score"
+    },
+    {
+      "name": "Google Merchant Center Help - Product Data Quality",
+      "url": "https://support.google.com/merchants/answer/7052112",
+      "metric": "gmc_feed_quality"
     }
   ],
   "thresholds": {
@@ -176,7 +186,39 @@
       "bad": { "max": 7 },
       "ok": { "min": 7, "max": 12 },
       "good": { "min": 12 },
-      "description": "Volume hebdomadaire de conversions (min 30/mois pour Maximize Conversions, 50/mois idéal)"
+      "description": "Volume hebdomadaire (min 30/mois pour Maximize Conversions)"
+    },
+    "meta_emq_score": {
+      "label": "Event Match Quality Meta",
+      "unit": "/10",
+      "bad": { "max": 4.0 },
+      "ok": { "min": 4.0, "max": 6.0 },
+      "good": { "min": 6.0 },
+      "description": "Score qualité données matching CAPI. > 6.0 pour optimiser Ads"
+    },
+    "gmc_feed_quality_gtin": {
+      "label": "Couverture GTIN Google Shopping",
+      "unit": "%",
+      "bad": { "max": 50 },
+      "ok": { "min": 50, "max": 80 },
+      "good": { "min": 80 },
+      "description": "Pourcentage de produits avec GTIN valide. Améliore le ranking Google Shopping"
+    },
+    "gmc_feed_quality_images": {
+      "label": "Qualité Images Google Shopping",
+      "unit": "%",
+      "bad": { "max": 70 },
+      "ok": { "min": 70, "max": 90 },
+      "good": { "min": 90 },
+      "description": "Pourcentage de produits avec images haute qualité (>800x800px, fond blanc)"
+    },
+    "gmc_feed_quality_approval": {
+      "label": "Taux Approbation Produits GMC",
+      "unit": "%",
+      "bad": { "max": 80 },
+      "ok": { "min": 80, "max": 95 },
+      "good": { "min": 95 },
+      "description": "Taux de produits approuvés sans erreur dans Google Merchant Center"
     }
   }
 }
