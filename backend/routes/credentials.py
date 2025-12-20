@@ -7,11 +7,12 @@ like Google Service Account JSON files.
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from google.oauth2 import service_account
 from pydantic import BaseModel
+
 
 router = APIRouter()
 
@@ -59,7 +60,7 @@ async def get_credentials_status() -> dict[str, Any]:
 
 
 @router.post("/api/credentials/google/upload")
-async def upload_google_credentials(file: UploadFile = File(...)) -> dict[str, Any]:
+async def upload_google_credentials(file: Annotated[UploadFile, File()]) -> dict[str, Any]:
     """
     Upload Google Service Account credentials file.
 
@@ -89,11 +90,11 @@ async def upload_google_credentials(file: UploadFile = File(...)) -> dict[str, A
     try:
         content = await file.read()
         credentials_data = json.loads(content)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=400,
             detail="Invalid JSON format",
-        )
+        ) from e
 
     # Validate required fields for Google Service Account
     required_fields = [
@@ -128,7 +129,7 @@ async def upload_google_credentials(file: UploadFile = File(...)) -> dict[str, A
     # Save to temporary file first to test loading
     temp_path = CREDENTIALS_DIR / "google-service-account.json.tmp"
     try:
-        with open(temp_path, "w") as f:
+        with temp_path.open("w") as f:
             json.dump(credentials_data, f, indent=2)
 
         # Test that credentials can be loaded
@@ -159,7 +160,7 @@ async def upload_google_credentials(file: UploadFile = File(...)) -> dict[str, A
         raise HTTPException(
             status_code=400,
             detail=f"Failed to validate credentials: {str(e)[:200]}",
-        )
+        ) from e
 
 
 @router.delete("/api/credentials/google")
