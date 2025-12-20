@@ -437,8 +437,8 @@ def _validate_consent_mode_v2(analysis: dict[str, Any]) -> dict[str, Any]:
                 "severity": "high",
                 "title": "Google Consent Mode v2 non configuré",
                 "description": (
-                    "Consent Mode v2 est requis pour la conformité RGPD et optimiser les conversions "
-                    "Google Ads/GA4 avec les utilisateurs sans consentement."
+                    "Consent Mode v2 est requis pour la conformité RGPD et optimiser "
+                    "les conversions Google Ads/GA4 avec les utilisateurs sans consentement."
                 ),
                 "details": [
                     "📋 POURQUOI CONSENT MODE V2 EST IMPORTANT :",
