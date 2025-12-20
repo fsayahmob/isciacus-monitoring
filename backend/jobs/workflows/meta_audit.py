@@ -94,6 +94,7 @@ def _step_1_detect_pixel(configured_pixel_id: str) -> dict[str, Any]:
     theme_pixel_id = None
     pixel_in_theme = False
     meta_events_found = []
+    is_shopify_native = False
 
     try:
         from services.theme_analyzer import ThemeAnalyzerService
@@ -105,6 +106,7 @@ def _step_1_detect_pixel(configured_pixel_id: str) -> dict[str, Any]:
         pixel_in_theme = analysis.meta_pixel_configured
         theme_pixel_id = analysis.meta_pixel_id
         meta_events_found = analysis.meta_events_found
+        is_shopify_native = analysis.meta_pixel_via_shopify_native
     except Exception:
         pass
 
@@ -136,6 +138,7 @@ def _step_1_detect_pixel(configured_pixel_id: str) -> dict[str, Any]:
         "theme_pixel_id": theme_pixel_id,
         "pixel_in_theme": pixel_in_theme,
         "meta_events_found": meta_events_found,
+        "is_shopify_native": is_shopify_native,
     }
 
 
@@ -207,7 +210,9 @@ def _step_2_check_config(
     return {"step": step, "issues": issues}
 
 
-def _step_3_check_events(meta_events_found: list[str]) -> dict[str, Any]:
+def _step_3_check_events(
+    meta_events_found: list[str], *, is_shopify_native: bool = False
+) -> dict[str, Any]:
     """Step 3: Check Meta events."""
     step = {
         "id": "events_check",
@@ -226,30 +231,70 @@ def _step_3_check_events(meta_events_found: list[str]) -> dict[str, Any]:
     required_events = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"]
     missing_events = [e for e in required_events if e not in meta_events_found]
 
-    if not missing_events:
+    # If using Shopify native integration, events are automatically sent
+    # even if not hardcoded in theme - only report as info
+    if is_shopify_native and missing_events:
+        step["status"] = "success"
+        step["result"] = {
+            "found": meta_events_found,
+            "missing": missing_events,
+            "note": "Événements standard envoyés automatiquement par Shopify (Web Pixels)",
+        }
+        # Add single info issue explaining native integration handles events
+        issues.append(
+            {
+                "id": "meta_events_via_native",
+                "audit_type": "meta_pixel",
+                "severity": "info",
+                "title": "Événements gérés par l'intégration Shopify native",
+                "description": (
+                    "Les événements Meta Pixel standard (PageView, ViewContent, AddToCart, "
+                    "InitiateCheckout, Purchase) sont automatiquement envoyés par "
+                    "l'intégration native Shopify via Web Pixels API. "
+                    "Aucune action requise."
+                ),
+                "action_available": False,
+            }
+        )
+    elif not missing_events:
         step["status"] = "success"
         step["result"] = {"found": meta_events_found, "missing": []}
     elif len(missing_events) <= 2:
         step["status"] = "warning"
         step["result"] = {"found": meta_events_found, "missing": missing_events}
+        # Report missing events with appropriate severity
+        issues.extend(
+            {
+                "id": f"meta_missing_event_{event}",
+                "audit_type": "meta_pixel",
+                "severity": "high" if event in ["Purchase", "AddToCart"] else "medium",
+                "title": f"Événement '{event}' manquant",
+                "description": f"L'événement Meta Pixel {event} n'est pas détecté dans le thème",
+                "action_available": True,
+                "action_label": f"Ajouter {event} au thème",
+                "action_id": f"fix_meta_event_{event}",
+                "action_status": "available",
+            }
+            for event in missing_events
+        )
     else:
         step["status"] = "error"
         step["result"] = {"found": meta_events_found, "missing": missing_events}
-
-    issues.extend(
-        {
-            "id": f"meta_missing_event_{event}",
-            "audit_type": "meta_pixel",
-            "severity": "high" if event in ["Purchase", "AddToCart"] else "medium",
-            "title": f"Événement '{event}' manquant",
-            "description": f"L'événement Meta Pixel {event} n'est pas détecté dans le thème",
-            "action_available": True,
-            "action_label": f"Ajouter {event} au thème",
-            "action_id": f"fix_meta_event_{event}",
-            "action_status": "available",
-        }
-        for event in missing_events
-    )
+        # Report missing events with appropriate severity
+        issues.extend(
+            {
+                "id": f"meta_missing_event_{event}",
+                "audit_type": "meta_pixel",
+                "severity": "high" if event in ["Purchase", "AddToCart"] else "medium",
+                "title": f"Événement '{event}' manquant",
+                "description": f"L'événement Meta Pixel {event} n'est pas détecté dans le thème",
+                "action_available": True,
+                "action_label": f"Ajouter {event} au thème",
+                "action_id": f"fix_meta_event_{event}",
+                "action_status": "available",
+            }
+            for event in missing_events
+        )
 
     step["completed_at"] = datetime.now(tz=UTC).isoformat()
     step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
@@ -410,6 +455,7 @@ def create_meta_audit_function() -> inngest.Function | None:
         theme_pixel_id = step1_result["theme_pixel_id"]
         pixel_in_theme = step1_result["pixel_in_theme"]
         meta_events_found = step1_result["meta_events_found"]
+        is_shopify_native = step1_result.get("is_shopify_native", False)
 
         # Step 2: Check config
         _save_progress(result)
@@ -429,7 +475,7 @@ def create_meta_audit_function() -> inngest.Function | None:
         _save_progress(result)
         step3_result = await ctx.step.run(
             "check-meta-events",
-            lambda: _step_3_check_events(meta_events_found),
+            lambda: _step_3_check_events(meta_events_found, is_shopify_native=is_shopify_native),
         )
         result["steps"].append(step3_result["step"])
         result["issues"].extend(step3_result["issues"])

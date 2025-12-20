@@ -204,6 +204,24 @@ def _check_tracking_quality() -> dict[str, Any]:
             )
 
         step["status"] = "success" if score >= 40 else "warning"
+
+        # Message explicatif pour l'UI
+        ga4_pct = (len(ga4_events_present) / len(required_ga4_events)) * 100
+        meta_pct = (len(meta_events_present) / len(required_meta_events)) * 100
+
+        if score >= 40:
+            message = f"Tracking de qualité : GA4 {ga4_pct:.0f}%, Meta {meta_pct:.0f}%"
+        elif score >= 20:
+            message = (
+                f"Tracking partiel : GA4 {ga4_pct:.0f}%, "
+                f"Meta {meta_pct:.0f}% - événements manquants"
+            )
+        else:
+            message = (
+                f"Tracking insuffisant : GA4 {ga4_pct:.0f}%, "
+                f"Meta {meta_pct:.0f}% - configuration requise"
+            )
+
         step["result"] = {
             "score": score,
             "max_score": 50,
@@ -212,6 +230,7 @@ def _check_tracking_quality() -> dict[str, Any]:
             "meta_events_found": len(meta_events_present),
             "meta_events_required": len(required_meta_events),
             "has_capi": has_capi,
+            "message": message,
         }
 
     except ImportError as e:
@@ -448,13 +467,75 @@ def _check_attribution_readiness() -> dict[str, Any]:
                     "id": "gtm_recommended_for_attribution",
                     "audit_type": "ads_readiness",
                     "severity": "medium",
-                    "title": "GTM recommandé pour attribution avancée",
+                    "title": ("Google Tag Manager recommandé - " "Attribution multi-touch avancée"),
                     "description": (
-                        "Google Tag Manager permet un meilleur suivi des UTM "
-                        "et facilite l'attribution multi-touch"
+                        "GTM optimise vos campagnes Ads grâce à : attribution "
+                        "multi-touch avancée, suivi UTM précis, gestion "
+                        "centralisée des pixels (Meta, TikTok, etc.), "
+                        "A/B testing facilité, et meilleur tracking des conversions."
                     ),
+                    "details": [
+                        "📋 GUIDE D'INSTALLATION (5 minutes)",
+                        "",
+                        "ÉTAPE 1 : Créer un compte GTM",
+                        "→ Allez sur tagmanager.google.com",
+                        "→ Créez un conteneur de type 'Web'",
+                        "→ Notez votre Container ID (ex: GTM-ABC123)",
+                        "",
+                        "ÉTAPE 2 : Installer dans Shopify",
+                        "→ Online Store > Themes > Actions > Edit Code",
+                        "→ Fichier : layout/theme.liquid",
+                        "",
+                        "📝 Code à ajouter dans <head> (après l'ouverture) :",
+                        "<!-- Google Tag Manager -->",
+                        ("<script>(function(w,d,s,l,i){w[l]=w[l]||[];" "w[l].push({'gtm.start':"),
+                        (
+                            "new Date().getTime(),event:'gtm.js'});"
+                            "var f=d.getElementsByTagName(s)[0],"
+                        ),
+                        (
+                            "j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';"
+                            "j.async=true;j.src="
+                        ),
+                        (
+                            "'https://www.googletagmanager.com/gtm.js?id='+i+dl;"
+                            "f.parentNode.insertBefore(j,f);"
+                        ),
+                        ("})(window,document,'script','dataLayer'," "'GTM-XXXXXXX');</script>"),
+                        "<!-- End Google Tag Manager -->",
+                        "",
+                        ("📝 Code à ajouter après <body> " "(juste après l'ouverture) :"),
+                        "<!-- Google Tag Manager (noscript) -->",
+                        (
+                            '<noscript><iframe src="https://www.'
+                            'googletagmanager.com/ns.html?id=GTM-XXXXXXX"'
+                        ),
+                        (
+                            'height="0" width="0" style="display:none;'
+                            'visibility:hidden"></iframe></noscript>'
+                        ),
+                        "<!-- End Google Tag Manager (noscript) -->",
+                        "",
+                        "⚠️ Remplacez GTM-XXXXXXX par votre vrai Container ID",
+                        "",
+                        "ÉTAPE 3 : Vérifier l'installation",
+                        ("→ Installez l'extension Chrome " "'Tag Assistant Legacy'"),
+                        ("→ Visitez votre boutique et vérifiez que " "GTM est détecté"),
+                        ("→ Ou relancez cet audit pour confirmer " "la détection"),
+                        "",
+                        "💡 BONUS : Configurer les tags dans GTM",
+                        "→ Ajoutez GA4 et Meta Pixel comme tags",
+                        ("→ Configurez les triggers pour les " "événements e-commerce"),
+                        "→ Testez avec le mode Preview de GTM",
+                        "",
+                        "🎯 IMPACT SUR VOS CAMPAGNES ADS :",
+                        ("→ Meilleure attribution : identifiez les " "canaux qui convertissent"),
+                        ("→ Optimisation des enchères : données " "précises pour l'algorithme"),
+                        ("→ Remarketing avancé : segments " "d'audience basés sur le comportement"),
+                        ("→ ROI mesurable : tracking complet du " "parcours client"),
+                    ],
                     "action_available": True,
-                    "action_label": "Guide GTM",
+                    "action_label": "Créer compte GTM",
                     "action_url": "https://tagmanager.google.com",
                     "action_status": "available",
                 }
@@ -479,6 +560,14 @@ def _check_attribution_readiness() -> dict[str, Any]:
                 }
             )
 
+        # Message explicatif pour l'UI
+        if has_ga4 and has_gtm:
+            message = "Attribution complète : GA4 + GTM configurés"
+        elif has_ga4:
+            message = "Attribution basique : GA4 configuré, GTM recommandé pour améliorer"
+        else:
+            message = "Attribution impossible : GA4 requis"
+
         step["result"] = {
             "score": score,
             "max_score": 10,
@@ -487,6 +576,7 @@ def _check_attribution_readiness() -> dict[str, Any]:
             "attribution_level": (
                 "advanced" if has_gtm and has_ga4 else ("basic" if has_ga4 else "none")
             ),
+            "message": message,
         }
 
     except ImportError as e:

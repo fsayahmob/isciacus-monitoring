@@ -98,8 +98,20 @@ def create_onboarding_function() -> inngest.Function | None:
         if _process_step_result(result, step_result):
             services_configured += 1
 
+        # Step 6: Check Google OAuth2 Credentials (for GMC & GA4 API access)
+        _save_progress(result)
+        step_result = await ctx.step.run("check-google-credentials", _check_google_credentials)
+        if _process_step_result(result, step_result):
+            services_configured += 1
+
+        # Step 7: Check Meta Token Permissions
+        _save_progress(result)
+        step_result = await ctx.step.run("check-meta-permissions", _check_meta_permissions)
+        if _process_step_result(result, step_result):
+            services_configured += 1
+
         # Finalize - pass a copy of result to avoid closure issues
-        final_result = _finalize_result(dict(result), services_configured, 5)
+        final_result = _finalize_result(dict(result), services_configured, 7)
         _save_audit_session(final_result)
 
         return final_result
@@ -600,6 +612,258 @@ def _check_gsc_config() -> dict[str, Any]:
             "action_url": "/settings",
         },
     }
+
+
+def _check_google_credentials() -> dict[str, Any]:
+    """Check Google OAuth2 credentials for GMC & GA4 API access."""
+    step = {
+        "id": "google_credentials",
+        "name": "Google API Credentials",
+        "description": "Vérification des credentials Google OAuth2",
+        "status": "running",
+        "started_at": datetime.now(tz=UTC).isoformat(),
+        "completed_at": None,
+        "duration_ms": None,
+        "result": None,
+        "error_message": None,
+    }
+
+    start_time = datetime.now(tz=UTC)
+
+    # Try to load and validate Google credentials
+    try:
+        from pathlib import Path
+
+        from google.auth.transport.requests import Request
+        from google.oauth2 import service_account
+
+        # Look for credentials file
+        creds_path = (
+            Path(__file__).parent.parent.parent / "credentials" / "google-service-account.json"
+        )
+
+        if not creds_path.exists():
+            raise FileNotFoundError(f"Credentials file not found: {creds_path}")
+
+        # Try to load credentials and get token
+        credentials = service_account.Credentials.from_service_account_file(
+            str(creds_path),
+            scopes=["https://www.googleapis.com/auth/content"],
+        )
+        credentials.refresh(Request())
+
+        # If we get here, credentials are valid
+        step["status"] = "success"
+        step["result"] = {"credentials_valid": True, "api_access": "GMC & GA4"}
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        return {"success": True, "step": step}
+
+    except FileNotFoundError:
+        # Credentials file not found
+        step["status"] = "warning"
+        step["error_message"] = "Fichier credentials manquant"
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        return {
+            "success": False,
+            "step": step,
+            "issue": {
+                "id": "google_credentials_missing",
+                "audit_type": "onboarding",
+                "severity": "high",
+                "title": "Google OAuth2 credentials manquantes",
+                "description": (
+                    "Les credentials Google sont requises pour accéder aux APIs "
+                    "GMC et GA4. Sans elles, les audits GMC et GA4 ne fonctionneront pas."
+                ),
+                "details": [
+                    "1. Créez un projet sur console.cloud.google.com",
+                    "2. Activez les APIs: Google Merchant Center & Google Analytics Data",
+                    "3. Créez un Service Account avec les permissions requises",
+                    "4. Téléchargez le fichier JSON des credentials",
+                    "5. Placez-le dans backend/credentials/google-service-account.json",
+                ],
+                "action_available": True,
+                "action_label": "Guide Setup",
+                "action_status": "available",
+                "action_url": "https://console.cloud.google.com/apis/credentials",
+            },
+        }
+    except Exception as e:
+        error_msg = str(e).lower()
+
+        # Check for specific error types
+        if "credentials" in error_msg or "authentication" in error_msg or "401" in error_msg:
+            step["status"] = "warning"
+            step["error_message"] = "Credentials invalides ou expirées"
+            step["completed_at"] = datetime.now(tz=UTC).isoformat()
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+            return {
+                "success": False,
+                "step": step,
+                "issue": {
+                    "id": "google_credentials_invalid",
+                    "audit_type": "onboarding",
+                    "severity": "high",
+                    "title": "Google credentials invalides",
+                    "description": (
+                        "Les credentials Google sont invalides ou ont expiré. "
+                        "Régénérez-les depuis Google Cloud Console."
+                    ),
+                    "action_available": True,
+                    "action_label": "Google Cloud Console",
+                    "action_status": "available",
+                    "action_url": "https://console.cloud.google.com/apis/credentials",
+                },
+            }
+
+        if "merchant" in error_msg or "gmc" in error_msg:
+            # GMC not configured, but credentials might be OK
+            step["status"] = "success"
+            step["result"] = {
+                "credentials_valid": True,
+                "note": "GMC non configuré mais credentials OK",
+            }
+            step["completed_at"] = datetime.now(tz=UTC).isoformat()
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+            return {"success": True, "step": step}
+
+        # Generic error - credentials might be missing
+        step["status"] = "warning"
+        step["error_message"] = f"Erreur API: {str(e)[:50]}"
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        return {"success": False, "step": step}
+
+
+def _check_meta_permissions() -> dict[str, Any]:
+    """Check Meta Access Token permissions/scopes."""
+    step = {
+        "id": "meta_permissions",
+        "name": "Meta Token Permissions",
+        "description": "Vérification des permissions du token Meta",
+        "status": "running",
+        "started_at": datetime.now(tz=UTC).isoformat(),
+        "completed_at": None,
+        "duration_ms": None,
+        "result": None,
+        "error_message": None,
+    }
+
+    start_time = datetime.now(tz=UTC)
+
+    meta_config = _get_config("meta")
+    access_token = meta_config.get("META_ACCESS_TOKEN", "")
+
+    if not access_token:
+        # Skip if Meta not configured
+        step["status"] = "skipped"
+        step["error_message"] = "Meta non configuré"
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        return {"success": True, "step": step}
+
+    # Check token scopes using debug_token endpoint
+    try:
+        resp = requests.get(
+            "https://graph.facebook.com/v19.0/debug_token",
+            params={"input_token": access_token, "access_token": access_token},
+            timeout=10,
+        )
+
+        if resp.status_code != 200:
+            step["status"] = "warning"
+            step["error_message"] = "Impossible de vérifier les permissions"
+            step["completed_at"] = datetime.now(tz=UTC).isoformat()
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+            return {"success": False, "step": step}
+
+        debug_data = resp.json().get("data", {})
+        scopes = debug_data.get("scopes", [])
+        is_valid = debug_data.get("is_valid", False)
+
+        if not is_valid:
+            step["status"] = "error"
+            step["error_message"] = "Token invalide ou expiré"
+            step["completed_at"] = datetime.now(tz=UTC).isoformat()
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+            return {
+                "success": False,
+                "step": step,
+                "issue": {
+                    "id": "meta_token_expired",
+                    "audit_type": "onboarding",
+                    "severity": "high",
+                    "title": "Meta Access Token expiré",
+                    "description": (
+                        "Le token Meta est expiré. Régénérez-le dans Meta Business Suite."
+                    ),
+                    "action_available": True,
+                    "action_label": "Meta Business Suite",
+                    "action_status": "available",
+                    "action_url": "https://business.facebook.com/settings/system-users",
+                },
+            }
+
+        # Check required scopes for Meta Audit
+        required_scopes = [
+            "ads_management",
+            "pages_read_engagement",
+            "business_management",
+        ]
+        missing_scopes = [s for s in required_scopes if s not in scopes]
+
+        if missing_scopes:
+            step["status"] = "warning"
+            step["result"] = {
+                "scopes_present": scopes,
+                "scopes_missing": missing_scopes,
+            }
+            step["error_message"] = f"Permissions manquantes: {', '.join(missing_scopes)}"
+            step["completed_at"] = datetime.now(tz=UTC).isoformat()
+            step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+            return {
+                "success": False,
+                "step": step,
+                "issue": {
+                    "id": "meta_insufficient_permissions",
+                    "audit_type": "onboarding",
+                    "severity": "medium",
+                    "title": "Permissions Meta insuffisantes",
+                    "description": (
+                        f"Le token Meta manque de permissions requises pour l'audit complet: "
+                        f"{', '.join(missing_scopes)}. L'audit Meta sera limité."
+                    ),
+                    "details": [
+                        "Permissions manquantes:",
+                        *[f"• {scope}" for scope in missing_scopes],
+                        "",
+                        "Régénérez le token avec toutes les permissions requises.",
+                    ],
+                    "action_available": True,
+                    "action_label": "Régénérer Token",
+                    "action_status": "available",
+                    "action_url": "https://business.facebook.com/settings/system-users",
+                },
+            }
+
+        # All good
+        step["status"] = "success"
+        step["result"] = {
+            "scopes_present": scopes,
+            "all_permissions_granted": True,
+        }
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        return {"success": True, "step": step}
+
+    except Exception as e:
+        step["status"] = "warning"
+        step["error_message"] = f"Erreur: {str(e)[:50]}"
+        step["completed_at"] = datetime.now(tz=UTC).isoformat()
+        step["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
+        return {"success": False, "step": step}
 
 
 def _finalize_result(

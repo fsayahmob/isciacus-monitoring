@@ -491,13 +491,22 @@ def _build_issues(
     # Rejection reasons
     total_variants_with_issues = len(products_data.get("products_with_issues", []))
     if rejection_reasons and total_variants_with_issues > 0:
+        impact_percentage = (
+            round((total_variants_with_issues / total_products * 100), 1)
+            if total_products > 0
+            else 0
+        )
         issues.append(
             {
                 "id": "gmc_issues_summary",
                 "audit_type": "merchant_center",
                 "severity": "high",
                 "title": f"⚠️ {total_variants_with_issues} variante(s) GMC avec problèmes",
-                "description": f"{total_variants_with_issues} variantes ont des issues bloquantes",
+                "description": (
+                    f"Ces issues empêchent {total_variants_with_issues} variantes "
+                    f"({impact_percentage}%) d'être diffusées dans Google Shopping, ce qui "
+                    f"réduit la surface publicitaire et le potentiel ROAS."
+                ),
                 "details": [
                     f"• {k}: {len(v)} variante(s)" for k, v in list(rejection_reasons.items())[:10]
                 ],
