@@ -1246,6 +1246,64 @@ async def get_latest_audit_session() -> dict[str, Any]:
     }
 
 
+@app.post("/api/audits/run-all")
+async def run_all_audits(period: int = Query(default=30)) -> dict[str, Any]:
+    """Run ALL available audits in parallel via Inngest workflows.
+
+    Triggers all configured audits simultaneously. Poll /api/audits/session for results.
+
+    Args:
+        period: Number of days to analyze (for GA4-dependent audits)
+    """
+    from jobs.inngest_setup import trigger_audit, trigger_onboarding_audit
+
+    # Get list of available audits
+    available = audit_orchestrator.get_available_audits()
+    triggered = []
+    failed = []
+
+    for audit_info in available:
+        if not audit_info.get("available"):
+            continue  # Skip unconfigured audits
+
+        audit_type = audit_info["type"]
+
+        try:
+            if audit_type == "onboarding":
+                result = await trigger_onboarding_audit()
+            else:
+                result = await trigger_audit(audit_type, period)
+
+            if result.get("status") == "triggered":
+                triggered.append(
+                    {"audit_type": audit_type, "run_id": result.get("run_id"), "status": "triggered"}
+                )
+            else:
+                failed.append(
+                    {
+                        "audit_type": audit_type,
+                        "error": result.get("message", "Unknown error"),
+                    }
+                )
+        except Exception as e:
+            failed.append({"audit_type": audit_type, "error": str(e)})
+
+    if not triggered and failed:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to trigger any audits. Errors: {failed}",
+        )
+
+    return {
+        "async": True,
+        "triggered_count": len(triggered),
+        "failed_count": len(failed),
+        "triggered": triggered,
+        "failed": failed if failed else None,
+        "message": f"{len(triggered)} audits started in parallel. Poll /api/audits/session for results.",
+    }
+
+
 @app.post("/api/audits/run/{audit_type}")
 async def run_audit(
     audit_type: str,

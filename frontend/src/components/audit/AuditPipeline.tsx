@@ -5,7 +5,7 @@
 import React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { executeAuditAction, type AuditResult, type AuditSession } from '../../services/api'
+import { executeAuditAction, runAllAudits, type AuditResult, type AuditSession } from '../../services/api'
 import { AuditCardsGrid } from './AuditCard'
 import { GMCFlowKPI, type GMCFlowData } from './GMCFlowKPI'
 import { IssuesPanel } from './IssueCard'
@@ -22,6 +22,7 @@ export function AuditPipeline(): React.ReactElement {
     availableAudits,
     currentResult,
     selectedAudit,
+    runningAudits,
     isSelectedAuditRunning,
     selectAudit,
     runAudit,
@@ -36,16 +37,34 @@ export function AuditPipeline(): React.ReactElement {
     },
   })
 
+  const runAllMutation = useMutation({
+    mutationFn: () => runAllAudits(),
+    onSuccess: (response) => {
+      console.log(`✅ ${response.triggered_count} audits lancés en parallèle`)
+      void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
+    },
+  })
+
   const { audits } = availableAudits
 
   const handleExecuteAction = (auditType: string, actionId: string): void => {
     executeActionMutation.mutate({ auditType, actionId })
   }
 
+  const handleRunAllAudits = (): void => {
+    runAllMutation.mutate()
+  }
+
+  const hasRunningAudits = runningAudits.size > 0
+
   return (
     <div className="min-h-screen bg-bg-primary p-6">
       <div className="mx-auto max-w-6xl">
-        <PageHeader />
+        <PageHeader
+          onRunAll={handleRunAllAudits}
+          isRunning={hasRunningAudits}
+          runningCount={runningAudits.size}
+        />
         <AuditCardsGrid
           audits={audits}
           selectedAudit={selectedAudit}
@@ -66,13 +85,62 @@ export function AuditPipeline(): React.ReactElement {
   )
 }
 
-function PageHeader(): React.ReactElement {
+function PageHeader({
+  onRunAll,
+  isRunning,
+  runningCount
+}: {
+  onRunAll: () => void
+  isRunning: boolean
+  runningCount: number
+}): React.ReactElement {
   return (
-    <div className="mb-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Audits Tracking</h1>
-      <p className="mt-1 text-sm text-text-secondary">
-        Vérifiez la configuration de vos outils de tracking
-      </p>
+    <div className="mb-8 flex items-start justify-between">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Audits Tracking</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Vérifiez la configuration de vos outils de tracking
+        </p>
+      </div>
+      <button
+        className="btn btn-primary flex items-center gap-2"
+        disabled={isRunning}
+        onClick={onRunAll}
+        type="button"
+      >
+        {isRunning ? (
+          <>
+            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                fill="currentColor"
+              />
+            </svg>
+            <span>{runningCount} en cours...</span>
+          </>
+        ) : (
+          <>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </svg>
+            <span>Lancer tous les audits</span>
+          </>
+        )}
+      </button>
     </div>
   )
 }

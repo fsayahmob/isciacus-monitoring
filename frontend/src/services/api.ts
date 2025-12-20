@@ -244,6 +244,21 @@ export async function runAudit(
   return { result: data.result }
 }
 
+export async function runAllAudits(
+  period = 30
+): Promise<{ triggered_count: number; failed_count: number; message: string }> {
+  const response = await apiClient.post<{
+    async: true
+    triggered_count: number
+    failed_count: number
+    triggered: Array<{ audit_type: string; run_id: string; status: string }>
+    failed: Array<{ audit_type: string; error: string }> | null
+    message: string
+  }>(`/api/audits/run-all?period=${String(period)}`)
+
+  return response.data
+}
+
 // Types for async action responses
 interface AsyncActionResponse {
   async: true
