@@ -411,6 +411,19 @@ class AuditOrchestrator:
                 "issues_count": 0,
             },
             {
+                "type": AuditType.ADS_READINESS.value,
+                "name": "Prêt pour Ads",
+                "description": (
+                    "Score /100 évaluant la capacité à lancer des campagnes Ads "
+                    "(tracking, conversions, segmentation, attribution, métriques)"
+                ),
+                "icon": "target",
+                "available": ga4_configured and meta_configured,
+                "last_run": None,
+                "last_status": None,
+                "issues_count": 0,
+            },
+            {
                 "type": AuditType.MERCHANT_CENTER.value,
                 "name": "Google Merchant Center",
                 "description": gmc_description,
