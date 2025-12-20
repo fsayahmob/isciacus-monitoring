@@ -131,9 +131,10 @@ unfixable = []
 "**/jobs/**/*.py" = ["PLC0415", "PLR2004", "S110", "F841", "PLR0912"]
 # FastAPI endpoints have request param for typing/middleware even if unused
 # And use magic numbers for HTTP status codes
-"monitoring_app.py" = ["ARG001", "PLR2004", "FBT001", "FBT002", "PLC0415", "B904", "ASYNC210", "PLR0912", "SLF001"]
-# CLI scripts can use print statements
+"monitoring_app.py" = ["ARG001", "PLR2004", "FBT001", "FBT002", "PLC0415", "B904", "ASYNC210", "PLR0912", "SLF001", "S105"]
+# CLI scripts and init scripts can use print statements and sys.stdout.write
 "**/scripts/**/*.py" = ["T201", "EXE001"]
+"init_test_db.py" = ["T201"]
 # Services use magic numbers for thresholds, lazy imports, and have long template strings
 "**/services/**/*.py" = ["PLR2004", "PLC0415", "SLF001", "PLR0911", "PLR0912", "PLR0915", "PLW0603", "E501", "F841", "FBT001", "FBT002", "RUF012", "SIM102", "SIM118", "S110", "PTH101", "PTH123", "PLW2901", "RUF059"]
 

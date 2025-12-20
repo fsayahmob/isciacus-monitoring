@@ -17,9 +17,9 @@ def main() -> None:
     if shopify_url and shopify_token:
         cs.set_value("shopify", "store_url", shopify_url)
         cs.set_value("shopify", "access_token", shopify_token)
-        print("✅ Shopify credentials configured")
+        sys.stdout.write("✅ Shopify credentials configured\n")
     else:
-        print("⚠️  No Shopify credentials provided")
+        sys.stdout.write("⚠️  No Shopify credentials provided\n")
 
     # Configure GA4
     ga4_property = os.getenv("GA4_PROPERTY_ID", "")
@@ -28,11 +28,11 @@ def main() -> None:
     if ga4_property and ga4_measurement:
         cs.set_value("ga4", "property_id", ga4_property)
         cs.set_value("ga4", "measurement_id", ga4_measurement)
-        print("✅ GA4 credentials configured")
+        sys.stdout.write("✅ GA4 credentials configured\n")
     else:
-        print("⚠️  No GA4 credentials provided")
+        sys.stdout.write("⚠️  No GA4 credentials provided\n")
 
-    print("✅ Database initialized successfully")
+    sys.stdout.write("✅ Database initialized successfully\n")
 
 
 if __name__ == "__main__":
