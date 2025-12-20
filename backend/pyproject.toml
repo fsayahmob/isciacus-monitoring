@@ -211,6 +211,8 @@ module = [
     "services.*",
     "jobs.*",
     "scripts.*",
+    "routes.*",
+    "tests.*",
 ]
 ignore_errors = true
 
