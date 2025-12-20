@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from services.cart_recovery_analyzer import CartRecoveryAnalyzer
 
 
-def test_with_mock_data():
+def test_with_mock_data() -> None:
     """Test Cart Recovery Analyzer with mock Shopify data."""
 
     print("\n" + "=" * 60)
