@@ -146,8 +146,7 @@ def test_check_email_capture_high(mock_get, analyzer):
     """Test high email capture rate."""
     # 80% email capture rate
     checkouts = [
-        {"id": i, "email": f"customer{i}@test.com" if i < 80 else None}
-        for i in range(100)
+        {"id": i, "email": f"customer{i}@test.com" if i < 80 else None} for i in range(100)
     ]
 
     mock_response = MagicMock()
@@ -170,8 +169,7 @@ def test_check_email_capture_low(mock_get, analyzer):
     """Test low email capture rate."""
     # 40% email capture rate (below 60% minimum)
     checkouts = [
-        {"id": i, "email": f"customer{i}@test.com" if i < 40 else None}
-        for i in range(100)
+        {"id": i, "email": f"customer{i}@test.com" if i < 40 else None} for i in range(100)
     ]
 
     mock_response = MagicMock()
@@ -208,9 +206,7 @@ def test_check_email_capture_no_data(mock_get, analyzer):
 def test_calculate_recovery_potential(mock_get, analyzer):
     """Test recovery potential calculation."""
     # 50 abandoned carts worth $5000 total
-    checkouts = [
-        {"id": i, "total_price": "100.00"} for i in range(50)
-    ]
+    checkouts = [{"id": i, "total_price": "100.00"} for i in range(50)]
 
     mock_response = MagicMock()
     mock_response.status_code = 200

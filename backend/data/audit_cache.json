@@ -28,7 +28,7 @@
     {
       "name": "Couverture Produits",
       "status": "warning",
-      "message": "590/665 produits tracks (89%)",
+      "message": "591/665 produits tracks (89%)",
       "details": [
         "emeric-me",
         "boxer-w",
@@ -374,7 +374,7 @@
     },
     "products": {
       "total": 665,
-      "tracked": 590,
+      "tracked": 591,
       "missing": [
         "emeric-me",
         "boxer-w",
@@ -397,7 +397,7 @@
         "jean-breezy-britt-black-word",
         "sweat-fred-ivy-black"
       ],
-      "rate": 88.7218045112782,
+      "rate": 88.87218045112782,
       "status": "warning",
       "sample": [
         {
@@ -565,5 +565,5 @@
     "ga4_transactions": 18,
     "match_rate": 1.0
   },
-  "last_audit": "2025-12-20T00:24:32.426050+00:00"
+  "last_audit": "2025-12-20T01:35:15.932344+00:00"
 }

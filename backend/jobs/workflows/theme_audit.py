@@ -430,88 +430,92 @@ def _validate_consent_mode_v2(analysis: dict[str, Any]) -> dict[str, Any]:
     issues = []
 
     if not consent_mode_detected:
-        issues.append({
-            "id": "consent_mode_v2_missing",
-            "audit_type": "theme_code",
-            "severity": "high",
-            "title": "Google Consent Mode v2 non configuré",
-            "description": (
-                "Consent Mode v2 est requis pour la conformité RGPD et optimiser les conversions "
-                "Google Ads/GA4 avec les utilisateurs sans consentement."
-            ),
-            "details": [
-                "📋 POURQUOI CONSENT MODE V2 EST IMPORTANT :",
-                "",
-                "✅ Conformité RGPD/CCPA obligatoire en Europe",
-                "✅ Conversion modeling de Google (récupère ~70% des conversions perdues)",
-                "✅ Meilleur ROAS grâce à l'attribution améliorée",
-                "",
-                "📝 LES 4 PARAMÈTRES OBLIGATOIRES (v2) :",
-                "1. ad_storage - Stockage données publicitaires",
-                "2. analytics_storage - Stockage données analytics",
-                "3. ad_user_data - Collecte données utilisateur (NOUVEAU v2)",
-                "4. ad_personalization - Personnalisation des ads (NOUVEAU v2)",
-                "",
-                "🔧 COMMENT L'IMPLÉMENTER :",
-                "Option 1 - Via Shopify Customer Privacy API (recommandé) :",
-                "→ Settings > Customer privacy > Enable Customer Privacy API",
-                "→ Le code sera automatiquement ajouté",
-                "",
-                "Option 2 - Manuellement dans theme.liquid :",
-                "→ Ajouter avant </head> :",
-                "<script>",
-                "window.dataLayer = window.dataLayer || [];",
-                "function gtag(){dataLayer.push(arguments);}",
-                "gtag('consent', 'default', {",
-                "  'ad_storage': 'denied',",
-                "  'analytics_storage': 'denied',",
-                "  'ad_user_data': 'denied',",
-                "  'ad_personalization': 'denied'",
-                "});",
-                "</script>",
-                "",
-                "📚 Documentation Google :",
-                "https://developers.google.com/tag-platform/security/guides/consent",
-            ],
-            "action_available": True,
-            "action_label": "Guide implémentation",
-            "action_url": "https://developers.google.com/tag-platform/security/guides/consent",
-            "action_status": "available",
-        })
+        issues.append(
+            {
+                "id": "consent_mode_v2_missing",
+                "audit_type": "theme_code",
+                "severity": "high",
+                "title": "Google Consent Mode v2 non configuré",
+                "description": (
+                    "Consent Mode v2 est requis pour la conformité RGPD et optimiser les conversions "
+                    "Google Ads/GA4 avec les utilisateurs sans consentement."
+                ),
+                "details": [
+                    "📋 POURQUOI CONSENT MODE V2 EST IMPORTANT :",
+                    "",
+                    "✅ Conformité RGPD/CCPA obligatoire en Europe",
+                    "✅ Conversion modeling de Google (récupère ~70% des conversions perdues)",
+                    "✅ Meilleur ROAS grâce à l'attribution améliorée",
+                    "",
+                    "📝 LES 4 PARAMÈTRES OBLIGATOIRES (v2) :",
+                    "1. ad_storage - Stockage données publicitaires",
+                    "2. analytics_storage - Stockage données analytics",
+                    "3. ad_user_data - Collecte données utilisateur (NOUVEAU v2)",
+                    "4. ad_personalization - Personnalisation des ads (NOUVEAU v2)",
+                    "",
+                    "🔧 COMMENT L'IMPLÉMENTER :",
+                    "Option 1 - Via Shopify Customer Privacy API (recommandé) :",
+                    "→ Settings > Customer privacy > Enable Customer Privacy API",
+                    "→ Le code sera automatiquement ajouté",
+                    "",
+                    "Option 2 - Manuellement dans theme.liquid :",
+                    "→ Ajouter avant </head> :",
+                    "<script>",
+                    "window.dataLayer = window.dataLayer || [];",
+                    "function gtag(){dataLayer.push(arguments);}",
+                    "gtag('consent', 'default', {",
+                    "  'ad_storage': 'denied',",
+                    "  'analytics_storage': 'denied',",
+                    "  'ad_user_data': 'denied',",
+                    "  'ad_personalization': 'denied'",
+                    "});",
+                    "</script>",
+                    "",
+                    "📚 Documentation Google :",
+                    "https://developers.google.com/tag-platform/security/guides/consent",
+                ],
+                "action_available": True,
+                "action_label": "Guide implémentation",
+                "action_url": "https://developers.google.com/tag-platform/security/guides/consent",
+                "action_status": "available",
+            }
+        )
     elif validation["status"] == "needs_upgrade":
-        issues.append({
-            "id": "consent_mode_v1_upgrade_needed",
-            "audit_type": "theme_code",
-            "severity": "medium",
-            "title": "Consent Mode v1 détecté - Upgrade vers v2 recommandé",
-            "description": (
-                f"Paramètres v2 manquants : {', '.join(validation['missing_params'])}. "
-                "Ces paramètres sont requis depuis mars 2024 pour Google Ads en Europe."
-            ),
-            "details": [
-                "⚠️ VOTRE SITUATION :",
-                f"✅ Détecté : {', '.join(validation['detected_params'])}",
-                f"❌ Manquant : {', '.join(validation['missing_params'])}",
-                "",
-                "🔧 MISE À JOUR RAPIDE :",
-                "Ajouter les 2 nouveaux paramètres v2 dans votre code consent :",
-                "",
-                "gtag('consent', 'default', {",
-                "  'ad_storage': 'denied',",
-                "  'analytics_storage': 'denied',",
-                "  'ad_user_data': 'denied',        // ← AJOUTER",
-                "  'ad_personalization': 'denied'   // ← AJOUTER",
-                "});",
-                "",
-                "💡 Si vous utilisez une solution CMP (OneTrust, Cookiebot, etc.) :",
-                "→ Vérifiez qu'elle supporte Consent Mode v2",
-                "→ Activez-le dans les paramètres de la CMP",
-            ],
-            "action_available": True,
-            "action_label": "Guide upgrade v2",
-            "action_url": "https://www.simoahava.com/analytics/consent-mode-v2-google-tags/",
-            "action_status": "available",
-        })
+        issues.append(
+            {
+                "id": "consent_mode_v1_upgrade_needed",
+                "audit_type": "theme_code",
+                "severity": "medium",
+                "title": "Consent Mode v1 détecté - Upgrade vers v2 recommandé",
+                "description": (
+                    f"Paramètres v2 manquants : {', '.join(validation['missing_params'])}. "
+                    "Ces paramètres sont requis depuis mars 2024 pour Google Ads en Europe."
+                ),
+                "details": [
+                    "⚠️ VOTRE SITUATION :",
+                    f"✅ Détecté : {', '.join(validation['detected_params'])}",
+                    f"❌ Manquant : {', '.join(validation['missing_params'])}",
+                    "",
+                    "🔧 MISE À JOUR RAPIDE :",
+                    "Ajouter les 2 nouveaux paramètres v2 dans votre code consent :",
+                    "",
+                    "gtag('consent', 'default', {",
+                    "  'ad_storage': 'denied',",
+                    "  'analytics_storage': 'denied',",
+                    "  'ad_user_data': 'denied',        // ← AJOUTER",
+                    "  'ad_personalization': 'denied'   // ← AJOUTER",
+                    "});",
+                    "",
+                    "💡 Si vous utilisez une solution CMP (OneTrust, Cookiebot, etc.) :",
+                    "→ Vérifiez qu'elle supporte Consent Mode v2",
+                    "→ Activez-le dans les paramètres de la CMP",
+                ],
+                "action_available": True,
+                "action_label": "Guide upgrade v2",
+                "action_url": "https://www.simoahava.com/analytics/consent-mode-v2-google-tags/",
+                "action_status": "available",
+            }
+        )
 
     return {
         "validation": validation,
