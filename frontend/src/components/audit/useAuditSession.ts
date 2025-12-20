@@ -35,6 +35,7 @@ interface UseAuditSessionReturn {
   selectAudit: (auditType: string) => void
   runAudit: (auditType: string) => void
   isAuditRunning: (auditType: string) => boolean
+  markAllAuditsAsRunning: (auditTypes: string[]) => void
 }
 
 /**
@@ -298,6 +299,29 @@ export function useAuditSession(): UseAuditSessionReturn {
     [runningAudits]
   )
 
+  // Mark all available audits as running when "Run All" is triggered
+  const markAllAuditsAsRunning = React.useCallback(
+    (auditTypes: string[]): void => {
+      const startedAt = new Date().toISOString()
+      setRunningAudits((prev) => {
+        const next = new Map(prev)
+        auditTypes.forEach((auditType) => {
+          next.set(auditType, { startedAt })
+        })
+        return next
+      })
+      // Create optimistic results for all
+      setOptimisticResults((prev) => {
+        const next = new Map(prev)
+        auditTypes.forEach((auditType) => {
+          next.set(auditType, createRunningResult(auditType))
+        })
+        return next
+      })
+    },
+    []
+  )
+
   return {
     session,
     availableAudits: auditsData ?? { audits: [] },
@@ -308,5 +332,6 @@ export function useAuditSession(): UseAuditSessionReturn {
     selectAudit,
     runAudit: handleRunAudit,
     isAuditRunning,
+    markAllAuditsAsRunning,
   }
 }

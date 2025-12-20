@@ -27,6 +27,7 @@ export function AuditPipeline(): React.ReactElement {
     selectAudit,
     runAudit,
     isAuditRunning,
+    markAllAuditsAsRunning,
   } = useAuditSession()
 
   const executeActionMutation = useMutation({
@@ -39,6 +40,13 @@ export function AuditPipeline(): React.ReactElement {
 
   const runAllMutation = useMutation({
     mutationFn: () => runAllAudits(),
+    onMutate: () => {
+      // Mark all available audits as running BEFORE API call
+      const availableAuditTypes = audits
+        .filter((audit) => audit.available)
+        .map((audit) => audit.type)
+      markAllAuditsAsRunning(availableAuditTypes)
+    },
     onSuccess: (response) => {
       console.log(`✅ ${response.triggered_count} audits lancés en parallèle`)
       void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
