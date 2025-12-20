@@ -1275,9 +1275,11 @@ async def run_all_audits(period: int = Query(default=30)) -> dict[str, Any]:
                 result = await trigger_audit(audit_type, period)
 
             if result.get("status") == "triggered":
-                triggered.append(
-                    {"audit_type": audit_type, "run_id": result.get("run_id"), "status": "triggered"}
-                )
+                triggered.append({
+                    "audit_type": audit_type,
+                    "run_id": result.get("run_id"),
+                    "status": "triggered",
+                })
             else:
                 failed.append(
                     {
@@ -1300,7 +1302,10 @@ async def run_all_audits(period: int = Query(default=30)) -> dict[str, Any]:
         "failed_count": len(failed),
         "triggered": triggered,
         "failed": failed if failed else None,
-        "message": f"{len(triggered)} audits started in parallel. Poll /api/audits/session for results.",
+        "message": (
+            f"{len(triggered)} audits started in parallel. "
+            "Poll /api/audits/session for results."
+        ),
     }
 
 

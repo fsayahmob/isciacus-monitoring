@@ -104,6 +104,7 @@ function findCompletedAudits(
     const isFinalStatus = FINAL_STATUSES.includes(result.status)
 
     if (isFinalStatus && result.completed_at !== null) {
+      // eslint-disable-next-line no-console
       console.log(`✅ Audit ${auditType} completed: ${result.status}`)
       completed.push(auditType)
       return
@@ -112,10 +113,11 @@ function findCompletedAudits(
     // Safety timeout: Force completion if running too long
     // This prevents infinite polling if backend fails to update status
     const elapsed = now - new Date(runInfo.startedAt).getTime()
+    const MILLIS_PER_SECOND = 1000
 
     if (elapsed > MAX_AUDIT_DURATION_MS) {
       console.warn(
-        `⏱️ Audit ${auditType} timeout after ${(elapsed / 1000).toFixed(0)}s - forcing completion`
+        `⏱️ Audit ${auditType} timeout after ${(elapsed / MILLIS_PER_SECOND).toFixed(0)}s - forcing completion`
       )
       completed.push(auditType)
     }

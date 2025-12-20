@@ -125,8 +125,8 @@ unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
 # Tests can use assertions and magic values
-"**/tests/**/*.py" = ["S101", "PLR2004", "ARG001"]
-"**/test_*.py" = ["S101", "PLR2004", "ARG001"]
+"**/tests/**/*.py" = ["S101", "PLR2004", "ARG001", "T201", "PLR0915", "I001", "Q000"]
+"**/test_*.py" = ["S101", "PLR2004", "ARG001", "T201", "PLR0915", "I001", "Q000", "E501"]
 # Jobs use lazy imports to avoid circular dependencies
 "**/jobs/**/*.py" = ["PLC0415", "PLR2004", "S110", "F841", "PLR0912"]
 # FastAPI endpoints have request param for typing/middleware even if unused
