@@ -58,6 +58,11 @@ function isResultFromCurrentRun(
 
 /**
  * Check which audits have completed and return their types
+ *
+ * Uses Inngest-style completion detection:
+ * - Poll until status is final (not 'running' or 'pending')
+ * - Respect completed_at timestamp from backend
+ * - Safety timeout after 2 minutes (max audit duration)
  */
 function findCompletedAudits(
   runningAudits: Map<string, RunningAuditInfo>,
@@ -69,33 +74,36 @@ function findCompletedAudits(
 
   const completed: string[] = []
   const now = Date.now()
+  const MAX_AUDIT_DURATION_MS = 120000 // 2 minutes max per audit
 
   runningAudits.forEach((runInfo, auditType) => {
     const result = session.audits[auditType] as AuditResult | undefined
 
-    // No result yet - audit still running
+    // No result yet - audit still initializing
     if (result === undefined) {
       return
     }
 
-    // Check if audit has completed (simpler logic, no timestamp check)
-    const hasCompleted =
-      result.status !== 'running' &&  // Has final status
-      result.status !== 'pending' &&  // Not waiting to start
-      result.completed_at !== null    // Has completion timestamp
+    // Inngest pattern: Check if run has reached final status
+    // Final statuses: 'success', 'warning', 'error', 'skipped'
+    // Running statuses: 'running', 'pending'
+    const FINAL_STATUSES = ['success', 'warning', 'error', 'skipped']
+    const isFinalStatus = FINAL_STATUSES.includes(result.status)
 
-    if (hasCompleted) {
-      console.log(`✅ Audit ${auditType} completed with status: ${result.status}`)
+    if (isFinalStatus && result.completed_at !== null) {
+      console.log(`✅ Audit ${auditType} completed: ${result.status}`)
       completed.push(auditType)
       return
     }
 
-    // Safety timeout: if audit running for > 2 minutes, force complete
+    // Safety timeout: Force completion if running too long
+    // This prevents infinite polling if backend fails to update status
     const elapsed = now - new Date(runInfo.startedAt).getTime()
-    const MAX_DURATION_MS = 120000 // 2 minutes
 
-    if (elapsed > MAX_DURATION_MS) {
-      console.warn(`⏱️ Audit ${auditType} timeout after ${(elapsed / 1000).toFixed(0)}s`)
+    if (elapsed > MAX_AUDIT_DURATION_MS) {
+      console.warn(
+        `⏱️ Audit ${auditType} timeout after ${(elapsed / 1000).toFixed(0)}s - forcing completion`
+      )
       completed.push(auditType)
     }
   })
