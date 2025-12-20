@@ -44,7 +44,7 @@ const PipelineStepItem = React.memo(function PipelineStepItem({
   const completed = isStepCompleted(step.status)
 
   return (
-    <div className="relative flex gap-4 pb-6">
+    <div className="relative flex gap-4 pb-6" data-testid="audit-step">
       {/* Connector line - only if not last step */}
       {!isLast && <StepConnector isCompleted={completed} />}
 

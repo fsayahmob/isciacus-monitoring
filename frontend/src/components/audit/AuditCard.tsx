@@ -106,6 +106,7 @@ export function AuditCard({
   return (
     <div
       className={`card cursor-pointer rounded-xl border p-4 transition-all ${borderColor}`}
+      data-audit-type={audit.type}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
