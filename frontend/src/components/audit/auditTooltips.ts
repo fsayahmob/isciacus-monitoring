@@ -105,17 +105,17 @@ export const AUDIT_TOOLTIPS: Record<string, AuditTooltipData> = {
     checks: [
       'Flux produits synchronisé',
       'Erreurs de validation (prix, images, GTIN)',
-      'Taux d\'approbation des produits',
+      "Taux d'approbation des produits",
       'Couverture du catalogue',
     ],
     impact: 'Visibilité sur Google Shopping',
   },
   search_console: {
     what: 'Analyse Google Search Console pour le SEO',
-    why: 'Identifie les problèmes d\'indexation et d\'exploration qui limitent votre visibilité organique',
+    why: "Identifie les problèmes d'indexation et d'exploration qui limitent votre visibilité organique",
     checks: [
       'Pages indexées vs total',
-      'Erreurs d\'exploration (404, 500)',
+      "Erreurs d'exploration (404, 500)",
       'Sitemap configuré',
       'Core Web Vitals (LCP, FID, CLS)',
     ],

@@ -48,12 +48,12 @@ function calculateDiscrepancy(shopify: number, platform: number, metric: string)
   // For Page Views, Shopify doesn't track, so compare GA4 vs Meta
   if (metric === 'Page Views (7j)') {
     const ga4 = shopify !== 0 ? shopify : platform
-    return Math.abs((platform - ga4) / ga4 * 100)
+    return Math.abs(((platform - ga4) / ga4) * 100)
   }
   if (shopify === 0) {
     return 0
   }
-  return Math.abs((platform - shopify) / shopify * 100)
+  return Math.abs(((platform - shopify) / shopify) * 100)
 }
 
 function getStatusBadge(status: string): { label: string; color: string } {
@@ -173,9 +173,7 @@ export function CrossPlatformTrackingSection(): React.ReactElement {
   return (
     <div className="mb-8">
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-text-primary">
-          Cohérence Cross-Platform
-        </h3>
+        <h3 className="text-xl font-semibold text-text-primary">Cohérence Cross-Platform</h3>
         <p className="mt-1 text-sm text-text-secondary">
           Comparaison Shopify ↔ GA4 ↔ Meta • Écart idéal {'<'} 10%
         </p>

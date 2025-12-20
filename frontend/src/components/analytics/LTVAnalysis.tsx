@@ -66,7 +66,10 @@ function LTVTable(): React.ReactElement {
           {MOCK_LTV_DATA.map((data) => {
             const status = getRatioStatus(data.ratio)
             return (
-              <tr key={data.segment} className="border-b border-border-subtle hover:bg-bg-secondary">
+              <tr
+                key={data.segment}
+                className="border-b border-border-subtle hover:bg-bg-secondary"
+              >
                 <td className="px-6 py-4">
                   <span className={`font-medium ${data.color}`}>{data.segment}</span>
                 </td>
@@ -113,12 +116,10 @@ function BudgetRecommendation(): React.ReactElement {
           />
         </svg>
         <div>
-          <p className="text-sm font-medium text-text-primary">
-            Recommandation Budget
-          </p>
+          <p className="text-sm font-medium text-text-primary">Recommandation Budget</p>
           <p className="mt-1 text-xs text-text-tertiary">
-            Concentrez vos budgets sur Champions et Loyal (ratio {'>'} 5x).
-            Réduisez les budgets Lost (ratio {'<'} 2x) ou améliorez le CAC.
+            Concentrez vos budgets sur Champions et Loyal (ratio {'>'} 5x). Réduisez les budgets
+            Lost (ratio {'<'} 2x) ou améliorez le CAC.
           </p>
         </div>
       </div>
@@ -130,9 +131,7 @@ export function LTVAnalysisSection(): React.ReactElement {
   return (
     <div className="mb-8">
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-text-primary">
-          LTV vs CAC par Segment
-        </h3>
+        <h3 className="text-xl font-semibold text-text-primary">LTV vs CAC par Segment</h3>
         <p className="mt-1 text-sm text-text-secondary">
           Customer Lifetime Value vs Customer Acquisition Cost - Ratio idéal: LTV/CAC {'>'}= 3
         </p>

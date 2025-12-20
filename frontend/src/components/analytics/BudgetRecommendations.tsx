@@ -64,7 +64,12 @@ function getChangeIndicator(change: number): React.ReactElement {
     return (
       <div className="flex items-center gap-1 text-success">
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path d="M5 10l7-7m0 0l7 7m-7-7v18" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+          <path
+            d="M5 10l7-7m0 0l7 7m-7-7v18"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+          />
         </svg>
         <span className="text-sm font-medium">+{change.toFixed(0)}%</span>
       </div>
@@ -74,7 +79,12 @@ function getChangeIndicator(change: number): React.ReactElement {
     return (
       <div className="flex items-center gap-1 text-error">
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path d="M19 14l-7 7m0 0l-7-7m7 7V3" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+          <path
+            d="M19 14l-7 7m0 0l-7-7m7 7V3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+          />
         </svg>
         <span className="text-sm font-medium">{change.toFixed(0)}%</span>
       </div>
@@ -90,9 +100,7 @@ export function BudgetRecommendationsSection(): React.ReactElement {
   return (
     <div className="mb-8">
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-text-primary">
-          Recommandations Budget Ads
-        </h3>
+        <h3 className="text-xl font-semibold text-text-primary">Recommandations Budget Ads</h3>
         <p className="mt-1 text-sm text-text-secondary">
           Optimisation basée sur LTV/CAC • Règle: CAC {'<'} LTV/3 pour rentabilité
         </p>
@@ -108,12 +116,10 @@ export function BudgetRecommendationsSection(): React.ReactElement {
         </div>
         <div className="card-elevated rounded-xl p-4">
           <p className="text-sm text-text-tertiary">Budget Recommandé Total</p>
-          <p className="mt-1 text-3xl font-bold text-brand">
-            {totalRecommended.toLocaleString()}€
-          </p>
+          <p className="mt-1 text-3xl font-bold text-brand">{totalRecommended.toLocaleString()}€</p>
           <p className="mt-1 text-xs text-text-muted">
             {totalRecommended > totalCurrent ? '+' : ''}
-            {((totalRecommended - totalCurrent) / totalCurrent * 100).toFixed(1)}% vs actuel
+            {(((totalRecommended - totalCurrent) / totalCurrent) * 100).toFixed(1)}% vs actuel
           </p>
         </div>
       </div>
@@ -127,7 +133,9 @@ export function BudgetRecommendationsSection(): React.ReactElement {
                 <div className="flex-1">
                   <div className="mb-2 flex items-center gap-3">
                     <h4 className="font-semibold text-text-primary">{rec.channel}</h4>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priority.color}`}>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${priority.color}`}
+                    >
                       {priority.label}
                     </span>
                   </div>
@@ -139,9 +147,7 @@ export function BudgetRecommendationsSection(): React.ReactElement {
                         {rec.currentBudget.toLocaleString()}€
                       </p>
                     </div>
-                    <div className="flex items-center">
-                      {getChangeIndicator(rec.change)}
-                    </div>
+                    <div className="flex items-center">{getChangeIndicator(rec.change)}</div>
                     <div>
                       <p className="text-xs text-text-tertiary">Recommandé</p>
                       <p className="text-lg font-semibold text-brand">
@@ -158,8 +164,9 @@ export function BudgetRecommendationsSection(): React.ReactElement {
 
       <div className="card-elevated mt-4 rounded-xl bg-brand/10 p-4">
         <p className="text-sm font-medium text-brand">
-          💰 Impact Potentiel: +{((totalRecommended - totalCurrent) / totalCurrent * 100).toFixed(0)}% budget
-          = Optimisation du ROAS en concentrant sur segments rentables
+          💰 Impact Potentiel: +
+          {(((totalRecommended - totalCurrent) / totalCurrent) * 100).toFixed(0)}% budget =
+          Optimisation du ROAS en concentrant sur segments rentables
         </p>
       </div>
     </div>

@@ -44,7 +44,7 @@ const MOCK_SEGMENTS: RFMSegment[] = [
     count: 820,
     percentage: 41.0,
     avgRevenue: 320,
-    description: 'N\'ont pas acheté depuis longtemps',
+    description: "N'ont pas acheté depuis longtemps",
     color: 'bg-error',
   },
 ]
@@ -65,7 +65,9 @@ function SegmentCard({ segment }: { segment: RFMSegment }): React.ReactElement {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs text-text-tertiary">Clients</p>
-          <p className="text-lg font-semibold text-text-primary">{segment.count.toLocaleString()}</p>
+          <p className="text-lg font-semibold text-text-primary">
+            {segment.count.toLocaleString()}
+          </p>
         </div>
         <div>
           <p className="text-xs text-text-tertiary">Rev. Moyen</p>
@@ -76,7 +78,10 @@ function SegmentCard({ segment }: { segment: RFMSegment }): React.ReactElement {
       </div>
 
       <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-bg-tertiary">
-        <div className={`h-2 rounded-full ${segment.color}`} style={{ width: `${String(segment.percentage)}%` }} />
+        <div
+          className={`h-2 rounded-full ${segment.color}`}
+          style={{ width: `${String(segment.percentage)}%` }}
+        />
       </div>
     </div>
   )
@@ -100,7 +105,8 @@ export function RFMSegmentationSection(): React.ReactElement {
 
       <div className="card-elevated mt-4 rounded-xl p-4">
         <p className="text-xs text-text-tertiary">
-          💡 Utilisez ces segments pour créer des audiences Lookalike Meta/Google et ajuster vos budgets par segment
+          💡 Utilisez ces segments pour créer des audiences Lookalike Meta/Google et ajuster vos
+          budgets par segment
         </p>
       </div>
     </div>

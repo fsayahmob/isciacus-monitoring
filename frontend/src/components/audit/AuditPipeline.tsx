@@ -5,7 +5,12 @@
 import React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { executeAuditAction, runAllAudits, type AuditResult, type AuditSession } from '../../services/api'
+import {
+  executeAuditAction,
+  runAllAudits,
+  type AuditResult,
+  type AuditSession,
+} from '../../services/api'
 import { AuditCardsGrid } from './AuditCard'
 import { GMCFlowKPI, type GMCFlowData } from './GMCFlowKPI'
 import { IssuesPanel } from './IssueCard'
@@ -96,7 +101,7 @@ export function AuditPipeline(): React.ReactElement {
 function PageHeader({
   onRunAll,
   isRunning,
-  runningCount
+  runningCount,
 }: {
   onRunAll: () => void
   isRunning: boolean

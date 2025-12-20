@@ -249,7 +249,9 @@ function useAuditMutation(
  */
 function useAuditControls(
   setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>,
-  runAuditMutation: ReturnType<typeof useMutation<Awaited<ReturnType<typeof runAudit>>, Error, string>>,
+  runAuditMutation: ReturnType<
+    typeof useMutation<Awaited<ReturnType<typeof runAudit>>, Error, string>
+  >,
   runningAudits: Map<string, RunningAuditInfo>,
   setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
   setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>
@@ -259,9 +261,12 @@ function useAuditControls(
   isAuditRunning: (auditType: string) => boolean
   markAllAuditsAsRunning: (auditTypes: string[]) => void
 } {
-  const selectAudit = React.useCallback((auditType: string): void => {
-    setSelectedAudit(auditType)
-  }, [setSelectedAudit])
+  const selectAudit = React.useCallback(
+    (auditType: string): void => {
+      setSelectedAudit(auditType)
+    },
+    [setSelectedAudit]
+  )
 
   const handleRunAudit = React.useCallback(
     (auditType: string): void => {
