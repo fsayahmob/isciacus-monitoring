@@ -187,6 +187,11 @@ def main() -> None:
             "feed_sync",
             "issues_check",
         ],
+        "capi": [
+            "check_credentials",
+            "test_connection",
+            "pixel_info",
+        ],
     }
 
     results = {}

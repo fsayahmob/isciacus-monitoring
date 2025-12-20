@@ -218,6 +218,23 @@ class TestAuditWorkflowsE2E:
         ]
         self._verify_steps_structure(result, expected_steps)
 
+    # =========================================================================
+    # CAPI Audit
+    # =========================================================================
+    def test_capi_workflow(self) -> None:
+        """Test capi audit workflow end-to-end."""
+        trigger_resp = self._trigger_audit("capi")
+        run_id = trigger_resp["run_id"]
+
+        result = self._wait_for_completion("capi", run_id)
+
+        assert result["audit_type"] == "capi"
+        assert result["execution_mode"] == "inngest"
+        assert result["status"] in ["success", "warning", "error"]
+
+        expected_steps = ["check_credentials", "test_connection", "pixel_info"]
+        self._verify_steps_structure(result, expected_steps)
+
 
 class TestWorkflowProgressTracking:
     """Tests for step-by-step progress updates."""
