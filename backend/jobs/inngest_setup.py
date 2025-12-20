@@ -303,7 +303,8 @@ async def trigger_audit(audit_type: str, period: int = 30) -> dict[str, str]:
     """
     Trigger any audit type via its dedicated Inngest workflow.
 
-    Supported types: ga4_tracking, theme_code, meta_pixel, merchant_center, search_console, ads_readiness, capi
+    Supported types: ga4_tracking, theme_code, meta_pixel, merchant_center,
+    search_console, ads_readiness, capi
     """
     trigger_map = {
         "ga4_tracking": lambda: trigger_ga4_audit(period),
