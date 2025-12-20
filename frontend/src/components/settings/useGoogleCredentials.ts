@@ -17,7 +17,7 @@ interface UploadError {
   message?: string
 }
 
-interface UploadStatus {
+export interface UploadStatus {
   type: 'success' | 'error'
   message: string
 }
