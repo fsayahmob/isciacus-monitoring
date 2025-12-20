@@ -11,15 +11,15 @@ from services.cart_recovery_analyzer import CartRecoveryAnalyzer
 def test_with_mock_data():
     """Test Cart Recovery Analyzer with mock Shopify data."""
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("STORY 3: CART RECOVERY ANALYSIS - TEST RESULTS")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     # Mock environment variables
-    with patch.dict('os.environ', {
-        'SHOPIFY_SHOP_URL': 'test-shop.myshopify.com',
-        'SHOPIFY_ACCESS_TOKEN': 'test-token-123'
-    }):
+    with patch.dict(
+        "os.environ",
+        {"SHOPIFY_SHOP_URL": "test-shop.myshopify.com", "SHOPIFY_ACCESS_TOKEN": "test-token-123"},
+    ):
         analyzer = CartRecoveryAnalyzer()
 
         # Test 1: Check Configuration
@@ -29,7 +29,7 @@ def test_with_mock_data():
 
         # Test 2: Check Cart Tracking (Mock successful response)
         print("✓ Cart Tracking Check:")
-        with patch('services.cart_recovery_analyzer.requests.get') as mock_get:
+        with patch("services.cart_recovery_analyzer.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
@@ -38,7 +38,7 @@ def test_with_mock_data():
                         "id": 1,
                         "email": "customer1@test.com",
                         "created_at": "2023-12-15T00:00:00Z",
-                        "total_price": "120.00"
+                        "total_price": "120.00",
                     }
                 ]
             }
@@ -52,14 +52,14 @@ def test_with_mock_data():
 
         # Test 3: Abandonment Volume (Mock 75 abandoned carts)
         print("✓ Abandonment Volume Analysis:")
-        with patch('services.cart_recovery_analyzer.requests.get') as mock_get:
+        with patch("services.cart_recovery_analyzer.requests.get") as mock_get:
             # Create 75 abandoned checkouts (above minimum of 50)
             checkouts = [
                 {
                     "id": i,
                     "email": f"customer{i}@test.com" if i % 2 == 0 else None,
                     "created_at": f"2023-12-{(i % 30) + 1:02d}T00:00:00Z",
-                    "total_price": "80.00"
+                    "total_price": "80.00",
                 }
                 for i in range(75)
             ]
@@ -73,20 +73,18 @@ def test_with_mock_data():
             volume_result = analyzer.get_abandonment_volume()
             print(f"  - Count: {volume_result['count']} abandoned carts")
             print(f"  - Monthly Rate: {volume_result['monthly_rate']}/month")
-            print(f"  - Sufficient: {volume_result['sufficient']} (min: {volume_result['min_required']})")
+            print(
+                f"  - Sufficient: {volume_result['sufficient']} (min: {volume_result['min_required']})"
+            )
             print(f"  - Message: {volume_result['message']}")
             print()
 
         # Test 4: Email Capture Rate (Mock 70% capture rate)
         print("✓ Email Capture Analysis:")
-        with patch('services.cart_recovery_analyzer.requests.get') as mock_get:
+        with patch("services.cart_recovery_analyzer.requests.get") as mock_get:
             # 70% have emails (above 60% minimum)
             checkouts = [
-                {
-                    "id": i,
-                    "email": f"customer{i}@test.com" if i < 70 else None
-                }
-                for i in range(100)
+                {"id": i, "email": f"customer{i}@test.com" if i < 70 else None} for i in range(100)
             ]
 
             mock_response = MagicMock()
@@ -99,16 +97,16 @@ def test_with_mock_data():
             print(f"  - Capture Rate: {email_result['capture_rate']}%")
             print(f"  - Sample Size: {email_result['sample_size']} checkouts")
             print(f"  - With Email: {email_result['with_email']}")
-            print(f"  - Sufficient: {email_result['sufficient']} (min: {email_result['min_required']}%)")
+            print(
+                f"  - Sufficient: {email_result['sufficient']} (min: {email_result['min_required']}%)"
+            )
             print(f"  - Message: {email_result['message']}")
             print()
 
         # Test 5: Recovery Potential (Mock 50 carts worth $5000)
         print("✓ Recovery Potential Calculation:")
-        with patch('services.cart_recovery_analyzer.requests.get') as mock_get:
-            checkouts = [
-                {"id": i, "total_price": "100.00"} for i in range(50)
-            ]
+        with patch("services.cart_recovery_analyzer.requests.get") as mock_get:
+            checkouts = [{"id": i, "total_price": "100.00"} for i in range(50)]
 
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -138,9 +136,9 @@ def test_with_mock_data():
         for i, rec in enumerate(recommendations, 1):
             print(f"  {i}. {rec}")
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("RÉSUMÉ - STORY 3 (Cart Recovery Analysis)")
-        print("="*60)
+        print("=" * 60)
         print("\n✅ TOUS LES TESTS PASSENT:")
         print("  • Configuration détectée")
         print("  • Suivi des paniers abandonnés activé")
@@ -151,7 +149,7 @@ def test_with_mock_data():
         print("  • Seuil minimum: 50 paniers abandonnés/mois")
         print("  • Seuil email: 60% de taux de capture")
         print("  • Taux de récupération standard: 10%")
-        print("\n" + "="*60 + "\n")
+        print("\n" + "=" * 60 + "\n")
 
 
 if __name__ == "__main__":
