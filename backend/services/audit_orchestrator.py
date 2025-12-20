@@ -372,6 +372,45 @@ class AuditOrchestrator:
                 "issues_count": 0,
             },
             {
+                "type": AuditType.CAPI.value,
+                "name": "Meta CAPI",
+                "description": (
+                    "Vérifie la configuration de Meta Conversions API "
+                    "(server-side tracking, events quality, deduplication)"
+                ),
+                "icon": "server",
+                "available": meta_configured,
+                "last_run": None,
+                "last_status": None,
+                "issues_count": 0,
+            },
+            {
+                "type": AuditType.CUSTOMER_DATA.value,
+                "name": "Données Clients",
+                "description": (
+                    "Analyse la qualité des données clients pour les campagnes Ads "
+                    "(email opt-in, SMS, numéros de téléphone)"
+                ),
+                "icon": "users",
+                "available": True,  # Always available (uses Shopify data)
+                "last_run": None,
+                "last_status": None,
+                "issues_count": 0,
+            },
+            {
+                "type": AuditType.CART_RECOVERY.value,
+                "name": "Récupération Panier",
+                "description": (
+                    "Évalue le potentiel de récupération des paniers abandonnés "
+                    "(volume, capture email, taux de récupération)"
+                ),
+                "icon": "shopping-bag",
+                "available": True,  # Always available (uses Shopify data)
+                "last_run": None,
+                "last_status": None,
+                "issues_count": 0,
+            },
+            {
                 "type": AuditType.MERCHANT_CENTER.value,
                 "name": "Google Merchant Center",
                 "description": gmc_description,
