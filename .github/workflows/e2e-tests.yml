@@ -50,6 +50,7 @@ jobs:
       - name: Create test environment file
         run: |
           cat > backend/.env << EOF
+          TEST_MODE=true
           SHOPIFY_STORE_URL=test-store.myshopify.com
           SHOPIFY_ACCESS_TOKEN=test_token
           GA4_PROPERTY_ID=properties/123456789
