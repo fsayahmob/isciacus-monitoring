@@ -36,10 +36,14 @@ export default defineConfig({
       timeout: 120 * 1000,
     },
     {
-      command: 'cd backend && uvicorn monitoring_app:app --reload --port 8000',
+      command: 'cd backend && TEST_MODE=true uvicorn monitoring_app:app --reload --port 8000',
       url: 'http://localhost:8000/api/products',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
+      env: {
+        TEST_MODE: 'true',
+        INNGEST_DEV: 'true',
+      },
     },
   ],
 })
