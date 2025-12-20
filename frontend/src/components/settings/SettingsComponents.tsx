@@ -96,10 +96,9 @@ export function ConfigSectionCard({
   const isGoogleServiceAccount = section.id === 'google_service_account'
 
   // Extract project_id and service_account_email from variables if present
-  const projectId = section.variables.find((v) => v.key === 'GOOGLE_PROJECT_ID')?.value
-  const serviceAccountEmail = section.variables.find(
-    (v) => v.key === 'GOOGLE_SERVICE_ACCOUNT_EMAIL'
-  )?.value
+  const projectId = section.variables.find((v) => v.key === 'GOOGLE_PROJECT_ID')?.value ?? undefined
+  const serviceAccountEmail =
+    section.variables.find((v) => v.key === 'GOOGLE_SERVICE_ACCOUNT_EMAIL')?.value ?? undefined
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border-default bg-bg-secondary shadow-sm transition-all hover:shadow-md">
