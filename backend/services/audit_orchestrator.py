@@ -49,6 +49,7 @@ class AuditStepStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
+    COMPLETED = "completed"  # Alias for workflows using "completed" instead of "success"
     WARNING = "warning"
     ERROR = "error"
     SKIPPED = "skipped"
