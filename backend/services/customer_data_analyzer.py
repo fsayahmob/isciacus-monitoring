@@ -23,7 +23,9 @@ class CustomerDataAnalyzer:
         """Initialize with Shopify credentials from ConfigService."""
         config = ConfigService()
         shopify_config = config.get_shopify_values()
-        self.shop_url = shopify_config.get("store_url")
+        store_url = shopify_config.get("store_url") or ""
+        # Remove https:// or http:// prefix if present (URL is built with prefix in methods)
+        self.shop_url = store_url.replace("https://", "").replace("http://", "").rstrip("/")
         self.access_token = shopify_config.get("access_token")
 
     def is_configured(self) -> bool:
