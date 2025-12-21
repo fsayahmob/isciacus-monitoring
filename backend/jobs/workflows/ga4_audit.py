@@ -180,6 +180,23 @@ def _step_2_run_full_audit(period: int) -> dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
+def _format_coverage_message(
+    name: str, tracked: int, total: int, rate: float, missing_count: int
+) -> str:
+    """Format a coverage message with KPIs."""
+    if rate >= 90:
+        icon = "✓"
+    elif rate >= 70:
+        icon = "⚠"
+    else:
+        icon = "✗"
+
+    msg = f"{icon} {tracked}/{total} {name} trackés ({rate:.0f}%)"
+    if missing_count > 0:
+        msg += f" - {missing_count} sans visite récente"
+    return msg
+
+
 def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     """Build coverage steps from full audit data."""
     steps = []
@@ -188,6 +205,15 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     # Collections coverage
     coll = coverage.get("collections", {})
     coll_rate = coll.get("rate", 0)
+    coll_tracked = coll.get("tracked", 0)
+    coll_total = coll.get("total", 0)
+    coll_missing = len(coll.get("missing", []))
+    coll_result = {
+        **coll,
+        "message": _format_coverage_message(
+            "collections", coll_tracked, coll_total, coll_rate, coll_missing
+        ),
+    }
     steps.append(
         {
             "id": "collections_coverage",
@@ -197,7 +223,7 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
             "started_at": datetime.now(tz=UTC).isoformat(),
             "completed_at": datetime.now(tz=UTC).isoformat(),
             "duration_ms": 100,
-            "result": coll,
+            "result": coll_result,
             "error_message": None,
         }
     )
@@ -205,6 +231,15 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     # Products coverage
     prod = coverage.get("products", {})
     prod_rate = prod.get("rate", 0)
+    prod_tracked = prod.get("tracked", 0)
+    prod_total = prod.get("total", 0)
+    prod_missing = len(prod.get("missing", []))
+    prod_result = {
+        **prod,
+        "message": _format_coverage_message(
+            "produits", prod_tracked, prod_total, prod_rate, prod_missing
+        ),
+    }
     steps.append(
         {
             "id": "products_coverage",
@@ -214,7 +249,7 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
             "started_at": datetime.now(tz=UTC).isoformat(),
             "completed_at": datetime.now(tz=UTC).isoformat(),
             "duration_ms": 100,
-            "result": prod,
+            "result": prod_result,
             "error_message": None,
         }
     )
@@ -222,6 +257,12 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     # Events coverage
     events = coverage.get("events", {})
     events_rate = events.get("rate", 0)
+    events_tracked = events.get("tracked", 0)
+    events_total = events.get("total", 0)
+    events_result = {
+        **events,
+        "message": f"✓ {events_tracked}/{events_total} événements e-commerce trackés",
+    }
     steps.append(
         {
             "id": "events_coverage",
@@ -231,7 +272,7 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
             "started_at": datetime.now(tz=UTC).isoformat(),
             "completed_at": datetime.now(tz=UTC).isoformat(),
             "duration_ms": 100,
-            "result": events,
+            "result": events_result,
             "error_message": None,
         }
     )
@@ -239,6 +280,12 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     # Transactions match
     trans = full_audit.get("transactions_match", {})
     match_rate = trans.get("match_rate", 0) * 100
+    ga4_trans = trans.get("ga4_transactions", 0)
+    shopify_orders = trans.get("shopify_orders", 0)
+    trans_result = {
+        **trans,
+        "message": f"✓ {ga4_trans} transactions GA4 / {shopify_orders} commandes Shopify ({match_rate:.0f}% match)",
+    }
     steps.append(
         {
             "id": "transactions_match",
@@ -248,7 +295,7 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
             "started_at": datetime.now(tz=UTC).isoformat(),
             "completed_at": datetime.now(tz=UTC).isoformat(),
             "duration_ms": 100,
-            "result": trans,
+            "result": trans_result,
             "error_message": None,
         }
     )
