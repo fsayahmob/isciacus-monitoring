@@ -95,37 +95,54 @@ cd backend && ruff check . && black --check .
 
 ```
 frontend/src/
-├── components/          # UI Components (max 300 lines each)
-│   ├── audit/           # Audit-related components
-│   │   ├── AuditCard.tsx        # Single audit card display
-│   │   ├── AuditPipeline.tsx    # Pipeline visualization
-│   │   ├── auditSteps.ts        # Pure functions for audit logic
-│   │   └── useAuditSession.ts   # React Query hook for audits
-│   ├── common/          # Shared UI components
-│   └── layout/          # Layout components (Sidebar, Header)
-├── hooks/               # Custom React hooks (reusable logic)
-├── services/            # API calls ONLY (no business logic)
-│   └── api.ts           # All fetch functions + types
-├── types/               # Shared TypeScript types
-├── constants/           # Magic numbers, config values
-└── pages/               # Page-level components
+├── components/           # UI Components (max 300 lines each)
+│   ├── audit/            # Audit pipeline & cards
+│   ├── analytics/        # Analytics dashboards
+│   │   ├── sales/        # Sales analysis
+│   │   ├── sales-analysis/
+│   │   └── funnel/       # Conversion funnel
+│   ├── filters/          # Product filters
+│   └── settings/         # Settings & wizard
+│       └── wizard/       # Setup wizard steps
+├── hooks/                # Shared React hooks
+├── lib/                  # Utility libraries
+├── pages/                # Page components (route endpoints)
+├── services/             # API calls ONLY
+│   └── api.ts            # All fetch functions + types
+├── stores/               # State management (Zustand?)
+├── constants/            # Magic numbers, config
+├── types/                # Shared TypeScript types
+└── test/                 # Test utilities
 ```
 
 ### Backend Structure (Python/FastAPI)
 
 ```
 backend/
-├── monitoring_app.py    # FastAPI routes ONLY (thin controller)
-├── services/            # Business logic (one service per domain)
-│   ├── shopify_service.py      # Shopify API calls
-│   ├── ga4_service.py          # Google Analytics
-│   ├── audit_service.py        # Audit orchestration
-│   └── theme_service.py        # Theme analysis
-├── jobs/                # Inngest async functions
-│   └── audit_jobs.py           # Background audit tasks
-├── models/              # Pydantic models (request/response)
-├── config/              # Configuration files
-└── data/                # SQLite DB + JSON cache files
+├── monitoring_app.py     # FastAPI routes (50K lines - needs refactor!)
+├── services/             # Business logic services
+│   ├── audit_orchestrator.py   # Main audit orchestration (164K)
+│   ├── audit_service.py        # Audit helpers
+│   ├── shopify_analytics.py    # Shopify data fetching
+│   ├── ga4_analytics.py        # Google Analytics 4
+│   ├── theme_analyzer.py       # Theme code analysis
+│   ├── cart_recovery_analyzer.py
+│   ├── customer_data_analyzer.py
+│   ├── permissions_checker.py
+│   ├── config_service.py       # Configuration management
+│   ├── cache_service.py        # Cache management
+│   ├── secure_store.py         # Encrypted credentials
+│   ├── benchmarks.py           # Benchmark thresholds
+│   ├── meta_capi.py            # Meta Conversions API
+│   └── rate_limiter.py
+├── jobs/                 # Inngest async workflows
+│   ├── inngest_setup.py        # Inngest client setup
+│   ├── audit_workflow.py       # Workflow definitions
+│   └── workflows/              # Individual workflow steps
+├── models/               # Pydantic models
+├── config/               # Configuration files
+├── tests/                # Test files
+└── data/                 # SQLite + JSON cache
 ```
 
 ### Factorization Rules
@@ -133,21 +150,22 @@ backend/
 | When file exceeds... | Action |
 |---------------------|--------|
 | 300 lines (frontend) | Extract to new file in same folder |
-| 80 lines per function | Extract helper functions |
-| 5 params per function | Create config object/interface |
-| Repeated logic | Create shared utility in `hooks/` or `services/` |
+| 80 lines per function | Extract helper functions to `*Steps.ts` or `*Utils.ts` |
+| 5 params per function | Create config interface |
+| Repeated logic | Extract to `hooks/` (frontend) or new service (backend) |
 
 ### Where to Put New Code
 
 | Type of code | Frontend location | Backend location |
 |--------------|-------------------|------------------|
 | API call | `services/api.ts` | `monitoring_app.py` (route) |
-| Business logic | `components/<domain>/*.ts` | `services/<domain>_service.py` |
-| React state | `hooks/use<Name>.ts` | N/A |
-| Async task | N/A | `jobs/<name>_jobs.py` |
-| Types/Models | `types/*.ts` or inline | `models/*.py` |
-| Constants | `constants/index.ts` | `config/*.py` |
-| Pure functions | `<component>/<name>.ts` | `services/<name>.py` |
+| Business logic | `components/<domain>/<name>.ts` | `services/<name>_analyzer.py` |
+| React hook | `components/<domain>/use<Name>.ts` | N/A |
+| Shared hook | `hooks/use<Name>.ts` | N/A |
+| Async workflow | N/A | `jobs/workflows/<name>.py` |
+| Types/Models | `services/api.ts` (with API) | `models/<name>.py` |
+| Constants | `constants/index.ts` | `config/<name>.py` |
+| Pure functions | `components/<domain>/<name>Steps.ts` | `services/<name>.py` |
 
 ### Naming Conventions
 
