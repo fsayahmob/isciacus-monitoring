@@ -106,41 +106,46 @@ class MetaCAPIClient:
         except requests.RequestException as e:
             return {"success": False, "error": str(e)}
 
-    def get_emq_score(self) -> dict[str, Any]:
+    def get_emq_info(self) -> dict[str, Any]:
         """
-        Récupère l'Event Match Quality (EMQ) score.
+        Retourne des informations sur l'Event Match Quality (EMQ).
 
-        L'EMQ mesure la qualité des données de matching (email, téléphone, etc.)
-        envoyées via CAPI. Score sur 10, recommandé > 6.0 pour optimisation Ads.
+        NOTE: L'EMQ n'est PAS accessible via l'API Graph de Meta.
+        Le score est uniquement visible dans Events Manager.
+
+        Cette méthode vérifie si des événements CAPI sont reçus et
+        fournit des conseils pour améliorer le score EMQ.
 
         Returns:
             dict avec:
             - success: bool
-            - score: float (0-10) si succès
-            - error: str si échec
+            - has_server_events: bool (si des événements CAPI sont détectés)
+            - message: str (instructions pour l'utilisateur)
         """
         if not self.is_configured():
             return {"success": False, "error": "CAPI not configured"}
 
-        try:
-            # Use Meta Graph API to get Server Events data with EMQ metrics
-            url = f"{self.BASE_URL}/{self.GRAPH_API_VERSION}/{self.pixel_id}/server_events"
-            params = {
-                "access_token": self.access_token,
-                "fields": "event_match_quality",
-            }
-            response = requests.get(url, params=params, timeout=10)
+        # Vérifie si le pixel reçoit des événements via last_fired_time
+        pixel_info = self.get_pixel_info()
 
-            if response.status_code == 200:
-                data = response.json()
-                # EMQ is returned as a score between 0-10
-                emq = data.get("event_match_quality")
-                if emq is not None:
-                    return {"success": True, "score": float(emq)}
-                return {"success": False, "error": "EMQ score not available yet (no events sent)"}
+        if not pixel_info.get("success"):
             return {
                 "success": False,
-                "error": response.json().get("error", {}).get("message", "API error"),
+                "error": pixel_info.get("error", "Impossible de récupérer les infos du pixel"),
             }
-        except requests.RequestException as e:
-            return {"success": False, "error": str(e)}
+
+        # Si last_fired_time existe, des événements sont envoyés
+        data = pixel_info.get("data", {})
+        last_fired = data.get("last_fired_time")
+        has_activity = last_fired is not None
+
+        return {
+            "success": True,
+            "has_server_events": has_activity,
+            "last_fired": last_fired,
+            "message": (
+                "Le score EMQ est visible dans Meta Events Manager > Diagnostics. "
+                "Pour un bon score (>6/10), envoyez: email (hashé), téléphone, "
+                "external_id, et client_ip_address avec chaque événement."
+            ),
+        }
