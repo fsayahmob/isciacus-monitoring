@@ -128,8 +128,8 @@ unfixable = []
 # Tests can use assertions and magic values
 "**/tests/**/*.py" = ["S101", "PLR2004", "ARG001", "T201", "PLR0915", "I001", "Q000"]
 "**/test_*.py" = ["S101", "PLR2004", "ARG001", "T201", "PLR0915", "I001", "Q000", "E501", "S105"]
-# Jobs use lazy imports to avoid circular dependencies, and parse XML sitemaps
-"**/jobs/**/*.py" = ["PLC0415", "PLR2004", "S110", "F841", "PLR0912", "S314"]
+# Jobs use lazy imports, parse XML sitemaps, and have complex audit functions
+"**/jobs/**/*.py" = ["PLC0415", "PLR2004", "S110", "F841", "PLR0912", "PLR0915", "S314"]
 # FastAPI endpoints have request param for typing/middleware even if unused
 # And use magic numbers for HTTP status codes
 "monitoring_app.py" = ["ARG001", "PLR2004", "FBT001", "FBT002", "PLC0415", "B904", "ASYNC210", "PLR0912", "SLF001", "S105", "T201"]

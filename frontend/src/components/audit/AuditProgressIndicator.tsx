@@ -31,21 +31,11 @@ function ProgressChip({ p }: { p: AuditProgress }): React.ReactElement {
     <div className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs ${getChipClass()}`}>
       {p.status === 'completed' && (
         <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M5 13l4 4L19 7"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       )}
       {p.status === 'running' && (
-        <svg
-          className="h-3 w-3 animate-spin"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="h-3 w-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth={4} />
           <path
             className="opacity-75"

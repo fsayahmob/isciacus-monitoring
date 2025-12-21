@@ -5,13 +5,7 @@
 import React from 'react'
 
 import type { CheckStatus } from './types'
-import {
-  CheckIcon,
-  WarningIcon,
-  ErrorIcon,
-  LoadingIcon,
-  PendingIcon,
-} from './WizardIcons'
+import { CheckIcon, WarningIcon, ErrorIcon, LoadingIcon, PendingIcon } from './WizardIcons'
 
 export function getStatusIcon(status: CheckStatus): React.ReactElement {
   switch (status) {

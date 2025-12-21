@@ -13,7 +13,11 @@ interface ExtendedAudit extends AvailableAudit {
   is_primary?: boolean
 }
 
-function getRowBorderColor(isSelected: boolean, isRunning: boolean, status: AuditStepStatus | null): string {
+function getRowBorderColor(
+  isSelected: boolean,
+  isRunning: boolean,
+  status: AuditStepStatus | null
+): string {
   if (isRunning) {
     return 'ring-1 ring-info border-info/50 bg-info/5'
   }
@@ -31,7 +35,11 @@ function getRowBorderColor(isSelected: boolean, isRunning: boolean, status: Audi
   return 'border-border-subtle hover:border-border-default'
 }
 
-function RowRunButton({ available, isRunning, onRun }: {
+function RowRunButton({
+  available,
+  isRunning,
+  onRun,
+}: {
   available: boolean
   isRunning: boolean
   onRun: () => void
@@ -45,14 +53,15 @@ function RowRunButton({ available, isRunning, onRun }: {
     )
   }
   if (!available) {
-    return (
-      <span className="text-xs text-text-muted">Indisponible</span>
-    )
+    return <span className="text-xs text-text-muted">Indisponible</span>
   }
   return (
     <button
       className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light"
-      onClick={(e) => { e.stopPropagation(); onRun() }}
+      onClick={(e) => {
+        e.stopPropagation()
+        onRun()
+      }}
       type="button"
     >
       <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
@@ -76,7 +85,13 @@ function ChevronIcon({ isOpen }: { isOpen: boolean }): React.ReactElement {
   )
 }
 
-function AuditRowItem({ audit, isRunning, isSelected, onRun, onSelect }: {
+function AuditRowItem({
+  audit,
+  isRunning,
+  isSelected,
+  onRun,
+  onSelect,
+}: {
   audit: AvailableAudit
   isRunning: boolean
   isSelected: boolean
@@ -91,7 +106,11 @@ function AuditRowItem({ audit, isRunning, isSelected, onRun, onSelect }: {
       className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-all ${borderColor}`}
       data-audit-type={audit.type}
       onClick={onSelect}
-      onKeyDown={(e) => { if (e.key === 'Enter') { onSelect() } }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          onSelect()
+        }
+      }}
       role="button"
       tabIndex={0}
     >
@@ -120,7 +139,9 @@ function SectionDivider(): React.ReactElement {
   return (
     <div className="flex items-center gap-3">
       <div className="h-px flex-1 bg-border-subtle" />
-      <span className="text-xs font-medium uppercase tracking-wider text-text-muted">Audits détaillés</span>
+      <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
+        Audits détaillés
+      </span>
       <div className="h-px flex-1 bg-border-subtle" />
     </div>
   )
@@ -160,8 +181,12 @@ export function AuditCardsGrid({
             audit={onboardingAudit}
             isRunning={isAuditRunning('onboarding')}
             isSelected={selectedAudit === 'onboarding'}
-            onRun={() => { onRun('onboarding') }}
-            onSelect={() => { onSelect('onboarding') }}
+            onRun={() => {
+              onRun('onboarding')
+            }}
+            onSelect={() => {
+              onSelect('onboarding')
+            }}
           />
           {selectedAudit === 'onboarding' && accordionContent !== undefined && (
             <AuditAccordionContent content={accordionContent} />
@@ -178,8 +203,12 @@ export function AuditCardsGrid({
                 audit={audit}
                 isRunning={isAuditRunning(audit.type)}
                 isSelected={selectedAudit === audit.type}
-                onRun={() => { onRun(audit.type) }}
-                onSelect={() => { onSelect(audit.type) }}
+                onRun={() => {
+                  onRun(audit.type)
+                }}
+                onSelect={() => {
+                  onSelect(audit.type)
+                }}
               />
               {selectedAudit === audit.type && accordionContent !== undefined && (
                 <AuditAccordionContent content={accordionContent} />

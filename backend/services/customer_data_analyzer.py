@@ -165,9 +165,9 @@ class CustomerDataAnalyzer:
                     "error": "Invalid order dates",
                 }
 
-            # Parse ISO 8601 dates (remove Z suffix for Python < 3.11 compatibility)
-            oldest_date = datetime.fromisoformat(oldest_date_str.replace("Z", "+00:00"))
-            newest_date = datetime.fromisoformat(newest_date_str.replace("Z", "+00:00"))
+            # Parse ISO 8601 dates (Python 3.11+ supports Z suffix natively)
+            oldest_date = datetime.fromisoformat(oldest_date_str)
+            newest_date = datetime.fromisoformat(newest_date_str)
 
             days_span = (newest_date - oldest_date).days
 

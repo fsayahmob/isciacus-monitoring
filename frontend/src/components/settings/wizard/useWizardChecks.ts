@@ -64,7 +64,9 @@ function buildInngestCheck(
       id: 'inngest',
       name: 'Inngest (Jobs)',
       description:
-        status === 'success' ? 'Service de jobs asynchrones opérationnel' : 'Jobs synchrones (plus lent)',
+        status === 'success'
+          ? 'Service de jobs asynchrones opérationnel'
+          : 'Jobs synchrones (plus lent)',
       status,
       details: health.services.inngest.message,
     }
