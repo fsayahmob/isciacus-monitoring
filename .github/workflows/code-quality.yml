@@ -355,7 +355,8 @@ jobs:
         working-directory: backend
         run: |
           echo "=== Python Security Audit ==="
-          pip-audit --strict --desc || {
+          # --skip-editable: Skip local package (not on PyPI)
+          pip-audit --strict --desc --skip-editable || {
             echo "⚠️ Vulnerabilities found in Python dependencies"
             echo "Run 'pip-audit' locally for details"
             exit 1
