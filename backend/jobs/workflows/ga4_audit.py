@@ -282,9 +282,13 @@ def _build_coverage_steps(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     match_rate = trans.get("match_rate", 0) * 100
     ga4_trans = trans.get("ga4_transactions", 0)
     shopify_orders = trans.get("shopify_orders", 0)
+    trans_message = (
+        f"✓ {ga4_trans} transactions GA4 / {shopify_orders} commandes Shopify "
+        f"({match_rate:.0f}% match)"
+    )
     trans_result = {
         **trans,
-        "message": f"✓ {ga4_trans} transactions GA4 / {shopify_orders} commandes Shopify ({match_rate:.0f}% match)",
+        "message": trans_message,
     }
     steps.append(
         {
