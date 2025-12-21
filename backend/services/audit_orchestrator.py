@@ -3543,7 +3543,11 @@ class AuditOrchestrator:
                             completed_at=step_info.get("completed_at"),
                             duration_ms=step_info.get("duration_ms"),
                             result=step_info.get("result"),
-                            error_message=step_info.get("message") if step_info.get("status") == "error" else None,
+                            error_message=(
+                                step_info.get("message")
+                                if step_info.get("status") == "error"
+                                else None
+                            ),
                         )
                     )
         else:
