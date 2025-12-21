@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Hook PreToolUse pour Edit/Write
+# Force Claude à relire CLAUDE.md avant chaque modification de fichier code
+
+input=$(cat)
+tool_name=$(echo "$input" | jq -r '.tool_name // empty')
+file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty')
+
+# Ne s'applique qu'aux outils Edit et Write sur fichiers code
+if [[ "$tool_name" != "Edit" && "$tool_name" != "Write" ]]; then
+  exit 0
+fi
+
+# Ignorer les fichiers non-code
+if [[ "$file_path" != *".ts" && "$file_path" != *".tsx" && "$file_path" != *".py" && "$file_path" != *".js" && "$file_path" != *".jsx" ]]; then
+  exit 0
+fi
+
+# Rappel des règles
+cat << 'EOF'
+📋 RAPPEL CLAUDE.md - Vérifie avant de modifier:
+
+FRONTEND (max-lines=300, max-function=80, max-params=5):
+- Toujours {} pour if/else
+- Pas de console.log (sauf warn/error)
+- Types explicites sur retours de fonction
+- wc -l avant/après modification
+
+BACKEND (line-length=100, max-args=6, max-statements=50):
+- Pas de print (utiliser logger)
+- Types obligatoires (mypy strict)
+- snake_case pour fonctions
+
+Après modification: npm run lint && npm run typecheck (frontend)
+                   ruff check . && black --check . (backend)
+EOF
+
+exit 0
