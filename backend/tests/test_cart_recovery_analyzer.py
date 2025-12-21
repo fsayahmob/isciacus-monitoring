@@ -2,9 +2,9 @@
 Tests for Cart Recovery Analyzer Service.
 
 Tests cart abandonment analysis for Ads retargeting readiness.
+Validates that credentials are read from ConfigService (SQLite), not os.getenv.
 """
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,22 +13,44 @@ from services.cart_recovery_analyzer import CartRecoveryAnalyzer
 
 
 @pytest.fixture
-def mock_env():
-    """Mock environment variables."""
-    with patch.dict(
-        os.environ,
-        {
-            "SHOPIFY_SHOP_URL": "test-shop.myshopify.com",
+def mock_config():
+    """Mock ConfigService to return test credentials."""
+    with patch("services.cart_recovery_analyzer.ConfigService") as mock_class:
+        mock_instance = MagicMock()
+        mock_instance.get_all_config.return_value = {
+            "SHOPIFY_STORE_URL": "test-shop.myshopify.com",
             "SHOPIFY_ACCESS_TOKEN": "test-token",
-        },
-    ):
-        yield
+        }
+        mock_class.return_value = mock_instance
+        yield mock_instance
 
 
 @pytest.fixture
-def analyzer(mock_env):
-    """Create CartRecoveryAnalyzer instance with mocked env."""
+def mock_config_empty():
+    """Mock ConfigService with no credentials."""
+    with patch("services.cart_recovery_analyzer.ConfigService") as mock_class:
+        mock_instance = MagicMock()
+        mock_instance.get_all_config.return_value = {}
+        mock_class.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def analyzer(mock_config):
+    """Create CartRecoveryAnalyzer instance with mocked ConfigService."""
     return CartRecoveryAnalyzer()
+
+
+def test_uses_config_service_not_os_environ(mock_config):
+    """Test that analyzer reads credentials from ConfigService, not os.getenv."""
+    analyzer = CartRecoveryAnalyzer()
+
+    # Verify ConfigService was called
+    mock_config.get_all_config.assert_called_once()
+
+    # Verify credentials are set from ConfigService
+    assert analyzer.shop_url == "test-shop.myshopify.com"
+    assert analyzer.access_token == "test-token"
 
 
 def test_is_configured_with_credentials(analyzer):
@@ -36,7 +58,7 @@ def test_is_configured_with_credentials(analyzer):
     assert analyzer.is_configured() is True
 
 
-def test_is_configured_without_credentials():
+def test_is_configured_without_credentials(mock_config_empty):
     """Test that service detects missing credentials."""
     analyzer = CartRecoveryAnalyzer()
     assert analyzer.is_configured() is False
