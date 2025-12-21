@@ -251,3 +251,94 @@ export function mergeAuditResults(
     steps: reconciledSteps,
   }
 }
+
+// Constants and types for running audit detection
+export interface RunningAuditInfo {
+  startedAt: string
+  runId?: string
+}
+
+const CLOCK_SKEW_TOLERANCE_MS = 5000
+const FINAL_STATUSES = ['success', 'warning', 'error', 'skipped']
+const MAX_AUDIT_DURATION_MS = 120000
+
+/** Detect audits with status 'running' from backend session (for page refresh recovery) */
+export function detectRunningAuditsFromSession(session: {
+  audits: Record<string, AuditResult>
+}): Map<string, RunningAuditInfo> {
+  const running = new Map<string, RunningAuditInfo>()
+  Object.entries(session.audits).forEach(([auditType, result]) => {
+    if (result.status === 'running') {
+      running.set(auditType, { startedAt: result.started_at })
+    }
+  })
+  return running
+}
+
+export function isResultFromCurrentRun(
+  result: AuditResult | null,
+  runInfo: RunningAuditInfo | undefined
+): boolean {
+  if (result === null || runInfo === undefined) {
+    return false
+  }
+  const serverStarted = new Date(result.started_at).getTime()
+  const ourTrigger = new Date(runInfo.startedAt).getTime()
+  return serverStarted >= ourTrigger - CLOCK_SKEW_TOLERANCE_MS
+}
+
+export function findCompletedAudits(
+  running: Map<string, RunningAuditInfo>,
+  session: { audits: Record<string, AuditResult> } | null
+): string[] {
+  if (session === null) {
+    return []
+  }
+  const completed: string[] = []
+  const now = Date.now()
+  running.forEach((runInfo, auditType) => {
+    if (!(auditType in session.audits)) {
+      return
+    }
+    const result = session.audits[auditType]
+    const serverStarted = new Date(result.started_at).getTime()
+    const ourTrigger = new Date(runInfo.startedAt).getTime()
+    if (serverStarted < ourTrigger - CLOCK_SKEW_TOLERANCE_MS) {
+      return
+    }
+    if (FINAL_STATUSES.includes(result.status) && result.completed_at !== null) {
+      completed.push(auditType)
+      return
+    }
+    const elapsed = now - ourTrigger
+    if (elapsed > MAX_AUDIT_DURATION_MS) {
+      console.warn(`⏱️ Audit ${auditType} timeout - forcing completion`)
+      completed.push(auditType)
+    }
+  })
+  return completed
+}
+
+export function resolveCurrentResult(
+  selected: string | null,
+  session: { audits: Record<string, AuditResult> } | null,
+  optimistic: Map<string, AuditResult>,
+  running: Map<string, RunningAuditInfo>
+): AuditResult | null {
+  if (selected === null) {
+    return null
+  }
+  const serverResult = session?.audits[selected] ?? null
+  const runInfo = running.get(selected)
+  let base: AuditResult | null = null
+  if (runInfo !== undefined) {
+    const fromCurrent = serverResult !== null && isResultFromCurrentRun(serverResult, runInfo)
+    base = fromCurrent ? serverResult : (optimistic.get(selected) ?? null)
+  } else {
+    base = serverResult
+  }
+  if (base === null) {
+    return null
+  }
+  return { ...base, steps: reconcileSteps(base.audit_type, base.steps) }
+}

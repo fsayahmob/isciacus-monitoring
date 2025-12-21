@@ -1,10 +1,4 @@
-/**
- * useAuditSession - React Query based polling for audit results
- *
- * Tracks running state PER AUDIT, not globally.
- * Each audit can run independently and show its own state.
- */
-
+/** useAuditSession - React Query based polling for audit results */
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import React from 'react'
 
@@ -15,15 +9,15 @@ import {
   type AuditResult,
   type AuditSession,
 } from '../../services/api'
-import { createRunningResult, reconcileSteps } from './auditSteps'
+import {
+  createRunningResult,
+  detectRunningAuditsFromSession,
+  findCompletedAudits,
+  resolveCurrentResult,
+  type RunningAuditInfo,
+} from './auditSteps'
 
 const POLL_INTERVAL_MS = 1000
-const CLOCK_SKEW_TOLERANCE_MS = 5000
-
-interface RunningAuditInfo {
-  startedAt: string
-  runId?: string
-}
 
 interface UseAuditSessionReturn {
   session: AuditSession | null
@@ -38,176 +32,34 @@ interface UseAuditSessionReturn {
   markAllAuditsAsRunning: (auditTypes: string[]) => void
 }
 
-/**
- * Check if a server result is from the current run (started after we triggered it)
- */
-function isResultFromCurrentRun(
-  serverResult: AuditResult | null,
-  runInfo: RunningAuditInfo | undefined
-): boolean {
-  if (!serverResult || !runInfo) {
-    return false
-  }
-
-  // Compare timestamps - server result must be started AFTER our trigger
-  const serverStarted = new Date(serverResult.started_at).getTime()
-  const ourTrigger = new Date(runInfo.startedAt).getTime()
-
-  // Allow tolerance for clock skew
-  return serverStarted >= ourTrigger - CLOCK_SKEW_TOLERANCE_MS
-}
-
-/**
- * Check which audits have completed and return their types
- *
- * Uses Inngest-style completion detection:
- * - Poll until status is final (not 'running' or 'pending')
- * - Respect completed_at timestamp from backend
- * - Safety timeout after 2 minutes (max audit duration)
- */
-function findCompletedAudits(
-  runningAudits: Map<string, RunningAuditInfo>,
-  session: AuditSession | null
-): string[] {
-  if (session === null) {
-    return []
-  }
-
-  const completed: string[] = []
-  const now = Date.now()
-  const MAX_AUDIT_DURATION_MS = 120000 // 2 minutes max per audit
-
-  runningAudits.forEach((runInfo, auditType) => {
-    const result = session.audits[auditType] as AuditResult | undefined
-
-    // No result yet - audit still initializing
-    if (result === undefined) {
-      return
-    }
-
-    // Check if this result is from the CURRENT run (not an old cached result)
-    // Compare started_at timestamps with tolerance for clock skew
-    const serverStarted = new Date(result.started_at).getTime()
-    const ourTrigger = new Date(runInfo.startedAt).getTime()
-    const isFromCurrentRun = serverStarted >= ourTrigger - CLOCK_SKEW_TOLERANCE_MS
-
-    // Only mark as completed if it's from the current run AND has final status
-    if (!isFromCurrentRun) {
-      // This is an old result, wait for new one
-      return
-    }
-
-    // Inngest pattern: Check if run has reached final status
-    // Final statuses: 'success', 'warning', 'error', 'skipped'
-    // Running statuses: 'running', 'pending'
-    const FINAL_STATUSES = ['success', 'warning', 'error', 'skipped']
-    const isFinalStatus = FINAL_STATUSES.includes(result.status)
-
-    if (isFinalStatus && result.completed_at !== null) {
-      // Mark audit as completed - will be removed from running map
-      completed.push(auditType)
-      return
-    }
-
-    // Safety timeout: Force completion if running too long
-    // This prevents infinite polling if backend fails to update status
-    const elapsed = now - new Date(runInfo.startedAt).getTime()
-    const MILLIS_PER_SECOND = 1000
-
-    if (elapsed > MAX_AUDIT_DURATION_MS) {
-      console.warn(
-        `⏱️ Audit ${auditType} timeout after ${(elapsed / MILLIS_PER_SECOND).toFixed(0)}s - forcing completion`
-      )
-      completed.push(auditType)
-    }
-  })
-
-  return completed
-}
-
-/**
- * Determine which result to show for the selected audit
- */
-function resolveCurrentResult(
-  selectedAudit: string | null,
-  session: AuditSession | null,
-  optimisticResults: Map<string, AuditResult>,
-  runningAudits: Map<string, RunningAuditInfo>
-): AuditResult | null {
-  if (selectedAudit === null) {
-    return null
-  }
-
-  const serverResult = session?.audits[selectedAudit] ?? null
-  const optimistic = optimisticResults.get(selectedAudit)
-  const runInfo = runningAudits.get(selectedAudit)
-  const isRunning = runInfo !== undefined
-
-  let baseResult: AuditResult | null = null
-
-  if (isRunning) {
-    // We're running - check if server has data from THIS run
-    if (serverResult !== null && isResultFromCurrentRun(serverResult, runInfo)) {
-      // Server has data from our current run - use it
-      baseResult = serverResult
-    } else {
-      // Server doesn't have data yet, or has old data - use optimistic
-      baseResult = optimistic ?? null
-    }
-  } else {
-    // Not running - show server result (could be from previous run)
-    baseResult = serverResult
-  }
-
-  if (baseResult === null) {
-    return null
-  }
-
-  const reconciledSteps = reconcileSteps(baseResult.audit_type, baseResult.steps)
-  return {
-    ...baseResult,
-    steps: reconciledSteps,
-  }
-}
-
-/**
- * Effect that detects completed audits and cleans up state
- */
 function useCompletionEffect(
-  runningAudits: Map<string, RunningAuditInfo>,
+  running: Map<string, RunningAuditInfo>,
   session: AuditSession | null,
-  setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
-  setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>,
-  queryClient: ReturnType<typeof useQueryClient>
+  setRunning: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
+  setOptimistic: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>,
+  qc: ReturnType<typeof useQueryClient>
 ): void {
   React.useEffect(() => {
-    if (runningAudits.size === 0) {
+    if (running.size === 0) {
       return
     }
-
-    const completedAudits = findCompletedAudits(runningAudits, session)
-
-    if (completedAudits.length > 0) {
-      setRunningAudits((prev) => {
-        const next = new Map(prev)
-        completedAudits.forEach((t) => next.delete(t))
-        return next
+    const done = findCompletedAudits(running, session)
+    if (done.length > 0) {
+      setRunning((prev) => {
+        const n = new Map(prev)
+        done.forEach((t) => n.delete(t))
+        return n
       })
-
-      setOptimisticResults((prev) => {
-        const next = new Map(prev)
-        completedAudits.forEach((t) => next.delete(t))
-        return next
+      setOptimistic((prev) => {
+        const n = new Map(prev)
+        done.forEach((t) => n.delete(t))
+        return n
       })
-
-      void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
+      void qc.invalidateQueries({ queryKey: ['available-audits'] })
     }
-  }, [session, runningAudits, queryClient, setRunningAudits, setOptimisticResults])
+  }, [session, running, qc, setRunning, setOptimistic])
 }
 
-/**
- * Hook for audit mutation with optimistic updates
- */
 function useAuditMutation(
   setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>,
   setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
@@ -221,17 +73,14 @@ function useAuditMutation(
       const startedAt = new Date().toISOString()
       setSelectedAudit(auditType)
       setRunningAudits((prev) => new Map(prev).set(auditType, { startedAt }))
-      const optimistic = createRunningResult(auditType)
-      setOptimisticResults((prev) => new Map(prev).set(auditType, optimistic))
+      setOptimisticResults((prev) => new Map(prev).set(auditType, createRunningResult(auditType)))
     },
     onSuccess: (response, auditType) => {
       if ('async' in response && response.run_id !== '') {
         setRunningAudits((prev) => {
           const existing = prev.get(auditType)
-          if (existing) {
-            const next = new Map(prev)
-            next.set(auditType, { ...existing, runId: response.run_id })
-            return next
+          if (existing !== undefined) {
+            return new Map(prev).set(auditType, { ...existing, runId: response.run_id })
           }
           return prev
         })
@@ -244,65 +93,58 @@ function useAuditMutation(
   })
 }
 
-/**
- * Setup audit control callbacks
- */
+type MutationType = ReturnType<
+  typeof useMutation<Awaited<ReturnType<typeof runAudit>>, Error, string>
+>
+
 function useAuditControls(
   setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>,
-  runAuditMutation: ReturnType<
-    typeof useMutation<Awaited<ReturnType<typeof runAudit>>, Error, string>
-  >,
+  runAuditMutation: MutationType,
   runningAudits: Map<string, RunningAuditInfo>,
   setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
   setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>
 ): {
-  selectAudit: (auditType: string) => void
-  handleRunAudit: (auditType: string) => void
-  isAuditRunning: (auditType: string) => boolean
-  markAllAuditsAsRunning: (auditTypes: string[]) => void
+  selectAudit: (t: string) => void
+  handleRunAudit: (t: string) => void
+  isAuditRunning: (t: string) => boolean
+  markAllAuditsAsRunning: (types: string[]) => void
 } {
   const selectAudit = React.useCallback(
-    (auditType: string): void => {
-      setSelectedAudit((prev) => (prev === auditType ? null : auditType))
+    (t: string): void => {
+      setSelectedAudit((p) => (p === t ? null : t))
     },
     [setSelectedAudit]
   )
-
   const handleRunAudit = React.useCallback(
-    (auditType: string): void => {
-      runAuditMutation.mutate(auditType)
+    (t: string): void => {
+      runAuditMutation.mutate(t)
     },
     [runAuditMutation]
   )
-
   const isAuditRunning = React.useCallback(
-    (auditType: string): boolean => {
-      return runningAudits.has(auditType)
-    },
+    (t: string): boolean => runningAudits.has(t),
     [runningAudits]
   )
-
   const markAllAuditsAsRunning = React.useCallback(
-    (auditTypes: string[]): void => {
+    (types: string[]): void => {
       const startedAt = new Date().toISOString()
       setRunningAudits((prev) => {
         const next = new Map(prev)
-        auditTypes.forEach((auditType) => {
-          next.set(auditType, { startedAt })
+        types.forEach((t) => {
+          next.set(t, { startedAt })
         })
         return next
       })
       setOptimisticResults((prev) => {
         const next = new Map(prev)
-        auditTypes.forEach((auditType) => {
-          next.set(auditType, createRunningResult(auditType))
+        types.forEach((t) => {
+          next.set(t, createRunningResult(t))
         })
         return next
       })
     },
     [setRunningAudits, setOptimisticResults]
   )
-
   return { selectAudit, handleRunAudit, isAuditRunning, markAllAuditsAsRunning }
 }
 
@@ -318,7 +160,6 @@ export function useAuditSession(): UseAuditSessionReturn {
     queryKey: ['available-audits'],
     queryFn: fetchAvailableAudits,
   })
-
   const { data: sessionData } = useQuery({
     queryKey: ['audit-session'],
     queryFn: fetchLatestAuditSession,
@@ -328,16 +169,29 @@ export function useAuditSession(): UseAuditSessionReturn {
 
   const session = sessionData?.session ?? null
 
-  const removeAuditFromRunning = React.useCallback((auditType: string): void => {
+  // Detect running audits from backend on initial load (survives page refresh)
+  const hasInitializedFromBackend = React.useRef(false)
+  React.useEffect(() => {
+    if (hasInitializedFromBackend.current || session === null) {
+      return
+    }
+    hasInitializedFromBackend.current = true
+    const running = detectRunningAuditsFromSession(session)
+    if (running.size > 0) {
+      setRunningAudits(running)
+    }
+  }, [session])
+
+  const removeAuditFromRunning = React.useCallback((t: string): void => {
     setRunningAudits((prev) => {
-      const next = new Map(prev)
-      next.delete(auditType)
-      return next
+      const n = new Map(prev)
+      n.delete(t)
+      return n
     })
     setOptimisticResults((prev) => {
-      const next = new Map(prev)
-      next.delete(auditType)
-      return next
+      const n = new Map(prev)
+      n.delete(t)
+      return n
     })
   }, [])
 
