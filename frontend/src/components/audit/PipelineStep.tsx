@@ -65,6 +65,16 @@ const PipelineStepItem = React.memo(function PipelineStepItem({
         </div>
         <p className="mt-0.5 text-sm text-text-tertiary">{step.description}</p>
 
+        {/* KPI result message */}
+        {step.result !== null &&
+          typeof step.result === 'object' &&
+          'message' in step.result &&
+          typeof step.result.message === 'string' && (
+            <div className="mt-2 rounded-lg border border-border-subtle bg-bg-tertiary/50 px-3 py-2 text-sm text-text-secondary">
+              {step.result.message}
+            </div>
+          )}
+
         {/* Error message */}
         {step.error_message !== null && (
           <div className="mt-2 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
