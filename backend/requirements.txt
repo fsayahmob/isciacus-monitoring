@@ -28,3 +28,6 @@ google-api-python-client>=2.100.0
 
 # Background Jobs
 inngest>=0.4.0
+
+# HTML Parsing (for SEO audit)
+beautifulsoup4>=4.12.0

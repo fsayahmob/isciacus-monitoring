@@ -158,3 +158,17 @@ export async function fetchShopifyPermissions(): Promise<PermissionsReport> {
   const response = await apiClient.get<PermissionsReport>('/api/permissions/shopify')
   return response.data
 }
+
+// Cache management
+export async function clearAuditCache(): Promise<{
+  success: boolean
+  deleted_sessions: number
+  message: string
+}> {
+  const response = await apiClient.delete<{
+    success: boolean
+    deleted_sessions: number
+    message: string
+  }>('/api/audits/cache')
+  return response.data
+}

@@ -1244,6 +1244,15 @@ async def get_available_audits() -> dict[str, Any]:
     }
 
 
+@app.delete("/api/audits/cache")
+async def clear_audit_cache() -> dict[str, Any]:
+    """Clear all audit sessions and caches.
+
+    Use this to force fresh audit runs without using cached data.
+    """
+    return audit_orchestrator.clear_all_sessions()
+
+
 @app.get("/api/audits/session")
 async def get_latest_audit_session() -> dict[str, Any]:
     """Get the latest audit session with all results."""

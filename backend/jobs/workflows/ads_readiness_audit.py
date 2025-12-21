@@ -94,15 +94,71 @@ def _init_result(run_id: str) -> dict[str, Any]:
     }
 
 
+def _get_ga4_audit_results() -> dict[str, Any] | None:
+    """
+    Récupère les résultats de l'audit GA4 depuis la session.
+
+    L'audit GA4 vérifie les événements réellement trackés via l'API GA4,
+    pas seulement le code dans le thème (qui peut être via Custom Pixels).
+    """
+    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
+    latest_file = storage_dir / "latest_session.json"
+
+    if not latest_file.exists():
+        return None
+
+    try:
+        with latest_file.open() as f:
+            session = json.load(f)
+        return session.get("audits", {}).get("ga4_tracking")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _get_capi_audit_results() -> dict[str, Any] | None:
+    """Récupère les résultats de l'audit CAPI depuis la session."""
+    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
+    latest_file = storage_dir / "latest_session.json"
+
+    if not latest_file.exists():
+        return None
+
+    try:
+        with latest_file.open() as f:
+            session = json.load(f)
+        return session.get("audits", {}).get("capi")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _get_meta_audit_results() -> dict[str, Any] | None:
+    """Récupère les résultats de l'audit Meta Pixel depuis la session."""
+    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
+    latest_file = storage_dir / "latest_session.json"
+
+    if not latest_file.exists():
+        return None
+
+    try:
+        with latest_file.open() as f:
+            session = json.load(f)
+        return session.get("audits", {}).get("meta_pixel")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def _check_tracking_quality() -> dict[str, Any]:
     """
     Step 1: Vérifier la qualité du tracking GA4 et Meta.
 
+    Priorité :
+    1. Utiliser les résultats des audits GA4/Meta déjà effectués (données réelles)
+    2. Sinon, analyser le thème (peut ne pas détecter les Custom Pixels)
+
     Vérifie :
     - GA4 : Événements avec paramètres complets (currency, value, items)
     - Meta : Événements avec paramètres complets (content_id, value, currency)
-    - Pas de doublons d'événements
-    - Pas de valeurs nulles/aberrantes
+    - CAPI : Conversion API configuré (important pour iOS14+)
     """
     step = {
         "id": "tracking_quality",
@@ -119,31 +175,61 @@ def _check_tracking_quality() -> dict[str, Any]:
     issues: list[dict[str, Any]] = []
     score = 0
 
+    required_ga4_events = [
+        "page_view",
+        "view_item",
+        "add_to_cart",
+        "begin_checkout",
+        "purchase",
+    ]
+    required_meta_events = [
+        "PageView",
+        "ViewContent",
+        "AddToCart",
+        "InitiateCheckout",
+        "Purchase",
+    ]
+
     try:
-        # Import des services nécessaires
-        from services.theme_analyzer import ThemeAnalyzerService
+        # 1. Essayer de récupérer les résultats des audits précédents
+        ga4_audit = _get_ga4_audit_results()
+        meta_audit = _get_meta_audit_results()
+        capi_audit = _get_capi_audit_results()
 
-        theme_analyzer = ThemeAnalyzerService()
+        # GA4: Utiliser les résultats de l'audit GA4 si disponibles
+        ga4_events_present: list[str] = []
+        ga4_source = "theme"  # Source des données
 
-        # Analyser le thème pour détecter les événements
-        theme_analysis = theme_analyzer.analyze_theme(force_refresh=True)
+        if ga4_audit and ga4_audit.get("status") in ("success", "warning"):
+            # Chercher le step events_coverage dans l'audit GA4
+            for audit_step in ga4_audit.get("steps", []):
+                if audit_step.get("id") == "events_coverage":
+                    result = audit_step.get("result", {})
+                    items = result.get("items", [])
+                    # Extraire les événements trackés
+                    ga4_events_present.extend(
+                        item.get("name") for item in items if item.get("tracked")
+                    )
+                    ga4_source = "ga4_api"
+                    break
 
-        ga4_events_found = theme_analysis.ga4_events_found
-        meta_events_found = theme_analysis.meta_events_found
+        # Si pas de données GA4 audit, fallback sur l'analyse du thème
+        if not ga4_events_present:
+            from services.theme_analyzer import ThemeAnalyzerService
 
-        # Score GA4 Events Quality
-        required_ga4_events = [
-            "page_view",
-            "view_item",
-            "add_to_cart",
-            "begin_checkout",
-            "purchase",
-        ]
-        ga4_events_present = [e for e in required_ga4_events if e in ga4_events_found]
-        ga4_score = (len(ga4_events_present) / len(required_ga4_events)) * 30
+            theme_analyzer = ThemeAnalyzerService()
+            theme_analysis = theme_analyzer.analyze_theme(force_refresh=True)
+            ga4_events_present = [
+                e for e in required_ga4_events if e in theme_analysis.ga4_events_found
+            ]
+            ga4_source = "theme"
 
-        if len(ga4_events_present) < len(required_ga4_events):
-            missing = [e for e in required_ga4_events if e not in ga4_events_found]
+        # Score GA4 Events Quality (max 30 points)
+        ga4_matched = [e for e in required_ga4_events if e in ga4_events_present]
+        ga4_score = (len(ga4_matched) / len(required_ga4_events)) * 30
+
+        if len(ga4_matched) < len(required_ga4_events):
+            missing = [e for e in required_ga4_events if e not in ga4_events_present]
             issues.append(
                 {
                     "id": "ga4_events_missing",
@@ -158,19 +244,40 @@ def _check_tracking_quality() -> dict[str, Any]:
                 }
             )
 
-        # Score Meta Events Quality
-        required_meta_events = [
-            "PageView",
-            "ViewContent",
-            "AddToCart",
-            "InitiateCheckout",
-            "Purchase",
-        ]
-        meta_events_present = [e for e in required_meta_events if e in meta_events_found]
-        meta_score = (len(meta_events_present) / len(required_meta_events)) * 20
+        # Meta: Vérifier le statut du pixel
+        meta_events_present: list[str] = []
+        meta_source = "theme"
+        meta_pixel_active = False
 
-        if len(meta_events_present) < len(required_meta_events):
-            missing_meta = [e for e in required_meta_events if e not in meta_events_found]
+        if meta_audit and meta_audit.get("status") in ("success", "warning"):
+            # Pixel actif = tous les événements standards sont envoyés via Shopify
+            for audit_step in meta_audit.get("steps", []):
+                if audit_step.get("id") == "pixel_status":
+                    result = audit_step.get("result", {})
+                    if result.get("active"):
+                        meta_pixel_active = True
+                        # Shopify Web Pixels envoie automatiquement les événements standards
+                        meta_events_present = required_meta_events.copy()
+                        meta_source = "meta_api"
+                    break
+
+        # Si pas de données Meta audit, fallback sur l'analyse du thème
+        if not meta_events_present:
+            from services.theme_analyzer import ThemeAnalyzerService
+
+            theme_analyzer = ThemeAnalyzerService()
+            theme_analysis = theme_analyzer.analyze_theme(force_refresh=False)
+            meta_events_present = [
+                e for e in required_meta_events if e in theme_analysis.meta_events_found
+            ]
+            meta_source = "theme"
+
+        # Score Meta Events Quality (max 20 points)
+        meta_matched = [e for e in required_meta_events if e in meta_events_present]
+        meta_score = (len(meta_matched) / len(required_meta_events)) * 20
+
+        if len(meta_matched) < len(required_meta_events):
+            missing_meta = [e for e in required_meta_events if e not in meta_events_present]
             issues.append(
                 {
                     "id": "meta_events_missing",
@@ -188,7 +295,11 @@ def _check_tracking_quality() -> dict[str, Any]:
         score = int(ga4_score + meta_score)
 
         # Détection de CAPI (Meta Conversion API)
-        has_capi = False  # TODO: Implémenter détection CAPI
+        has_capi = False
+        if capi_audit:
+            summary = capi_audit.get("summary", {})
+            has_capi = summary.get("configured", False) and summary.get("connection_ok", False)
+
         if not has_capi:
             issues.append(
                 {
@@ -207,8 +318,8 @@ def _check_tracking_quality() -> dict[str, Any]:
         step["status"] = "success" if score >= 40 else "warning"
 
         # Message explicatif pour l'UI
-        ga4_pct = (len(ga4_events_present) / len(required_ga4_events)) * 100
-        meta_pct = (len(meta_events_present) / len(required_meta_events)) * 100
+        ga4_pct = (len(ga4_matched) / len(required_ga4_events)) * 100
+        meta_pct = (len(meta_matched) / len(required_meta_events)) * 100
 
         if score >= 40:
             message = f"Tracking de qualité : GA4 {ga4_pct:.0f}%, Meta {meta_pct:.0f}%"
@@ -226,10 +337,13 @@ def _check_tracking_quality() -> dict[str, Any]:
         step["result"] = {
             "score": score,
             "max_score": 50,
-            "ga4_events_found": len(ga4_events_present),
+            "ga4_events_found": len(ga4_matched),
             "ga4_events_required": len(required_ga4_events),
-            "meta_events_found": len(meta_events_present),
+            "ga4_source": ga4_source,
+            "meta_events_found": len(meta_matched),
             "meta_events_required": len(required_meta_events),
+            "meta_source": meta_source,
+            "meta_pixel_active": meta_pixel_active,
             "has_capi": has_capi,
             "message": message,
         }

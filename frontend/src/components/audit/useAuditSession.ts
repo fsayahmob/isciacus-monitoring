@@ -263,7 +263,7 @@ function useAuditControls(
 } {
   const selectAudit = React.useCallback(
     (auditType: string): void => {
-      setSelectedAudit(auditType)
+      setSelectedAudit((prev) => (prev === auditType ? null : auditType))
     },
     [setSelectedAudit]
   )

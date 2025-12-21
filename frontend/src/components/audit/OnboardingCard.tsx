@@ -1,6 +1,5 @@
 /**
- * Onboarding Card - Primary audit card with special styling
- * Modern Dark Theme
+ * Onboarding Card - Row Layout with Accordion (same as other audits)
  */
 
 import React from 'react'
@@ -8,72 +7,39 @@ import React from 'react'
 import type { AuditStepStatus, AvailableAudit } from '../../services/api'
 import { LoadingSpinner, StatusBadge } from './StatusIcons'
 import { AuditTooltip } from './Tooltip'
-import { formatRelativeTime } from './utils'
 
 interface ExtendedAudit extends AvailableAudit {
   is_primary?: boolean
 }
 
-function getOnboardingBorderColor(
-  isSelected: boolean,
-  isRunning: boolean,
-  lastStatus: string | null
-): string {
+function getRowBorderColor(isSelected: boolean, isRunning: boolean, status: AuditStepStatus | null): string {
   if (isRunning) {
-    return 'ring-1 ring-info border-info/50 bg-gradient-to-r from-info/10 to-info/5'
+    return 'ring-1 ring-info border-info/50 bg-info/5'
   }
   if (isSelected) {
-    return 'ring-1 ring-brand border-brand/50'
+    return 'ring-1 ring-brand border-brand/50 bg-brand/5'
   }
-  if (lastStatus === 'success') {
-    return 'border-success/30 bg-gradient-to-r from-success/10 to-success/5'
+  const statusColors: Record<string, string> = {
+    success: 'border-success/20 hover:border-success/40',
+    warning: 'border-warning/20 hover:border-warning/40',
+    error: 'border-error/20 hover:border-error/40',
   }
-  if (lastStatus === 'warning') {
-    return 'border-warning/30 bg-gradient-to-r from-warning/10 to-warning/5'
+  if (status !== null) {
+    return statusColors[status] ?? 'border-brand/30 hover:border-brand/50'
   }
-  if (lastStatus === 'error') {
-    return 'border-error/30 bg-gradient-to-r from-error/10 to-error/5'
-  }
-  return 'border-brand/30 bg-gradient-to-r from-brand/10 to-brand/5'
-}
-
-function getOnboardingButtonText(isRunning: boolean, lastStatus: string | null): string {
-  if (isRunning) {
-    return ''
-  }
-  if (lastStatus !== null) {
-    return 'Relancer le diagnostic'
-  }
-  return 'Lancer le diagnostic'
-}
-
-function getOnboardingHelpText(isRunning: boolean, lastRun: string | null): string {
-  if (isRunning) {
-    return 'Vérification de tous les services...'
-  }
-  if (lastRun !== null) {
-    return `Dernière vérification: ${formatRelativeTime(lastRun)}`
-  }
-  return 'Commencez ici pour vérifier votre configuration'
+  return 'border-brand/30 hover:border-brand/50'
 }
 
 function OnboardingIcon({ isRunning }: { isRunning: boolean }): React.ReactElement {
   return (
     <div
-      className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-        isRunning ? 'animate-pulse bg-info/20' : 'bg-brand/20'
+      className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+        isRunning ? 'bg-info/20 text-info' : 'bg-brand/20 text-brand'
       }`}
     >
       {isRunning ? (
-        <svg className="h-6 w-6 animate-spin text-info" fill="none" viewBox="0 0 24 24">
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
+        <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path
             className="opacity-75"
             fill="currentColor"
@@ -81,78 +47,54 @@ function OnboardingIcon({ isRunning }: { isRunning: boolean }): React.ReactEleme
           />
         </svg>
       ) : (
-        <svg className="h-6 w-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            d="M13 10V3L4 14h7v7l9-11h-7z"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
         </svg>
       )}
     </div>
   )
 }
 
-function OnboardingStatus({
-  isRunning,
-  lastStatus,
-  issuesCount,
-}: {
+function RowRunButton({ isRunning, lastStatus, onRun }: {
   isRunning: boolean
-  lastStatus: AuditStepStatus | null
-  issuesCount: number
-}): React.ReactElement | null {
-  if (isRunning) {
-    return (
-      <span className="badge badge-info">
-        <LoadingSpinner size="sm" />
-        Analyse en cours
-      </span>
-    )
-  }
-  if (lastStatus !== null) {
-    return <StatusBadge status={lastStatus} issuesCount={issuesCount} />
-  }
-  return null
-}
-
-function OnboardingButton({
-  isRunning,
-  buttonText,
-  onClick,
-}: {
-  isRunning: boolean
-  buttonText: string
-  onClick: (e: React.MouseEvent) => void
+  lastStatus: string | null
+  onRun: () => void
 }): React.ReactElement {
   if (isRunning) {
     return (
-      <button className="btn btn-secondary cursor-not-allowed opacity-50" disabled type="button">
+      <div className="flex items-center gap-2 text-info">
         <LoadingSpinner size="sm" />
-        En cours...
-      </button>
+        <span className="text-xs">En cours...</span>
+      </div>
     )
   }
 
+  const buttonText = lastStatus !== null ? 'Relancer' : 'Lancer'
+
   return (
-    <button className="btn btn-primary" onClick={onClick} type="button">
-      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-        />
-        <path
-          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-        />
+    <button
+      className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light"
+      onClick={(e) => { e.stopPropagation(); onRun() }}
+      type="button"
+    >
+      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7z" />
       </svg>
       {buttonText}
     </button>
+  )
+}
+
+function ChevronIcon({ isOpen }: { isOpen: boolean }): React.ReactElement {
+  return (
+    <svg
+      className={`h-4 w-4 text-text-tertiary transition-transform ${isOpen ? 'rotate-180' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
   )
 }
 
@@ -169,55 +111,33 @@ export function OnboardingCard({
   onRun: () => void
   onSelect: () => void
 }): React.ReactElement {
-  const borderColor = getOnboardingBorderColor(isSelected, isRunning, audit.last_status)
-  const buttonText = getOnboardingButtonText(isRunning, audit.last_status)
-  const helpText = getOnboardingHelpText(isRunning, audit.last_run)
-
-  const handleButtonClick = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    if (!isRunning) {
-      onRun()
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter') {
-      onSelect()
-    }
-  }
+  const borderColor = getRowBorderColor(isSelected, isRunning, audit.last_status)
 
   return (
     <div
-      className={`card-elevated cursor-pointer rounded-xl border p-6 transition-all ${borderColor}`}
+      className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-all ${borderColor}`}
+      data-audit-type={audit.type}
       onClick={onSelect}
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => { if (e.key === 'Enter') { onSelect() } }}
       role="button"
       tabIndex={0}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <OnboardingIcon isRunning={isRunning} />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-text-primary">{audit.name}</h3>
-              <AuditTooltip auditType={audit.type} />
-            </div>
-            <p className="mt-1 text-sm text-text-secondary">{audit.description}</p>
+      <div className="flex items-center gap-3">
+        <OnboardingIcon isRunning={isRunning} />
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-text-primary">{audit.name}</span>
+            <AuditTooltip auditType={audit.type} />
+            {!isRunning && audit.last_status !== null && (
+              <StatusBadge status={audit.last_status} issuesCount={audit.issues_count} />
+            )}
           </div>
+          <span className="text-xs text-text-tertiary">{audit.description}</span>
         </div>
-        <OnboardingStatus
-          isRunning={isRunning}
-          lastStatus={audit.last_status}
-          issuesCount={audit.issues_count}
-        />
       </div>
-      <div className="mt-5 flex items-center justify-between border-t border-border-subtle pt-4">
-        <span className="text-sm text-text-tertiary">{helpText}</span>
-        <OnboardingButton
-          isRunning={isRunning}
-          buttonText={buttonText}
-          onClick={handleButtonClick}
-        />
+      <div className="flex items-center gap-3">
+        <RowRunButton isRunning={isRunning} lastStatus={audit.last_status} onRun={onRun} />
+        <ChevronIcon isOpen={isSelected} />
       </div>
     </div>
   )

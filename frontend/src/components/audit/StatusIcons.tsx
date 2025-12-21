@@ -96,11 +96,11 @@ export function StepStatusIcon({ status }: { status: AuditStepStatus }): React.R
 }
 
 function getStatusLabel(status: AuditStepStatus, issuesCount: number): string {
-  if (status === 'success' && issuesCount === 0) {
+  if (status === 'success') {
     return 'OK'
   }
   if (status === 'warning' || status === 'error') {
-    return `${String(issuesCount)} pb`
+    return issuesCount > 0 ? `${String(issuesCount)} pb` : status
   }
   return status
 }
@@ -108,9 +108,11 @@ function getStatusLabel(status: AuditStepStatus, issuesCount: number): string {
 export function StatusBadge({
   status,
   issuesCount,
+  compact = false,
 }: {
   status: AuditStepStatus
   issuesCount: number
+  compact?: boolean
 }): React.ReactElement {
   const colors: Record<AuditStepStatus, string> = {
     success: 'badge-success',
@@ -119,6 +121,27 @@ export function StatusBadge({
     running: 'badge-info',
     pending: 'badge-neutral',
     skipped: 'badge-neutral',
+  }
+
+  if (compact) {
+    const compactColors: Record<AuditStepStatus, string> = {
+      success: 'bg-success',
+      warning: 'bg-warning',
+      error: 'bg-error',
+      running: 'bg-info',
+      pending: 'bg-text-muted',
+      skipped: 'bg-text-muted',
+    }
+    // Only show count for warning/error statuses, not for success
+    const showCount = issuesCount > 0 && (status === 'warning' || status === 'error')
+    return (
+      <div className="flex items-center gap-0.5">
+        <span className={`h-2 w-2 rounded-full ${compactColors[status]}`} />
+        {showCount && (
+          <span className="text-[10px] font-medium text-text-muted">{issuesCount}</span>
+        )}
+      </div>
+    )
   }
 
   const label = getStatusLabel(status, issuesCount)

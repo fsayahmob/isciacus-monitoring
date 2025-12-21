@@ -6,6 +6,7 @@
 import { type AuditStep, type AuditResult, type AuditStepStatus } from '../../services/api'
 
 // Define initial steps for each audit type (shown while waiting for API)
+// search_console has two modes: GSC mode (when configured) and basic SEO mode (when not configured)
 export const AUDIT_STEPS: Record<string, { id: string; name: string; description: string }[]> = {
   onboarding: [
     { id: 'shopify_connection', name: 'Shopify', description: 'Connexion à la boutique' },
@@ -95,7 +96,15 @@ export const AUDIT_STEPS: Record<string, { id: string; name: string; description
     { id: 'events_check', name: 'Événements', description: 'Vérification des événements' },
     { id: 'pixel_status', name: 'Statut Meta', description: 'Activité sur Meta' },
   ],
+  // search_console: Steps shown initially (basic SEO mode, will be replaced by API response)
   search_console: [
+    { id: 'robots_txt', name: 'Robots.txt', description: 'Analyse du fichier robots.txt' },
+    { id: 'sitemap_check', name: 'Sitemap', description: 'Vérification du sitemap public' },
+    { id: 'meta_tags', name: 'Meta Tags', description: 'Analyse des balises meta' },
+    { id: 'seo_basics', name: 'SEO Basique', description: 'Vérifications techniques SEO' },
+  ],
+  // Alternative steps for GSC mode (used when GSC is configured)
+  search_console_gsc: [
     { id: 'gsc_connection', name: 'Connexion GSC', description: 'Connexion Search Console' },
     { id: 'indexation', name: 'Indexation', description: "Couverture d'indexation" },
     { id: 'errors', name: 'Erreurs', description: 'Vérification des erreurs' },
@@ -157,15 +166,36 @@ export function createRunningResult(auditType: string, isAsync = true): AuditRes
 }
 
 /**
+ * Detect which mode the search_console audit is running in based on step IDs.
+ * Returns 'gsc' if GSC steps are detected, 'basic' otherwise.
+ */
+function detectSearchConsoleMode(apiSteps: AuditStep[] | undefined): 'gsc' | 'basic' {
+  if (!apiSteps || apiSteps.length === 0) {
+    return 'basic' // Default to basic SEO mode
+  }
+  // GSC mode has 'gsc_connection' step, basic mode has 'robots_txt'
+  const hasGscStep = apiSteps.some((step) => step.id === 'gsc_connection')
+  return hasGscStep ? 'gsc' : 'basic'
+}
+
+/**
  * Reconcile steps from API with placeholder steps.
  * This ensures we always show all expected steps, even if some haven't started yet.
  * Steps from API take priority; missing steps remain as 'pending'.
  */
 export function reconcileSteps(auditType: string, apiSteps: AuditStep[] | undefined): AuditStep[] {
-  const stepDefs = AUDIT_STEPS[auditType] as
-    | { id: string; name: string; description: string }[]
-    | undefined
-  if (stepDefs === undefined) {
+  let stepDefs: { id: string; name: string; description: string }[] | undefined
+
+  // Special handling for search_console: detect mode from API steps
+  if (auditType === 'search_console') {
+    const mode = detectSearchConsoleMode(apiSteps)
+    // Use bracket notation to access keys with underscores
+    stepDefs = mode === 'gsc' ? AUDIT_STEPS.search_console_gsc : AUDIT_STEPS.search_console
+  } else {
+    stepDefs = AUDIT_STEPS[auditType] as typeof stepDefs
+  }
+
+  if (!stepDefs) {
     return apiSteps ?? []
   }
 

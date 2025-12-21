@@ -81,9 +81,11 @@ class CustomerDataAnalyzer:
 
     def get_data_history(self) -> dict[str, Any]:
         """
-        Analyze customer data history length.
+        Analyze customer data history length using GraphQL.
 
-        Checks first and last order dates to determine data span.
+        Uses a single GraphQL query to get both oldest and newest orders,
+        avoiding REST API rate limits (429 errors).
+
         Minimum 90 days recommended for meaningful patterns.
 
         Returns:
@@ -97,37 +99,64 @@ class CustomerDataAnalyzer:
             }
 
         try:
-            # Get oldest order
-            url_oldest = (
-                f"https://{self.shop_url}/admin/api/2024-01/orders.json"
-                f"?status=any&limit=1&order=created_at+asc"
+            # Single GraphQL query for both oldest and newest orders
+            graphql_url = f"https://{self.shop_url}/admin/api/2024-01/graphql.json"
+            headers = {
+                "X-Shopify-Access-Token": self.access_token,
+                "Content-Type": "application/json",
+            }
+
+            # Query for oldest and newest orders in one request
+            query = """
+            {
+                oldest: orders(first: 1, sortKey: CREATED_AT, reverse: false) {
+                    edges {
+                        node {
+                            createdAt
+                        }
+                    }
+                }
+                newest: orders(first: 1, sortKey: CREATED_AT, reverse: true) {
+                    edges {
+                        node {
+                            createdAt
+                        }
+                    }
+                }
+            }
+            """
+
+            response = requests.post(
+                graphql_url,
+                headers=headers,
+                json={"query": query},
+                timeout=30,
             )
-            # Get newest order
-            url_newest = (
-                f"https://{self.shop_url}/admin/api/2024-01/orders.json"
-                f"?status=any&limit=1&order=created_at+desc"
-            )
+            response.raise_for_status()
 
-            headers = {"X-Shopify-Access-Token": self.access_token}
+            data = response.json()
 
-            response_oldest = requests.get(url_oldest, headers=headers, timeout=30)
-            response_newest = requests.get(url_newest, headers=headers, timeout=30)
+            # Check for GraphQL errors
+            if "errors" in data:
+                error_msg = data["errors"][0].get("message", "GraphQL error")
+                return {
+                    "days": 0,
+                    "sufficient": False,
+                    "error": f"GraphQL error: {error_msg[:200]}",
+                }
 
-            response_oldest.raise_for_status()
-            response_newest.raise_for_status()
+            oldest_edges = data.get("data", {}).get("oldest", {}).get("edges", [])
+            newest_edges = data.get("data", {}).get("newest", {}).get("edges", [])
 
-            oldest_orders = response_oldest.json().get("orders", [])
-            newest_orders = response_newest.json().get("orders", [])
-
-            if not oldest_orders or not newest_orders:
+            if not oldest_edges or not newest_edges:
                 return {
                     "days": 0,
                     "sufficient": False,
                     "message": "No orders found",
                 }
 
-            oldest_date_str = oldest_orders[0].get("created_at")
-            newest_date_str = newest_orders[0].get("created_at")
+            oldest_date_str = oldest_edges[0]["node"]["createdAt"]
+            newest_date_str = newest_edges[0]["node"]["createdAt"]
 
             if not oldest_date_str or not newest_date_str:
                 return {
@@ -137,8 +166,8 @@ class CustomerDataAnalyzer:
                 }
 
             # Parse ISO 8601 dates (remove Z suffix for Python < 3.11 compatibility)
-            oldest_date = datetime.fromisoformat(oldest_date_str.rstrip("Z"))
-            newest_date = datetime.fromisoformat(newest_date_str.rstrip("Z"))
+            oldest_date = datetime.fromisoformat(oldest_date_str.replace("Z", "+00:00"))
+            newest_date = datetime.fromisoformat(newest_date_str.replace("Z", "+00:00"))
 
             days_span = (newest_date - oldest_date).days
 

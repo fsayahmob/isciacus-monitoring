@@ -1,5 +1,5 @@
 /**
- * Audit Cards - Modern Dark Theme
+ * Audit Cards - Row Layout with Accordion
  */
 
 import React from 'react'
@@ -8,135 +8,128 @@ import type { AuditStepStatus, AvailableAudit } from '../../services/api'
 import { OnboardingCard } from './OnboardingCard'
 import { AuditIcon, LoadingSpinner, StatusBadge } from './StatusIcons'
 import { AuditTooltip } from './Tooltip'
-import { formatRelativeTime } from './utils'
 
 interface ExtendedAudit extends AvailableAudit {
   is_primary?: boolean
 }
 
-function getBorderColor(
-  isSelected: boolean,
-  isRunning: boolean,
-  status: AuditStepStatus | null
-): string {
+function getRowBorderColor(isSelected: boolean, isRunning: boolean, status: AuditStepStatus | null): string {
   if (isRunning) {
     return 'ring-1 ring-info border-info/50 bg-info/5'
   }
   if (isSelected) {
-    return 'ring-1 ring-brand border-brand/50'
+    return 'ring-1 ring-brand border-brand/50 bg-brand/5'
   }
-
   const statusColors: Record<string, string> = {
-    success: 'border-success/30 bg-success/5',
-    warning: 'border-warning/30 bg-warning/5',
-    error: 'border-error/30 bg-error/5',
+    success: 'border-success/20 hover:border-success/40',
+    warning: 'border-warning/20 hover:border-warning/40',
+    error: 'border-error/20 hover:border-error/40',
   }
-
   if (status !== null) {
-    return statusColors[status] ?? 'border-border-subtle bg-bg-secondary'
+    return statusColors[status] ?? 'border-border-subtle hover:border-border-default'
   }
-  return 'border-border-subtle bg-bg-secondary hover:border-border-default'
+  return 'border-border-subtle hover:border-border-default'
 }
 
-function LastRunLabel({ lastRun }: { lastRun: string | null }): React.ReactElement {
-  const text = lastRun !== null ? formatRelativeTime(lastRun) : 'Jamais exécuté'
-  return <span className="text-xs text-text-tertiary">{text}</span>
-}
-
-function RunButton({
-  available,
-  isRunning,
-  onRun,
-}: {
+function RowRunButton({ available, isRunning, onRun }: {
   available: boolean
   isRunning: boolean
   onRun: () => void
 }): React.ReactElement {
   if (isRunning) {
     return (
-      <div className="flex items-center gap-2 rounded-lg bg-info/20 px-3 py-1.5 text-xs font-medium text-info">
+      <div className="flex items-center gap-2 text-info">
         <LoadingSpinner size="sm" />
-        <span>En cours...</span>
+        <span className="text-xs">En cours...</span>
       </div>
     )
   }
-
   if (!available) {
     return (
-      <button
-        className="cursor-not-allowed rounded-lg bg-bg-tertiary px-3 py-1.5 text-xs font-medium text-text-muted"
-        disabled
-        type="button"
-      >
-        Indisponible
-      </button>
+      <span className="text-xs text-text-muted">Indisponible</span>
     )
   }
-
   return (
     <button
-      className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light"
-      onClick={(e) => {
-        e.stopPropagation()
-        onRun()
-      }}
+      className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light"
+      onClick={(e) => { e.stopPropagation(); onRun() }}
       type="button"
     >
+      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7z" />
+      </svg>
       Lancer
     </button>
   )
 }
 
-export function AuditCard({
-  audit,
-  isRunning,
-  isSelected,
-  onRun,
-  onSelect,
-}: {
+function ChevronIcon({ isOpen }: { isOpen: boolean }): React.ReactElement {
+  return (
+    <svg
+      className={`h-4 w-4 text-text-tertiary transition-transform ${isOpen ? 'rotate-180' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+function AuditRowItem({ audit, isRunning, isSelected, onRun, onSelect }: {
   audit: AvailableAudit
   isRunning: boolean
   isSelected: boolean
   onRun: () => void
   onSelect: () => void
 }): React.ReactElement {
-  const borderColor = getBorderColor(isSelected, isRunning, audit.last_status)
+  const borderColor = getRowBorderColor(isSelected, isRunning, audit.last_status)
   const iconStatus = isRunning ? 'running' : audit.last_status
 
   return (
     <div
-      className={`card cursor-pointer rounded-xl border p-4 transition-all ${borderColor}`}
+      className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-all ${borderColor}`}
       data-audit-type={audit.type}
       onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          onSelect()
-        }
-      }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { onSelect() } }}
       role="button"
       tabIndex={0}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <AuditIcon icon={audit.icon} status={iconStatus} />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-text-primary">{audit.name}</h3>
-              <AuditTooltip auditType={audit.type} />
-            </div>
-            <p className="mt-0.5 text-xs text-text-tertiary">{audit.description}</p>
+      <div className="flex items-center gap-3">
+        <AuditIcon icon={audit.icon} status={iconStatus} />
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-text-primary">{audit.name}</span>
+            <AuditTooltip auditType={audit.type} />
+            {!isRunning && audit.last_status !== null && (
+              <StatusBadge status={audit.last_status} issuesCount={audit.issues_count} />
+            )}
           </div>
+          <span className="text-xs text-text-tertiary">{audit.description}</span>
         </div>
-        {!isRunning && audit.last_status !== null && (
-          <StatusBadge status={audit.last_status} issuesCount={audit.issues_count} />
-        )}
-        {isRunning && <span className="badge badge-info">En cours</span>}
       </div>
+      <div className="flex items-center gap-3">
+        <RowRunButton available={audit.available} isRunning={isRunning} onRun={onRun} />
+        <ChevronIcon isOpen={isSelected} />
+      </div>
+    </div>
+  )
+}
 
-      <div className="mt-4 flex items-center justify-between border-t border-border-subtle pt-3">
-        <LastRunLabel lastRun={audit.last_run} />
-        <RunButton available={audit.available} isRunning={isRunning} onRun={onRun} />
-      </div>
+function SectionDivider(): React.ReactElement {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="h-px flex-1 bg-border-subtle" />
+      <span className="text-xs font-medium uppercase tracking-wider text-text-muted">Audits détaillés</span>
+      <div className="h-px flex-1 bg-border-subtle" />
+    </div>
+  )
+}
+
+function AuditAccordionContent({ content }: { content: React.ReactNode }): React.ReactElement {
+  return (
+    <div className="animate-slide-up rounded-b-lg border-x border-b border-brand/30 bg-bg-secondary p-4">
+      {content}
     </div>
   )
 }
@@ -147,57 +140,52 @@ export function AuditCardsGrid({
   isAuditRunning,
   onRun,
   onSelect,
+  accordionContent,
 }: {
   audits: ExtendedAudit[]
   selectedAudit: string | null
   isAuditRunning: (auditType: string) => boolean
   onRun: (auditType: string) => void
   onSelect: (auditType: string) => void
+  accordionContent?: React.ReactNode
 }): React.ReactElement {
   const onboardingAudit = audits.find((a) => a.type === 'onboarding')
   const otherAudits = audits.filter((a) => a.type !== 'onboarding')
 
   return (
-    <div className="mb-8 space-y-6">
+    <div className="mb-8 space-y-2">
       {onboardingAudit !== undefined && (
-        <OnboardingCard
-          audit={onboardingAudit}
-          isRunning={isAuditRunning('onboarding')}
-          isSelected={selectedAudit === 'onboarding'}
-          onRun={() => {
-            onRun('onboarding')
-          }}
-          onSelect={() => {
-            onSelect('onboarding')
-          }}
-        />
+        <>
+          <OnboardingCard
+            audit={onboardingAudit}
+            isRunning={isAuditRunning('onboarding')}
+            isSelected={selectedAudit === 'onboarding'}
+            onRun={() => { onRun('onboarding') }}
+            onSelect={() => { onSelect('onboarding') }}
+          />
+          {selectedAudit === 'onboarding' && accordionContent !== undefined && (
+            <AuditAccordionContent content={accordionContent} />
+          )}
+        </>
       )}
 
       {otherAudits.length > 0 && (
         <>
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-border-subtle" />
-            <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
-              Audits détaillés
-            </span>
-            <div className="h-px flex-1 bg-border-subtle" />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {otherAudits.map((audit) => (
-              <AuditCard
-                key={audit.type}
+          <SectionDivider />
+          {otherAudits.map((audit) => (
+            <React.Fragment key={audit.type}>
+              <AuditRowItem
                 audit={audit}
                 isRunning={isAuditRunning(audit.type)}
                 isSelected={selectedAudit === audit.type}
-                onRun={() => {
-                  onRun(audit.type)
-                }}
-                onSelect={() => {
-                  onSelect(audit.type)
-                }}
+                onRun={() => { onRun(audit.type) }}
+                onSelect={() => { onSelect(audit.type) }}
               />
-            ))}
-          </div>
+              {selectedAudit === audit.type && accordionContent !== undefined && (
+                <AuditAccordionContent content={accordionContent} />
+              )}
+            </React.Fragment>
+          ))}
         </>
       )}
     </div>

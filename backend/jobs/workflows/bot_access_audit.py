@@ -11,7 +11,6 @@ Inngest workflow that checks if Ads crawlers can access the site:
 from __future__ import annotations
 
 import json
-import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -21,6 +20,7 @@ import requests
 
 from jobs.audit_workflow import INNGEST_ENABLED, inngest_client
 from services.config_service import ConfigService
+
 
 # Bot User-Agents to test
 BOT_USER_AGENTS = {
@@ -166,15 +166,31 @@ def _update_step(
 
 
 def _get_shop_url() -> str | None:
-    """Get shop URL from config."""
+    """
+    Get the public shop URL from config.
+
+    The store_url in config is the admin API URL (e.g., isciacus-store.myshopify.com).
+    For bot access checks, we need the public storefront URL (e.g., www.isciacusstore.com).
+    """
     config = ConfigService()
     shopify_config = config.get_shopify_values()
+
+    # First try shop_domain (the public-facing domain)
     shop_domain = shopify_config.get("shop_domain", "")
     if shop_domain:
-        # Ensure proper URL format
         if not shop_domain.startswith("http"):
             return f"https://{shop_domain}"
         return shop_domain
+
+    # Fallback to store_url (admin URL) - but this may not be the public URL
+    store_url = shopify_config.get("store_url", "")
+    if store_url:
+        # Remove https:// prefix and admin path if present
+        clean_url = store_url.replace("https://", "").replace("http://", "").rstrip("/")
+        # Try to use the public URL - Shopify stores usually have a www. version
+        # For now, use the myshopify.com URL as fallback
+        return f"https://{clean_url}"
+
     return None
 
 
@@ -236,7 +252,7 @@ def _check_robots_txt(result: dict[str, Any]) -> dict[str, Any]:
                 "blocked_bots": blocked_bots,
                 "warnings": warnings,
                 "message": (
-                    f"✓ robots.txt accessible"
+                    "✓ robots.txt accessible"
                     if not blocked_bots
                     else f"⚠ {len(blocked_bots)} règle(s) bloquante(s) détectée(s)"
                 ),
@@ -335,6 +351,10 @@ def _check_googlebot_access(result: dict[str, Any]) -> dict[str, Any]:
                 if "captcha" in content or "challenge" in content:
                     test_result["accessible"] = False
                     test_result["blocked_by"] = "CAPTCHA/Challenge"
+                    test_result["note"] = (
+                        "Cloudflare peut présenter un challenge à notre test, "
+                        "mais whitelist généralement les vrais crawlers Google"
+                    )
                     blocked = True
                 elif "access denied" in content or "forbidden" in content:
                     test_result["accessible"] = False
@@ -446,6 +466,10 @@ def _check_facebookbot_access(result: dict[str, Any]) -> dict[str, Any]:
                 if "captcha" in content or "challenge" in content:
                     test_result["accessible"] = False
                     test_result["blocked_by"] = "CAPTCHA/Challenge"
+                    test_result["note"] = (
+                        "Cloudflare peut présenter un challenge à notre test, "
+                        "mais whitelist généralement les vrais crawlers Meta"
+                    )
                     blocked = True
             elif response.status_code in (403, 429):
                 test_result["blocked_by"] = f"HTTP {response.status_code}"
@@ -609,7 +633,7 @@ def _check_protection_headers(result: dict[str, Any]) -> dict[str, Any]:
             "message": (
                 "✓ Aucune protection bloquante détectée"
                 if not has_high_severity
-                else f"⚠ {len([p for p in protections_detected if p['severity'] == 'high'])} protection(s) bloquante(s)"
+                else f"⚠ {sum(1 for p in protections_detected if p['severity'] == 'high')} protection(s) bloquante(s)"
             ),
         }
 
@@ -659,6 +683,7 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
             ),
             "details": robots.get("blocked_bots", []),
             "action_available": False,
+            "action_status": "not_available",
         })
         recommendations.append(
             "Modifiez robots.txt pour autoriser Googlebot et Facebookbot"
@@ -670,12 +695,20 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
         blocked_tests = [
             t for t in googlebot.get("tests", []) if not t.get("accessible", True)
         ]
+        # Check if blocked by Cloudflare challenge
+        is_cloudflare_challenge = any(
+            "CAPTCHA" in t.get("blocked_by", "") for t in blocked_tests
+        )
         issues.append({
             "id": "googlebot_blocked",
             "audit_type": "bot_access",
-            "severity": "high",
+            "severity": "medium" if is_cloudflare_challenge else "high",
             "title": "Googlebot ne peut pas accéder au site",
             "description": (
+                "⚠️ Note: Ce test simule Googlebot depuis notre serveur. "
+                "Cloudflare whitelist automatiquement les vraies IPs de Googlebot. "
+                "Vérifiez avec Google Search Console > Paramètres > Exploration."
+                if is_cloudflare_challenge else
                 "Google ne peut pas crawler votre site. Vos produits ne seront pas "
                 "indexés dans Google Shopping et les campagnes Performance Max "
                 "seront impactées."
@@ -685,26 +718,44 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
                 for t in blocked_tests[:5]
             ],
             "action_available": False,
+            "action_status": "not_available",
         })
         recommendations.append(
+            "Vérifiez l'exploration dans Google Search Console > Paramètres"
+            if is_cloudflare_challenge else
             "Whitelistez les IPs/User-Agents de Googlebot dans votre WAF"
         )
 
     # Check Facebookbot access
     facebookbot = result.get("facebookbot_access", {})
     if not facebookbot.get("all_accessible", True):
+        blocked_fb_tests = [
+            t for t in facebookbot.get("tests", []) if not t.get("accessible", True)
+        ]
+        is_fb_cloudflare_challenge = any(
+            "CAPTCHA" in t.get("blocked_by", "") for t in blocked_fb_tests
+        )
         issues.append({
             "id": "facebookbot_blocked",
             "audit_type": "bot_access",
-            "severity": "high",
+            "severity": "medium" if is_fb_cloudflare_challenge else "high",
             "title": "Facebookbot ne peut pas accéder au site",
             "description": (
+                "⚠️ Note: Ce test simule Facebookbot depuis notre serveur. "
+                "Cloudflare whitelist automatiquement les vraies IPs de Meta. "
+                "Vérifiez avec le Debugger de Partage Facebook."
+                if is_fb_cloudflare_challenge else
                 "Meta ne peut pas crawler votre site. Les Dynamic Product Ads "
                 "et le catalogue Meta ne fonctionneront pas correctement."
             ),
-            "action_available": False,
+            "action_available": True if is_fb_cloudflare_challenge else False,
+            "action_status": "available" if is_fb_cloudflare_challenge else "not_available",
+            "action_label": "Tester avec Facebook Debugger" if is_fb_cloudflare_challenge else None,
+            "action_url": "https://developers.facebook.com/tools/debug/" if is_fb_cloudflare_challenge else None,
         })
         recommendations.append(
+            "Testez avec le Debugger de Partage Facebook pour confirmer"
+            if is_fb_cloudflare_challenge else
             "Whitelistez les User-Agents Meta/Facebook dans votre protection anti-bot"
         )
 
@@ -723,6 +774,7 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
                 "title": f"{prot['type']} bloque les crawlers",
                 "description": prot.get("note", ""),
                 "action_available": False,
+                "action_status": "not_available",
             })
         recommendations.append(
             "Configurez votre solution anti-bot pour autoriser les crawlers Ads"

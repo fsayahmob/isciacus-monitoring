@@ -229,6 +229,45 @@ class AuditOrchestrator:
         """Get the most recent audit session."""
         return self._load_session()
 
+    def clear_all_sessions(self) -> dict[str, Any]:
+        """Clear all audit sessions and caches.
+
+        Returns a dict with count of files deleted.
+        """
+        deleted_count = 0
+
+        # Clear the latest session file
+        latest_file = self._get_latest_session_file()
+        if latest_file.exists():
+            latest_file.unlink()
+            deleted_count += 1
+
+        # Clear all session files
+        for session_file in self._storage_dir.glob("session_*.json"):
+            session_file.unlink()
+            deleted_count += 1
+
+        # Reset in-memory state
+        self._current_session = None
+
+        # Clear all service caches
+        if self.ga4_audit is not None and hasattr(self.ga4_audit, "clear_cache"):
+            self.ga4_audit.clear_cache()
+
+        if self.theme_analyzer is not None and hasattr(self.theme_analyzer, "clear_cache"):
+            self.theme_analyzer.clear_cache()
+
+        # Clear Shopify cache
+        from services.shopify_analytics import clear_shopify_cache
+
+        clear_shopify_cache()
+
+        return {
+            "success": True,
+            "deleted_sessions": deleted_count,
+            "message": f"Supprimé {deleted_count} session(s) et tous les caches",
+        }
+
     def _get_meta_config(self) -> dict[str, str]:
         """Get Meta configuration from ConfigService."""
         if self._config_service is None:
@@ -324,8 +363,8 @@ class AuditOrchestrator:
             )
         else:
             gsc_description = (
-                "⚠️ Search Console non configuré - Allez dans Settings > Search Console "
-                "pour configurer votre propriété"
+                "Analyse SEO basique (robots.txt, sitemap, méta tags). "
+                "Configurez GSC pour des données d'indexation complètes."
             )
 
         audits = [
@@ -437,10 +476,10 @@ class AuditOrchestrator:
             },
             {
                 "type": AuditType.SEARCH_CONSOLE.value,
-                "name": "Google Search Console",
+                "name": "SEO & Search Console",
                 "description": gsc_description,
                 "icon": "search",
-                "available": gsc_configured,
+                "available": True,  # Always available - basic SEO without GSC, full with GSC
                 "last_run": None,
                 "last_status": None,
                 "issues_count": 0,
