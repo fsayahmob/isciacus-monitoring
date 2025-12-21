@@ -7,22 +7,24 @@ Analyzes abandoned carts to determine recovery opportunities for Ads:
 - Email capture rate in checkout
 """
 
-import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests
 
 from services.benchmarks import benchmarks_service
+from services.config_service import ConfigService
 
 
 class CartRecoveryAnalyzer:
     """Analyzes cart abandonment data for Ads retargeting readiness."""
 
     def __init__(self) -> None:
-        """Initialize with Shopify credentials from environment."""
-        self.shop_url = os.getenv("SHOPIFY_SHOP_URL")
-        self.access_token = os.getenv("SHOPIFY_ACCESS_TOKEN")
+        """Initialize with Shopify credentials from ConfigService."""
+        config = ConfigService()
+        all_config = config.get_all_config()
+        self.shop_url = all_config.get("SHOPIFY_STORE_URL")
+        self.access_token = all_config.get("SHOPIFY_ACCESS_TOKEN")
 
     def is_configured(self) -> bool:
         """Check if Shopify credentials are configured."""

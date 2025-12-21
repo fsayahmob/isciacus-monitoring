@@ -7,22 +7,24 @@ Analyzes Shopify customer data to determine Ads readiness:
 - Data quality (emails, order values)
 """
 
-import os
 from datetime import datetime
 from typing import Any
 
 import requests
 
 from services.benchmarks import benchmarks_service
+from services.config_service import ConfigService
 
 
 class CustomerDataAnalyzer:
     """Analyzes customer data for Ads campaign readiness."""
 
     def __init__(self) -> None:
-        """Initialize with Shopify credentials from environment."""
-        self.shop_url = os.getenv("SHOPIFY_SHOP_URL")
-        self.access_token = os.getenv("SHOPIFY_ACCESS_TOKEN")
+        """Initialize with Shopify credentials from ConfigService."""
+        config = ConfigService()
+        all_config = config.get_all_config()
+        self.shop_url = all_config.get("SHOPIFY_STORE_URL")
+        self.access_token = all_config.get("SHOPIFY_ACCESS_TOKEN")
 
     def is_configured(self) -> bool:
         """Check if Shopify credentials are configured."""
