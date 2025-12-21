@@ -25,3 +25,5 @@ export { getProgressBarColor, getProgressWidth } from './settingsUtils'
 export { HealthIndicator } from './HealthIndicator'
 
 export { PermissionsPanel } from './PermissionsPanel'
+
+export { ConfigurationWizard } from './wizard'

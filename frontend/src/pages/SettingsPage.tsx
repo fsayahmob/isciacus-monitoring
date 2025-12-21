@@ -9,6 +9,7 @@ import { useState } from 'react'
 
 import {
   ConfigSectionCard,
+  ConfigurationWizard,
   HealthIndicator,
   LoadingSkeleton,
   PermissionsPanel,
@@ -59,18 +60,32 @@ function useSaveMutation(
   })
 }
 
-export function SettingsPage(): React.ReactElement {
+function useSettingsPage(): {
+  config: ConfigData | undefined
+  isLoading: boolean
+  error: Error | null
+  editedValues: Record<string, string>
+  saveStatus: SaveStatus | null
+  testLoading: string | null
+  testResults: Record<string, { success: boolean; message: string }>
+  configuredCount: number
+  totalCount: number
+  changeCount: number
+  isSaving: boolean
+  handlers: {
+    handleRefreshAll: () => void
+    handleValueChange: (key: string, value: string) => void
+    handleSave: () => void
+    handleCancel: () => void
+    handleTestConnection: (sectionId: string) => void
+  }
+} {
   const queryClient = useQueryClient()
   const { testLoading, testResults, handleTestConnection } = useConnectionTest()
   const [editedValues, setEditedValues] = useState<Record<string, string>>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null)
 
-  const {
-    data: config,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
+  const { data: config, isLoading, error, refetch } = useQuery({
     queryKey: ['config'],
     queryFn: fetchConfig,
     staleTime: CONFIG_STALE_TIME,
@@ -106,40 +121,58 @@ export function SettingsPage(): React.ReactElement {
     setSaveStatus(null)
   }
 
-  if (error) {
-    return <ErrorDisplay error={error instanceof Error ? error : null} />
+  return {
+    config,
+    isLoading,
+    error: error instanceof Error ? error : null,
+    editedValues,
+    saveStatus,
+    testLoading,
+    testResults,
+    configuredCount: config?.sections.filter((s) => s.is_configured).length ?? 0,
+    totalCount: config?.sections.length ?? 0,
+    changeCount: Object.keys(editedValues).length,
+    isSaving: saveMutation.isPending,
+    handlers: { handleRefreshAll, handleValueChange, handleSave, handleCancel, handleTestConnection },
   }
+}
 
-  const configuredCount = config?.sections.filter((s) => s.is_configured).length ?? 0
-  const totalCount = config?.sections.length ?? 0
-  const changeCount = Object.keys(editedValues).length
+export function SettingsPage(): React.ReactElement {
+  const state = useSettingsPage()
+
+  if (state.error !== null) {
+    return <ErrorDisplay error={state.error} />
+  }
 
   return (
     <div className="min-h-screen p-6 pb-24">
-      <SettingsHeader onRefresh={handleRefreshAll} />
+      <SettingsHeader onRefresh={state.handlers.handleRefreshAll} />
+      <div className="mb-6">
+        <ConfigurationWizard />
+      </div>
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <HealthIndicator />
         <PermissionsPanel />
       </div>
-      {!isLoading && config !== undefined && (
-        <ProgressBar configured={configuredCount} total={totalCount} />
+      {!state.isLoading && state.config !== undefined && (
+        <ProgressBar configured={state.configuredCount} total={state.totalCount} />
       )}
-      <StatusMessage status={saveStatus} />
+      <StatusMessage status={state.saveStatus} />
       <SettingsContent
-        config={config}
-        editedValues={editedValues}
-        handleTestConnection={handleTestConnection}
-        isLoading={isLoading}
-        testLoading={testLoading}
-        testResults={testResults}
-        onValueChange={handleValueChange}
+        config={state.config}
+        editedValues={state.editedValues}
+        handleTestConnection={state.handlers.handleTestConnection}
+        isLoading={state.isLoading}
+        testLoading={state.testLoading}
+        testResults={state.testResults}
+        onValueChange={state.handlers.handleValueChange}
       />
       <SaveBar
-        changeCount={changeCount}
-        hasChanges={changeCount > 0}
-        isSaving={saveMutation.isPending}
-        onCancel={handleCancel}
-        onSave={handleSave}
+        changeCount={state.changeCount}
+        hasChanges={state.changeCount > 0}
+        isSaving={state.isSaving}
+        onCancel={state.handlers.handleCancel}
+        onSave={state.handlers.handleSave}
       />
     </div>
   )
