@@ -18,24 +18,66 @@ from jobs.audit_workflow import inngest_client
 from services.cart_recovery_analyzer import CartRecoveryAnalyzer
 
 
+STEPS = [
+    {
+        "id": "cart_tracking",
+        "name": "Tracking paniers",
+        "description": "Vérification du suivi des abandons",
+    },
+    {
+        "id": "abandonment_volume",
+        "name": "Volume abandons",
+        "description": "Analyse du volume (50+/mois minimum)",
+    },
+    {
+        "id": "email_capture",
+        "name": "Capture emails",
+        "description": "Taux de capture email (60%+ requis)",
+    },
+    {
+        "id": "recovery_potential",
+        "name": "Potentiel récupération",
+        "description": "Estimation du revenu récupérable",
+    },
+]
+
+
 def _init_result() -> dict[str, Any]:
     """Initialize empty audit result structure."""
+    from datetime import UTC, datetime
+
+    now = datetime.now(tz=UTC).isoformat()
     return {
+        "id": "cart_recovery_audit",
+        "audit_type": "cart_recovery",
         "audit_category": "metrics",
         "status": "running",
+        "execution_mode": "inngest",
+        "started_at": now,
+        "completed_at": None,
         "progress": 0,
-        "steps": {
-            "cart_tracking": {"status": "pending"},
-            "abandonment_volume": {"status": "pending"},
-            "email_capture": {"status": "pending"},
-            "recovery_potential": {"status": "pending"},
-        },
+        "steps": [
+            {
+                "id": step["id"],
+                "name": step["name"],
+                "description": step["description"],
+                "status": "pending",
+                "started_at": None,
+                "completed_at": None,
+                "duration_ms": None,
+                "result": None,
+                "error_message": None,
+            }
+            for step in STEPS
+        ],
         "ready_for_retargeting": False,
         "cart_tracking": {},
         "abandonment_volume": {},
         "email_capture": {},
         "recovery_potential": {},
         "recommendations": [],
+        "issues": [],
+        "summary": {},
         "error": None,
     }
 
@@ -152,6 +194,44 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
 cart_recovery_audit_function = create_cart_recovery_audit_workflow()
 
 
+def _find_step(result: dict[str, Any], step_id: str) -> dict[str, Any] | None:
+    """Find a step by ID in the steps list."""
+    for step in result["steps"]:
+        if step["id"] == step_id:
+            return step
+    return None
+
+
+def _update_step(
+    result: dict[str, Any],
+    step_id: str,
+    status: str,
+    error_message: str | None = None,
+    step_result: dict[str, Any] | None = None,
+) -> None:
+    """Update a step's status and optionally its result."""
+    from datetime import UTC, datetime
+
+    step = _find_step(result, step_id)
+    if step:
+        now = datetime.now(tz=UTC).isoformat()
+        if status == "running" and step["started_at"] is None:
+            step["started_at"] = now
+        step["status"] = status
+        if status in ("success", "error", "warning"):
+            step["completed_at"] = now
+            if step["started_at"]:
+                from datetime import datetime as dt
+
+                started = dt.fromisoformat(step["started_at"])
+                completed = dt.fromisoformat(now)
+                step["duration_ms"] = int((completed - started).total_seconds() * 1000)
+        if error_message:
+            step["error_message"] = error_message
+        if step_result:
+            step["result"] = step_result
+
+
 def _check_cart_tracking(analyzer: CartRecoveryAnalyzer, result: dict[str, Any]) -> dict[str, Any]:
     """
     Step 1: Check cart abandonment tracking.
@@ -163,14 +243,16 @@ def _check_cart_tracking(analyzer: CartRecoveryAnalyzer, result: dict[str, Any])
     Returns:
         Updated audit result
     """
-    result["steps"]["cart_tracking"]["status"] = "running"
+    _update_step(result, "cart_tracking", "running")
     _save_progress(result)
 
     if not analyzer.is_configured():
-        result["steps"]["cart_tracking"] = {
-            "status": "error",
-            "message": "Shopify credentials not configured",
-        }
+        _update_step(
+            result,
+            "cart_tracking",
+            "error",
+            error_message="Shopify credentials not configured",
+        )
         result["error"] = "Shopify credentials not configured"
         result["status"] = "error"
         return result
@@ -178,20 +260,24 @@ def _check_cart_tracking(analyzer: CartRecoveryAnalyzer, result: dict[str, Any])
     tracking_data = analyzer.check_cart_tracking()
 
     if "error" in tracking_data:
-        result["steps"]["cart_tracking"] = {
-            "status": "error",
-            "message": tracking_data["error"],
-        }
+        _update_step(
+            result,
+            "cart_tracking",
+            "warning",
+            error_message=tracking_data["error"],
+        )
         result["cart_tracking"] = tracking_data
         # Don't mark as error - this is expected for basic Shopify plans
         result["progress"] = 25
         return result
 
     result["cart_tracking"] = tracking_data
-    result["steps"]["cart_tracking"] = {
-        "status": "success",
-        "message": tracking_data.get("message", ""),
-    }
+    _update_step(
+        result,
+        "cart_tracking",
+        "success",
+        step_result={"message": tracking_data.get("message", "")},
+    )
     result["progress"] = 25
 
     return result
@@ -210,25 +296,29 @@ def _analyze_abandonment_volume(
     Returns:
         Updated audit result
     """
-    result["steps"]["abandonment_volume"]["status"] = "running"
+    _update_step(result, "abandonment_volume", "running")
     _save_progress(result)
 
     volume_data = analyzer.get_abandonment_volume()
 
     if "error" in volume_data:
-        result["steps"]["abandonment_volume"] = {
-            "status": "error",
-            "message": volume_data["error"],
-        }
+        _update_step(
+            result,
+            "abandonment_volume",
+            "warning",
+            error_message=volume_data["error"],
+        )
         result["abandonment_volume"] = volume_data
         result["progress"] = 50
         return result
 
     result["abandonment_volume"] = volume_data
-    result["steps"]["abandonment_volume"] = {
-        "status": "success",
-        "message": volume_data.get("message", ""),
-    }
+    _update_step(
+        result,
+        "abandonment_volume",
+        "success",
+        step_result={"message": volume_data.get("message", "")},
+    )
     result["progress"] = 50
 
     return result
@@ -245,25 +335,29 @@ def _check_email_capture(analyzer: CartRecoveryAnalyzer, result: dict[str, Any])
     Returns:
         Updated audit result
     """
-    result["steps"]["email_capture"]["status"] = "running"
+    _update_step(result, "email_capture", "running")
     _save_progress(result)
 
     email_data = analyzer.check_email_capture()
 
     if "error" in email_data:
-        result["steps"]["email_capture"] = {
-            "status": "error",
-            "message": email_data["error"],
-        }
+        _update_step(
+            result,
+            "email_capture",
+            "warning",
+            error_message=email_data["error"],
+        )
         result["email_capture"] = email_data
         result["progress"] = 75
         return result
 
     result["email_capture"] = email_data
-    result["steps"]["email_capture"] = {
-        "status": "success",
-        "message": email_data.get("message", ""),
-    }
+    _update_step(
+        result,
+        "email_capture",
+        "success",
+        step_result={"message": email_data.get("message", "")},
+    )
     result["progress"] = 75
 
     return result
@@ -282,25 +376,29 @@ def _calculate_recovery_potential(
     Returns:
         Updated audit result
     """
-    result["steps"]["recovery_potential"]["status"] = "running"
+    _update_step(result, "recovery_potential", "running")
     _save_progress(result)
 
     potential_data = analyzer.calculate_recovery_potential()
 
     if "error" in potential_data:
-        result["steps"]["recovery_potential"] = {
-            "status": "error",
-            "message": potential_data["error"],
-        }
+        _update_step(
+            result,
+            "recovery_potential",
+            "warning",
+            error_message=potential_data["error"],
+        )
         result["recovery_potential"] = potential_data
         result["progress"] = 100
         return result
 
     result["recovery_potential"] = potential_data
-    result["steps"]["recovery_potential"] = {
-        "status": "success",
-        "message": potential_data.get("message", ""),
-    }
+    _update_step(
+        result,
+        "recovery_potential",
+        "success",
+        step_result={"message": potential_data.get("message", "")},
+    )
 
     # Determine overall readiness
     ready = result["cart_tracking"].get("enabled", False) and (

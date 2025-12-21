@@ -17,22 +17,60 @@ from jobs.audit_workflow import inngest_client
 from services.customer_data_analyzer import CustomerDataAnalyzer
 
 
+STEPS = [
+    {
+        "id": "customer_count",
+        "name": "Nombre de clients",
+        "description": "Vérification du nombre minimum (1000+)",
+    },
+    {
+        "id": "data_history",
+        "name": "Historique données",
+        "description": "Analyse de la profondeur historique (90+ jours)",
+    },
+    {
+        "id": "data_quality",
+        "name": "Qualité des données",
+        "description": "Vérification emails et valeurs commandes",
+    },
+]
+
+
 def _init_result() -> dict[str, Any]:
     """Initialize empty audit result structure."""
+    from datetime import UTC, datetime
+
+    now = datetime.now(tz=UTC).isoformat()
     return {
+        "id": "customer_data_audit",
+        "audit_type": "customer_data",
         "audit_category": "metrics",
         "status": "running",
+        "execution_mode": "inngest",
+        "started_at": now,
+        "completed_at": None,
         "progress": 0,
-        "steps": {
-            "customer_count": {"status": "pending"},
-            "data_history": {"status": "pending"},
-            "data_quality": {"status": "pending"},
-        },
+        "steps": [
+            {
+                "id": step["id"],
+                "name": step["name"],
+                "description": step["description"],
+                "status": "pending",
+                "started_at": None,
+                "completed_at": None,
+                "duration_ms": None,
+                "result": None,
+                "error_message": None,
+            }
+            for step in STEPS
+        ],
         "ready_for_ads": False,
         "customer_count": {},
         "data_history": {},
         "data_quality": {},
         "recommendations": [],
+        "issues": [],
+        "summary": {},
         "error": None,
     }
 
@@ -133,6 +171,44 @@ def create_customer_data_audit_workflow() -> inngest.Function | None:
 customer_data_audit_function = create_customer_data_audit_workflow()
 
 
+def _find_step(result: dict[str, Any], step_id: str) -> dict[str, Any] | None:
+    """Find a step by ID in the steps list."""
+    for step in result["steps"]:
+        if step["id"] == step_id:
+            return step
+    return None
+
+
+def _update_step(
+    result: dict[str, Any],
+    step_id: str,
+    status: str,
+    error_message: str | None = None,
+    step_result: dict[str, Any] | None = None,
+) -> None:
+    """Update a step's status and optionally its result."""
+    from datetime import UTC, datetime
+
+    step = _find_step(result, step_id)
+    if step:
+        now = datetime.now(tz=UTC).isoformat()
+        if status == "running" and step["started_at"] is None:
+            step["started_at"] = now
+        step["status"] = status
+        if status in ("success", "error", "warning"):
+            step["completed_at"] = now
+            if step["started_at"]:
+                from datetime import datetime as dt
+
+                started = dt.fromisoformat(step["started_at"])
+                completed = dt.fromisoformat(now)
+                step["duration_ms"] = int((completed - started).total_seconds() * 1000)
+        if error_message:
+            step["error_message"] = error_message
+        if step_result:
+            step["result"] = step_result
+
+
 def _check_customer_count(analyzer: CustomerDataAnalyzer, result: dict[str, Any]) -> dict[str, Any]:
     """
     Step 1: Check customer count.
@@ -144,14 +220,16 @@ def _check_customer_count(analyzer: CustomerDataAnalyzer, result: dict[str, Any]
     Returns:
         Updated audit result
     """
-    result["steps"]["customer_count"]["status"] = "running"
+    _update_step(result, "customer_count", "running")
     _save_progress(result)
 
     if not analyzer.is_configured():
-        result["steps"]["customer_count"] = {
-            "status": "error",
-            "message": "Shopify credentials not configured",
-        }
+        _update_step(
+            result,
+            "customer_count",
+            "error",
+            error_message="Shopify credentials not configured",
+        )
         result["error"] = "Shopify credentials not configured"
         result["status"] = "error"
         return result
@@ -159,19 +237,23 @@ def _check_customer_count(analyzer: CustomerDataAnalyzer, result: dict[str, Any]
     count_data = analyzer.get_customer_count()
 
     if "error" in count_data:
-        result["steps"]["customer_count"] = {
-            "status": "error",
-            "message": count_data["error"],
-        }
+        _update_step(
+            result,
+            "customer_count",
+            "error",
+            error_message=count_data["error"],
+        )
         result["error"] = count_data["error"]
         result["status"] = "error"
         return result
 
     result["customer_count"] = count_data
-    result["steps"]["customer_count"] = {
-        "status": "success",
-        "message": count_data.get("message", ""),
-    }
+    _update_step(
+        result,
+        "customer_count",
+        "success",
+        step_result={"message": count_data.get("message", "")},
+    )
     result["progress"] = 33
 
     return result
@@ -188,25 +270,29 @@ def _analyze_data_history(analyzer: CustomerDataAnalyzer, result: dict[str, Any]
     Returns:
         Updated audit result
     """
-    result["steps"]["data_history"]["status"] = "running"
+    _update_step(result, "data_history", "running")
     _save_progress(result)
 
     history_data = analyzer.get_data_history()
 
     if "error" in history_data:
-        result["steps"]["data_history"] = {
-            "status": "error",
-            "message": history_data["error"],
-        }
+        _update_step(
+            result,
+            "data_history",
+            "error",
+            error_message=history_data["error"],
+        )
         result["error"] = history_data["error"]
         result["status"] = "error"
         return result
 
     result["data_history"] = history_data
-    result["steps"]["data_history"] = {
-        "status": "success",
-        "message": history_data.get("message", ""),
-    }
+    _update_step(
+        result,
+        "data_history",
+        "success",
+        step_result={"message": history_data.get("message", "")},
+    )
     result["progress"] = 66
 
     return result
@@ -225,25 +311,29 @@ def _validate_data_quality(
     Returns:
         Updated audit result
     """
-    result["steps"]["data_quality"]["status"] = "running"
+    _update_step(result, "data_quality", "running")
     _save_progress(result)
 
     quality_data = analyzer.check_data_quality()
 
     if "error" in quality_data:
-        result["steps"]["data_quality"] = {
-            "status": "error",
-            "message": quality_data["error"],
-        }
+        _update_step(
+            result,
+            "data_quality",
+            "error",
+            error_message=quality_data["error"],
+        )
         result["error"] = quality_data["error"]
         result["status"] = "error"
         return result
 
     result["data_quality"] = quality_data
-    result["steps"]["data_quality"] = {
-        "status": "success",
-        "message": quality_data.get("message", ""),
-    }
+    _update_step(
+        result,
+        "data_quality",
+        "success",
+        step_result={"message": quality_data.get("message", "")},
+    )
 
     # Determine overall readiness
     ready = (

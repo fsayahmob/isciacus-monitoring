@@ -14,6 +14,45 @@ export const AUDIT_STEPS: Record<string, { id: string; name: string; description
     { id: 'gmc_config', name: 'GMC', description: 'Google Merchant Center' },
     { id: 'gsc_config', name: 'GSC', description: 'Google Search Console' },
   ],
+  customer_data: [
+    {
+      id: 'customer_count',
+      name: 'Nombre de clients',
+      description: 'Vérification du nombre minimum (1000+)',
+    },
+    {
+      id: 'data_history',
+      name: 'Historique données',
+      description: 'Analyse de la profondeur historique (90+ jours)',
+    },
+    {
+      id: 'data_quality',
+      name: 'Qualité des données',
+      description: 'Vérification emails et valeurs commandes',
+    },
+  ],
+  cart_recovery: [
+    {
+      id: 'cart_tracking',
+      name: 'Tracking paniers',
+      description: 'Vérification du suivi des abandons',
+    },
+    {
+      id: 'abandonment_volume',
+      name: 'Volume abandons',
+      description: 'Analyse du volume (50+/mois minimum)',
+    },
+    {
+      id: 'email_capture',
+      name: 'Capture emails',
+      description: 'Taux de capture email (60%+ requis)',
+    },
+    {
+      id: 'recovery_potential',
+      name: 'Potentiel récupération',
+      description: 'Estimation du revenu récupérable',
+    },
+  ],
   ga4_tracking: [
     { id: 'ga4_connection', name: 'Connexion GA4', description: 'Vérification de la connexion' },
     {
