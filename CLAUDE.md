@@ -89,23 +89,79 @@ cd backend && ruff check . && black --check .
 
 ---
 
-## Project Structure
+## Architecture & Factorization Rules
+
+### Frontend Structure (React/TypeScript)
 
 ```
-isciacus-monitoring/
-├── frontend/           # React app
-│   └── src/
-│       ├── components/ # Max 300 lines each
-│       ├── hooks/      # Custom React hooks
-│       ├── services/   # API calls
-│       └── types/      # TypeScript types
-├── backend/            # FastAPI app
-│   ├── services/       # Business logic
-│   ├── jobs/           # Inngest functions
-│   ├── models/         # Pydantic models
-│   └── data/           # SQLite + cache
-└── .claude/            # Claude Code config
+frontend/src/
+├── components/          # UI Components (max 300 lines each)
+│   ├── audit/           # Audit-related components
+│   │   ├── AuditCard.tsx        # Single audit card display
+│   │   ├── AuditPipeline.tsx    # Pipeline visualization
+│   │   ├── auditSteps.ts        # Pure functions for audit logic
+│   │   └── useAuditSession.ts   # React Query hook for audits
+│   ├── common/          # Shared UI components
+│   └── layout/          # Layout components (Sidebar, Header)
+├── hooks/               # Custom React hooks (reusable logic)
+├── services/            # API calls ONLY (no business logic)
+│   └── api.ts           # All fetch functions + types
+├── types/               # Shared TypeScript types
+├── constants/           # Magic numbers, config values
+└── pages/               # Page-level components
 ```
+
+### Backend Structure (Python/FastAPI)
+
+```
+backend/
+├── monitoring_app.py    # FastAPI routes ONLY (thin controller)
+├── services/            # Business logic (one service per domain)
+│   ├── shopify_service.py      # Shopify API calls
+│   ├── ga4_service.py          # Google Analytics
+│   ├── audit_service.py        # Audit orchestration
+│   └── theme_service.py        # Theme analysis
+├── jobs/                # Inngest async functions
+│   └── audit_jobs.py           # Background audit tasks
+├── models/              # Pydantic models (request/response)
+├── config/              # Configuration files
+└── data/                # SQLite DB + JSON cache files
+```
+
+### Factorization Rules
+
+| When file exceeds... | Action |
+|---------------------|--------|
+| 300 lines (frontend) | Extract to new file in same folder |
+| 80 lines per function | Extract helper functions |
+| 5 params per function | Create config object/interface |
+| Repeated logic | Create shared utility in `hooks/` or `services/` |
+
+### Where to Put New Code
+
+| Type of code | Frontend location | Backend location |
+|--------------|-------------------|------------------|
+| API call | `services/api.ts` | `monitoring_app.py` (route) |
+| Business logic | `components/<domain>/*.ts` | `services/<domain>_service.py` |
+| React state | `hooks/use<Name>.ts` | N/A |
+| Async task | N/A | `jobs/<name>_jobs.py` |
+| Types/Models | `types/*.ts` or inline | `models/*.py` |
+| Constants | `constants/index.ts` | `config/*.py` |
+| Pure functions | `<component>/<name>.ts` | `services/<name>.py` |
+
+### Naming Conventions
+
+**Frontend:**
+- Components: `PascalCase.tsx` (e.g., `AuditCard.tsx`)
+- Hooks: `use<Name>.ts` (e.g., `useAuditSession.ts`)
+- Pure functions: `camelCase.ts` (e.g., `auditSteps.ts`)
+- Types: `PascalCase` (e.g., `AuditResult`)
+
+**Backend:**
+- Files: `snake_case.py` (e.g., `audit_service.py`)
+- Functions: `snake_case` (e.g., `run_audit`)
+- Classes: `PascalCase` (e.g., `AuditResult`)
+- Constants: `UPPER_CASE` (e.g., `MAX_RETRIES`)
 
 ---
 
