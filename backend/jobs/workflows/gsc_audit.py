@@ -21,6 +21,17 @@ import inngest
 import requests
 from bs4 import BeautifulSoup
 
+from config.messages import (
+    GSC_META_DESC_MISSING,
+    GSC_META_DESC_SHORT,
+    GSC_META_TITLE_MISSING,
+    GSC_META_TITLE_SHORT,
+    GSC_ROBOTS_DISALLOW_ALL,
+    GSC_ROBOTS_NO_SITEMAP,
+    GSC_ROBOTS_NOT_FOUND,
+    GSC_SITEMAP_FEW_URLS,
+    format_message,
+)
 from jobs.audit_workflow import inngest_client
 
 
@@ -154,15 +165,12 @@ def _step_basic_robots_txt(site_url: str) -> dict[str, Any]:
                         "id": "robots_blocks_all",
                         "audit_type": "search_console",
                         "severity": "critical",
-                        "title": "⛔ Site bloqué par robots.txt",
-                        "description": (
-                            "Votre robots.txt bloque l'accès à tout le site. "
-                            "Les moteurs de recherche ne peuvent pas indexer vos pages."
-                        ),
+                        "title": GSC_ROBOTS_DISALLOW_ALL["title"],
+                        "description": GSC_ROBOTS_DISALLOW_ALL["description"],
                         "action_available": True,
                         "action_label": "Modifier robots.txt",
                         "action_url": f"{site_url}/admin/settings/files",
-                        "recommendation": "Retirez 'Disallow: /' pour l'indexation.",
+                        "recommendation": GSC_ROBOTS_DISALLOW_ALL["recommendation"],
                     }
                 )
             elif not has_sitemap:
@@ -172,13 +180,10 @@ def _step_basic_robots_txt(site_url: str) -> dict[str, Any]:
                         "id": "robots_no_sitemap",
                         "audit_type": "search_console",
                         "severity": "medium",
-                        "title": "⚠️ Sitemap non déclaré dans robots.txt",
-                        "description": (
-                            "Votre robots.txt ne contient pas de directive Sitemap. "
-                            "Ajoutez cette directive pour aider les moteurs de recherche."
-                        ),
+                        "title": GSC_ROBOTS_NO_SITEMAP["title"],
+                        "description": GSC_ROBOTS_NO_SITEMAP["description"],
                         "action_available": False,
-                        "recommendation": f"Ajoutez: Sitemap: {urljoin(site_url, '/sitemap.xml')}",
+                        "recommendation": GSC_ROBOTS_NO_SITEMAP["recommendation"],
                     }
                 )
             else:
@@ -191,13 +196,10 @@ def _step_basic_robots_txt(site_url: str) -> dict[str, Any]:
                     "id": "robots_not_found",
                     "audit_type": "search_console",
                     "severity": "medium",
-                    "title": "⚠️ Fichier robots.txt absent",
-                    "description": (
-                        "Aucun fichier robots.txt n'a été trouvé. "
-                        "Il aide les moteurs de recherche à explorer votre site."
-                    ),
+                    "title": GSC_ROBOTS_NOT_FOUND["title"],
+                    "description": GSC_ROBOTS_NOT_FOUND["description"],
                     "action_available": False,
-                    "recommendation": "Shopify génère un robots.txt automatiquement.",
+                    "recommendation": GSC_ROBOTS_NOT_FOUND["recommendation"],
                 }
             )
         else:
@@ -273,8 +275,11 @@ def _step_basic_sitemap(site_url: str) -> dict[str, Any]:
                             "id": "sitemap_few_urls",
                             "audit_type": "search_console",
                             "severity": "low",
-                            "title": f"📊 Sitemap: {url_count} URLs",
-                            "description": "Peu d'URLs, normal pour un petit site.",
+                            "title": format_message(
+                                GSC_SITEMAP_FEW_URLS["title_template"],
+                                url_count=url_count,
+                            ),
+                            "description": GSC_SITEMAP_FEW_URLS["description"],
                             "action_available": False,
                         }
                     )
@@ -388,12 +393,12 @@ def _step_basic_meta_tags(site_url: str) -> dict[str, Any]:
                         "id": "meta_no_title",
                         "audit_type": "search_console",
                         "severity": "critical",
-                        "title": "⛔ Balise title manquante",
-                        "description": "Balise title manquante sur la page d'accueil.",
+                        "title": GSC_META_TITLE_MISSING["title"],
+                        "description": GSC_META_TITLE_MISSING["description"],
                         "action_available": True,
                         "action_label": "Modifier dans Shopify",
                         "action_url": f"{site_url}/admin/online_store/preferences",
-                        "recommendation": "Ajoutez un titre descriptif (50-60 caractères).",
+                        "recommendation": GSC_META_TITLE_MISSING["recommendation"],
                     }
                 )
             elif len(title) < 30:
@@ -402,10 +407,13 @@ def _step_basic_meta_tags(site_url: str) -> dict[str, Any]:
                         "id": "meta_title_short",
                         "audit_type": "search_console",
                         "severity": "medium",
-                        "title": f"⚠️ Title trop court ({len(title)} car.)",
-                        "description": f'Votre title "{title}" est trop court.',
+                        "title": format_message(
+                            GSC_META_TITLE_SHORT["title_template"],
+                            length=len(title),
+                        ),
+                        "description": GSC_META_TITLE_SHORT["description"],
                         "action_available": False,
-                        "recommendation": "Visez 50-60 caractères pour un titre optimal.",
+                        "recommendation": GSC_META_TITLE_SHORT["recommendation"],
                     }
                 )
             elif len(title) > 70:
@@ -427,12 +435,12 @@ def _step_basic_meta_tags(site_url: str) -> dict[str, Any]:
                         "id": "meta_no_description",
                         "audit_type": "search_console",
                         "severity": "medium",
-                        "title": "⚠️ Meta description manquante",
-                        "description": "Ajoutez une description pour améliorer votre taux de clic.",
+                        "title": GSC_META_DESC_MISSING["title"],
+                        "description": GSC_META_DESC_MISSING["description"],
                         "action_available": True,
                         "action_label": "Modifier dans Shopify",
                         "action_url": f"{site_url}/admin/online_store/preferences",
-                        "recommendation": "Rédigez une description de 150-160 caractères.",
+                        "recommendation": GSC_META_DESC_MISSING["recommendation"],
                     }
                 )
             elif len(description) < 100:
@@ -441,10 +449,13 @@ def _step_basic_meta_tags(site_url: str) -> dict[str, Any]:
                         "id": "meta_desc_short",
                         "audit_type": "search_console",
                         "severity": "low",
-                        "title": f"📊 Meta description courte ({len(description)} car.)",
-                        "description": "Une description plus longue peut améliorer votre CTR.",
+                        "title": format_message(
+                            GSC_META_DESC_SHORT["title_template"],
+                            length=len(description),
+                        ),
+                        "description": GSC_META_DESC_SHORT["description"],
                         "action_available": False,
-                        "recommendation": "Visez 150-160 caractères.",
+                        "recommendation": GSC_META_DESC_SHORT["recommendation"],
                     }
                 )
 
