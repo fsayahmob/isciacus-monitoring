@@ -335,7 +335,15 @@ try:
     from jobs.inngest_setup import setup_inngest
 
     inngest_enabled = setup_inngest(app)
-except ImportError:
+    if inngest_enabled:
+        print("✅ Inngest routes registered at /api/inngest")
+    else:
+        print("⚠️  Inngest setup returned False - routes NOT registered")
+except ImportError as e:
+    print(f"❌ Inngest import failed: {e}")
+    inngest_enabled = False
+except Exception as e:
+    print(f"❌ Inngest setup failed: {e}")
     inngest_enabled = False
 
 # CORS middleware for frontend access

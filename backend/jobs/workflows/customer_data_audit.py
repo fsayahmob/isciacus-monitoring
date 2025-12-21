@@ -7,12 +7,13 @@ Inngest workflow that analyzes customer data to determine Ads readiness:
 3. Validate data quality (emails, order values)
 """
 
+import json
+from pathlib import Path
 from typing import Any
 
-from inngest import Inngest
-from inngest.function import InngestFunction
-from services.storage import save_audit_result
+import inngest
 
+from jobs.audit_workflow import inngest_client
 from services.customer_data_analyzer import CustomerDataAnalyzer
 
 
@@ -37,26 +38,45 @@ def _init_result() -> dict[str, Any]:
 
 
 def _save_progress(result: dict[str, Any]) -> None:
-    """Save audit progress to storage."""
-    save_audit_result("customer_data", result)
+    """Save audit progress to session file."""
+    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    latest_file = storage_dir / "latest_session.json"
+
+    if latest_file.exists():
+        with latest_file.open() as f:
+            session = json.load(f)
+    else:
+        session = {
+            "id": "customer_data_session",
+            "created_at": result.get("started_at", ""),
+            "updated_at": "",
+            "audits": {},
+        }
+
+    session["audits"]["customer_data"] = result
+    session["updated_at"] = result.get("completed_at") or result.get("started_at", "")
+
+    with latest_file.open("w") as f:
+        json.dump(session, f, indent=2)
 
 
-def create_customer_data_audit_workflow(inngest_client: Inngest) -> InngestFunction:
+def create_customer_data_audit_workflow() -> inngest.Function | None:
     """
     Create Customer Data Readiness Audit workflow.
 
-    Args:
-        inngest_client: Inngest client instance
-
     Returns:
-        InngestFunction that can be served
+        Inngest Function that can be served, or None if Inngest not enabled.
     """
+    if inngest_client is None:
+        return None
 
     @inngest_client.create_function(
         fn_id="customer-data-audit",
-        trigger=inngest_client.create_trigger(event="audit/customer-data.trigger"),
+        trigger=inngest.TriggerEvent(event="audit/customer-data.trigger"),
+        retries=1,
     )
-    async def customer_data_audit_fn(_ctx: Any, step: Any) -> dict[str, Any]:
+    async def customer_data_audit_fn(ctx: inngest.Context) -> dict[str, Any]:
         """
         Customer Data Readiness Audit workflow.
 
@@ -67,10 +87,6 @@ def create_customer_data_audit_workflow(inngest_client: Inngest) -> InngestFunct
         2. Analyze data history (minimum 90 days for seasonal patterns)
         3. Validate data quality (email presence, order values)
 
-        Args:
-            ctx: Inngest context
-            step: Inngest step runner
-
         Returns:
             Audit result with readiness status and recommendations
         """
@@ -80,7 +96,7 @@ def create_customer_data_audit_workflow(inngest_client: Inngest) -> InngestFunct
         analyzer = CustomerDataAnalyzer()
 
         # Step 1: Check customer count
-        count_result = await step.run(
+        count_result = await ctx.step.run(
             "check-customer-count",
             lambda: _check_customer_count(analyzer, result),
         )
@@ -88,7 +104,7 @@ def create_customer_data_audit_workflow(inngest_client: Inngest) -> InngestFunct
         _save_progress(result)
 
         # Step 2: Analyze data history
-        history_result = await step.run(
+        history_result = await ctx.step.run(
             "analyze-data-history",
             lambda: _analyze_data_history(analyzer, result),
         )
@@ -96,7 +112,7 @@ def create_customer_data_audit_workflow(inngest_client: Inngest) -> InngestFunct
         _save_progress(result)
 
         # Step 3: Validate data quality
-        quality_result = await step.run(
+        quality_result = await ctx.step.run(
             "validate-data-quality",
             lambda: _validate_data_quality(analyzer, result),
         )
@@ -111,6 +127,10 @@ def create_customer_data_audit_workflow(inngest_client: Inngest) -> InngestFunct
         return result
 
     return customer_data_audit_fn
+
+
+# Create the function if enabled
+customer_data_audit_function = create_customer_data_audit_workflow()
 
 
 def _check_customer_count(analyzer: CustomerDataAnalyzer, result: dict[str, Any]) -> dict[str, Any]:

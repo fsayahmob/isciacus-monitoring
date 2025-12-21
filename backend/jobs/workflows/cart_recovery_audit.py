@@ -8,12 +8,13 @@ Inngest workflow that analyzes abandoned carts for Ads retargeting:
 4. Calculate recovery revenue potential
 """
 
+import json
+from pathlib import Path
 from typing import Any
 
-from inngest import Inngest
-from inngest.function import InngestFunction
-from services.storage import save_audit_result
+import inngest
 
+from jobs.audit_workflow import inngest_client
 from services.cart_recovery_analyzer import CartRecoveryAnalyzer
 
 
@@ -40,26 +41,45 @@ def _init_result() -> dict[str, Any]:
 
 
 def _save_progress(result: dict[str, Any]) -> None:
-    """Save audit progress to storage."""
-    save_audit_result("cart_recovery", result)
+    """Save audit progress to session file."""
+    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    latest_file = storage_dir / "latest_session.json"
+
+    if latest_file.exists():
+        with latest_file.open() as f:
+            session = json.load(f)
+    else:
+        session = {
+            "id": "cart_recovery_session",
+            "created_at": result.get("started_at", ""),
+            "updated_at": "",
+            "audits": {},
+        }
+
+    session["audits"]["cart_recovery"] = result
+    session["updated_at"] = result.get("completed_at") or result.get("started_at", "")
+
+    with latest_file.open("w") as f:
+        json.dump(session, f, indent=2)
 
 
-def create_cart_recovery_audit_workflow(inngest_client: Inngest) -> InngestFunction:
+def create_cart_recovery_audit_workflow() -> inngest.Function | None:
     """
     Create Cart Recovery Analysis Audit workflow.
 
-    Args:
-        inngest_client: Inngest client instance
-
     Returns:
-        InngestFunction that can be served
+        Inngest Function that can be served, or None if Inngest not enabled.
     """
+    if inngest_client is None:
+        return None
 
     @inngest_client.create_function(
         fn_id="cart-recovery-audit",
-        trigger=inngest_client.create_trigger(event="audit/cart-recovery.trigger"),
+        trigger=inngest.TriggerEvent(event="audit/cart-recovery.trigger"),
+        retries=1,
     )
-    async def cart_recovery_audit_fn(_ctx: Any, step: Any) -> dict[str, Any]:
+    async def cart_recovery_audit_fn(ctx: inngest.Context) -> dict[str, Any]:
         """
         Cart Recovery Analysis Audit workflow.
 
@@ -71,10 +91,6 @@ def create_cart_recovery_audit_workflow(inngest_client: Inngest) -> InngestFunct
         3. Check email capture rate (minimum 60% for audiences)
         4. Calculate recovery revenue potential
 
-        Args:
-            _ctx: Inngest context (unused)
-            step: Inngest step runner
-
         Returns:
             Audit result with retargeting readiness and recommendations
         """
@@ -84,7 +100,7 @@ def create_cart_recovery_audit_workflow(inngest_client: Inngest) -> InngestFunct
         analyzer = CartRecoveryAnalyzer()
 
         # Step 1: Check cart tracking
-        tracking_result = await step.run(
+        tracking_result = await ctx.step.run(
             "check-cart-tracking",
             lambda: _check_cart_tracking(analyzer, result),
         )
@@ -99,7 +115,7 @@ def create_cart_recovery_audit_workflow(inngest_client: Inngest) -> InngestFunct
             return result
 
         # Step 2: Analyze abandonment volume
-        volume_result = await step.run(
+        volume_result = await ctx.step.run(
             "analyze-abandonment-volume",
             lambda: _analyze_abandonment_volume(analyzer, result),
         )
@@ -107,7 +123,7 @@ def create_cart_recovery_audit_workflow(inngest_client: Inngest) -> InngestFunct
         _save_progress(result)
 
         # Step 3: Check email capture
-        email_result = await step.run(
+        email_result = await ctx.step.run(
             "check-email-capture",
             lambda: _check_email_capture(analyzer, result),
         )
@@ -115,7 +131,7 @@ def create_cart_recovery_audit_workflow(inngest_client: Inngest) -> InngestFunct
         _save_progress(result)
 
         # Step 4: Calculate recovery potential
-        potential_result = await step.run(
+        potential_result = await ctx.step.run(
             "calculate-recovery-potential",
             lambda: _calculate_recovery_potential(analyzer, result),
         )
@@ -130,6 +146,10 @@ def create_cart_recovery_audit_workflow(inngest_client: Inngest) -> InngestFunct
         return result
 
     return cart_recovery_audit_fn
+
+
+# Create the function if enabled
+cart_recovery_audit_function = create_cart_recovery_audit_workflow()
 
 
 def _check_cart_tracking(analyzer: CartRecoveryAnalyzer, result: dict[str, Any]) -> dict[str, Any]:

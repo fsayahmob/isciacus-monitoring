@@ -50,8 +50,8 @@ def setup_inngest(app: FastAPI) -> bool:
     # Import dedicated audit workflows
     from .workflows.ads_readiness_audit import ads_readiness_audit_function
     from .workflows.capi_audit import create_capi_audit_function
-    from .workflows.cart_recovery_audit import create_cart_recovery_audit_workflow
-    from .workflows.customer_data_audit import create_customer_data_audit_workflow
+    from .workflows.cart_recovery_audit import cart_recovery_audit_function
+    from .workflows.customer_data_audit import customer_data_audit_function
     from .workflows.ga4_audit import ga4_audit_function
     from .workflows.gmc_audit import gmc_audit_function
     from .workflows.gsc_audit import gsc_audit_function
@@ -80,10 +80,10 @@ def setup_inngest(app: FastAPI) -> bool:
         functions.append(ads_readiness_audit_function)
     if fn := create_capi_audit_function():
         functions.append(fn)
-    if fn := create_customer_data_audit_workflow(inngest_client):
-        functions.append(fn)
-    if fn := create_cart_recovery_audit_workflow(inngest_client):
-        functions.append(fn)
+    if customer_data_audit_function is not None:
+        functions.append(customer_data_audit_function)
+    if cart_recovery_audit_function is not None:
+        functions.append(cart_recovery_audit_function)
 
     if not functions:
         return False
