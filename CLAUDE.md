@@ -63,12 +63,29 @@ cd backend && black --check .
 
 ---
 
-## Development Workflow
+## MANDATORY Development Workflow
 
-1. **Before coding**: Check current file line count
-2. **During coding**: Validate lint after each function
-3. **Before showing user**: Run ALL validation commands
-4. **Never commit** code that fails lint
+### BEFORE each file modification:
+1. Check current file line count: `wc -l <file>`
+2. Review lint limits above
+
+### AFTER each file modification:
+1. Check new line count stays under limit
+2. Run lint commands for that stack
+
+### BEFORE showing code to user:
+```bash
+# Frontend
+npm --prefix frontend run lint && npm --prefix frontend run typecheck && npm --prefix frontend run format:check
+
+# Backend
+cd backend && ruff check . && black --check .
+```
+
+### NEVER:
+- Commit code that fails lint
+- Show user code without running validation first
+- Exceed file/function line limits
 
 ---
 
