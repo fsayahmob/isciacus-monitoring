@@ -27,23 +27,23 @@ function createAuditRunningChecker(
     if (!isSequentialRunning) {
       return false
     }
-    const auditProgress = progress.find((p) => p.auditType === auditType)
-    return auditProgress?.status === 'running' || false
+    return progress.find((p) => p.auditType === auditType)?.status === 'running' || false
   }
 }
 
 function useAuditMutations(): {
-  executeAction: ReturnType<typeof useMutation>
-  clearCache: ReturnType<typeof useMutation>
+  executeAction: {
+    mutate: (args: { auditType: string; actionId: string }) => void
+    isPending: boolean
+  }
+  clearCache: { mutate: () => void; isPending: boolean }
 } {
   const queryClient = useQueryClient()
-
   const executeAction = useMutation({
-    mutationFn: ({ auditType, actionId }: { auditType: string; actionId: string }) =>
-      executeAuditAction(auditType, actionId),
+    mutationFn: (args: { auditType: string; actionId: string }) =>
+      executeAuditAction(args.auditType, args.actionId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['audit-session'] }),
   })
-
   const clearCache = useMutation({
     mutationFn: clearAuditCache,
     onSuccess: () => {
@@ -51,64 +51,55 @@ function useAuditMutations(): {
       void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
     },
   })
-
   return { executeAction, clearCache }
 }
 
 export function AuditPipeline(): React.ReactElement {
-  const auditSession = useAuditSession()
-  const sequentialRunner = useSequentialAuditRunner()
+  const session = useAuditSession()
+  const runner = useSequentialAuditRunner()
   const { executeAction, clearCache } = useAuditMutations()
+  const { audits } = session.availableAudits
 
-  const { audits } = auditSession.availableAudits
-  const hasRunningAudits = auditSession.runningAudits.size > 0 || sequentialRunner.isRunning
-  const checkAuditRunning = createAuditRunningChecker(
-    auditSession.isAuditRunning,
-    sequentialRunner.isRunning,
-    sequentialRunner.progress
+  const isRunning = session.runningAudits.size > 0 || runner.isRunning
+  const checker = createAuditRunningChecker(
+    session.isAuditRunning,
+    runner.isRunning,
+    runner.progress
   )
-
-  const runningCount = sequentialRunner.isRunning
-    ? sequentialRunner.completedCount
-    : auditSession.runningAudits.size
+  const count = runner.isRunning ? runner.completedCount : session.runningAudits.size
 
   return (
     <div className="min-h-screen bg-bg-primary p-6">
       <div className="mx-auto max-w-6xl">
         <PageHeader
           onRunAll={() => {
-            sequentialRunner.startSequentialRun(audits)
+            runner.startSequentialRun(audits)
           }}
           onClearCache={() => {
             clearCache.mutate()
           }}
-          isRunning={hasRunningAudits}
+          isRunning={isRunning}
           isClearingCache={clearCache.isPending}
-          runningCount={runningCount}
-          totalCount={sequentialRunner.isRunning ? sequentialRunner.totalAudits : 0}
+          runningCount={count}
+          totalCount={runner.isRunning ? runner.totalAudits : 0}
         />
-        {sequentialRunner.isRunning && (
+        {runner.isRunning && (
           <div className="mb-6">
-            <AuditProgressIndicator
-              progress={sequentialRunner.progress}
-              currentIndex={sequentialRunner.currentIndex}
-              totalAudits={sequentialRunner.totalAudits}
-              completedCount={sequentialRunner.completedCount}
-            />
+            <AuditProgressIndicator {...runner} />
           </div>
         )}
         <AuditCardsGrid
           audits={audits}
-          selectedAudit={auditSession.selectedAudit}
-          isAuditRunning={checkAuditRunning}
-          onRun={auditSession.runAudit}
-          onSelect={auditSession.selectAudit}
+          selectedAudit={session.selectedAudit}
+          isAuditRunning={checker}
+          onRun={session.runAudit}
+          onSelect={session.selectAudit}
           accordionContent={
             <AuditResultSection
-              currentResult={auditSession.currentResult}
-              selectedAudit={auditSession.selectedAudit}
-              session={auditSession.session}
-              isRunning={auditSession.isSelectedAuditRunning}
+              currentResult={session.currentResult}
+              selectedAudit={session.selectedAudit}
+              session={session.session}
+              isRunning={session.isSelectedAuditRunning}
               onExecuteAction={(t, a) => {
                 executeAction.mutate({ auditType: t, actionId: a })
               }}
@@ -116,12 +107,12 @@ export function AuditPipeline(): React.ReactElement {
             />
           }
         />
-        {sequentialRunner.showSummary && sequentialRunner.score && sequentialRunner.readiness && (
+        {runner.showSummary && runner.score && runner.readiness && (
           <AuditCampaignSummary
-            score={sequentialRunner.score}
-            readiness={sequentialRunner.readiness}
-            progress={sequentialRunner.progress}
-            onDismiss={sequentialRunner.dismissSummary}
+            score={runner.score}
+            readiness={runner.readiness}
+            progress={runner.progress}
+            onDismiss={runner.dismissSummary}
           />
         )}
       </div>
