@@ -151,8 +151,11 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
 
         # If tracking not enabled, skip remaining steps
         if not result["cart_tracking"].get("enabled"):
-            result["status"] = "completed"
+            from datetime import UTC, datetime
+
+            result["status"] = "warning"
             result["progress"] = 100
+            result["completed_at"] = datetime.now(tz=UTC).isoformat()
             _save_progress(result)
             return result
 
@@ -181,8 +184,11 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
         _save_progress(result)
 
         # Mark as completed
-        result["status"] = "completed"
+        from datetime import UTC, datetime
+
+        result["status"] = "success"
         result["progress"] = 100
+        result["completed_at"] = datetime.now(tz=UTC).isoformat()
         _save_progress(result)
 
         return result
