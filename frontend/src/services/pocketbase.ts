@@ -45,3 +45,105 @@ export function getPocketBase(): PocketBase {
   pbClient ??= new PocketBase(POCKETBASE_URL)
   return pbClient
 }
+
+// ============================================================================
+// Audit Run Operations (write directly to PocketBase)
+// ============================================================================
+
+export interface CreateAuditRunParams {
+  sessionId: string
+  auditType: string
+}
+
+/**
+ * Create a new audit run in PocketBase with status 'pending'.
+ * This triggers the backend webhook which starts the Inngest workflow.
+ */
+export async function createAuditRun(params: CreateAuditRunParams): Promise<AuditRun> {
+  const pb = getPocketBase()
+  const record = await pb.collection('audit_runs').create<AuditRun>({
+    session_id: params.sessionId,
+    audit_type: params.auditType,
+    status: 'pending',
+    started_at: new Date().toISOString(),
+    completed_at: null,
+    result: null,
+    error: null,
+    run_id: '',
+  })
+  return record
+}
+
+/**
+ * Check if an audit is already running or pending for the given session.
+ * Prevents double-launching the same audit.
+ */
+export async function isAuditInProgress(sessionId: string, auditType: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb.collection('audit_runs').getList<AuditRun>(1, 1, {
+      filter: `session_id="${sessionId}" && audit_type="${auditType}" && (status="pending" || status="running")`,
+    })
+    return records.totalItems > 0
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Create multiple audit runs for a batch execution.
+ * Returns the created records.
+ */
+export async function createBatchAuditRuns(
+  sessionId: string,
+  auditTypes: string[]
+): Promise<AuditRun[]> {
+  const results: AuditRun[] = []
+  for (const auditType of auditTypes) {
+    const inProgress = await isAuditInProgress(sessionId, auditType)
+    if (!inProgress) {
+      const record = await createAuditRun({ sessionId, auditType })
+      results.push(record)
+    }
+  }
+  return results
+}
+
+// Session ID length for unique identification
+const SESSION_ID_LENGTH = 8
+
+/**
+ * Generate a unique session ID for grouping audit runs.
+ */
+export function generateSessionId(): string {
+  return crypto.randomUUID().slice(0, SESSION_ID_LENGTH)
+}
+
+/**
+ * Update an audit run's status in PocketBase.
+ * Used by frontend for optimistic updates or cancellation.
+ */
+export async function updateAuditRunStatus(
+  recordId: string,
+  status: AuditRunStatus,
+  error?: string
+): Promise<AuditRun> {
+  const pb = getPocketBase()
+  const updateData: Partial<AuditRun> = { status }
+  if (error !== undefined) {
+    updateData.error = error
+  }
+  if (status === 'completed' || status === 'failed') {
+    updateData.completed_at = new Date().toISOString()
+  }
+  return pb.collection('audit_runs').update<AuditRun>(recordId, updateData)
+}
+
+/**
+ * Cancel an in-progress audit by setting its status to 'failed'.
+ * Note: This only updates the status in PocketBase - stopping the Inngest
+ * workflow requires a separate webhook trigger (future enhancement).
+ */
+export async function cancelAuditRun(recordId: string): Promise<AuditRun> {
+  return updateAuditRunStatus(recordId, 'failed', 'Cancelled by user')
+}

@@ -321,14 +321,25 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
         cache_service.set_products(products)
         cache_service.set_filters(filters)
 
+    # Cleanup stale audits from JSON session files (audits left in 'running' state)
+    try:
+        from services.audit_orchestrator import AuditOrchestrator
+
+        orchestrator = AuditOrchestrator()
+        cleaned_json = orchestrator.cleanup_stale_running_audits()
+        if cleaned_json > 0:
+            print(f"✅ Cleaned up {cleaned_json} stale running audits from session files")
+    except Exception as e:
+        print(f"⚠️  Failed to cleanup session audits on startup: {e}")
+
     # Cleanup stale PocketBase audits (audits left in 'running' state from previous runs)
     try:
         from services.pocketbase_service import get_pocketbase_service
 
         pb = get_pocketbase_service()
-        cleaned = pb.cleanup_stale_running_audits()
-        if cleaned > 0:
-            print(f"✅ Cleaned up {cleaned} stale running audits from PocketBase")
+        cleaned_pb = pb.cleanup_stale_running_audits()
+        if cleaned_pb > 0:
+            print(f"✅ Cleaned up {cleaned_pb} stale running audits from PocketBase")
     except Exception as e:
         print(f"⚠️  Failed to cleanup PocketBase audits on startup: {e}")
 
@@ -1463,6 +1474,162 @@ async def get_action_status(task_id: str = Query(...)) -> dict[str, Any]:
         pass
 
     return task_data
+
+
+# ============================================================================
+# POCKETBASE-FIRST PATTERN (Firebase-like architecture)
+# ============================================================================
+
+
+@app.post("/api/audits/trigger")
+async def trigger_audit_from_pocketbase(request: Request) -> dict[str, Any]:
+    """Trigger an Inngest workflow from a PocketBase record.
+
+    Firebase-like pattern:
+    1. Frontend creates record in PocketBase (status: pending)
+    2. Frontend calls this endpoint with the record ID
+    3. This endpoint triggers Inngest workflow
+    4. Inngest updates PocketBase (status: running → completed/failed)
+
+    Expected payload:
+    {
+        "pocketbase_record_id": "abc123",
+        "audit_type": "ga4_tracking",
+        "session_id": "xyz789"
+    }
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    record_id = payload.get("pocketbase_record_id")
+    audit_type = payload.get("audit_type")
+    session_id = payload.get("session_id")
+
+    if record_id is None or audit_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing pocketbase_record_id or audit_type",
+        )
+
+    # Validate audit type
+    try:
+        audit_enum = AuditType(audit_type)
+    except ValueError:
+        # Update PocketBase record to failed status
+        from services.pocketbase_service import get_pocketbase_service
+
+        pb = get_pocketbase_service()
+        pb.update_audit_run(
+            record_id, status="failed", error=f"Unknown audit type: {audit_type}"
+        )
+        raise HTTPException(status_code=400, detail=f"Unknown audit type: {audit_type}")
+
+    # Trigger the appropriate Inngest workflow
+    from jobs.inngest_setup import trigger_audit, trigger_onboarding_audit
+
+    if audit_enum == AuditType.ONBOARDING:
+        trigger_result = await trigger_onboarding_audit(
+            pocketbase_record_id=record_id, session_id=session_id
+        )
+    else:
+        trigger_result = await trigger_audit(
+            audit_type, period=30, pocketbase_record_id=record_id, session_id=session_id
+        )
+
+    if trigger_result.get("status") == "error":
+        from services.pocketbase_service import get_pocketbase_service
+
+        pb = get_pocketbase_service()
+        pb.update_audit_run(
+            record_id,
+            status="failed",
+            error=f"Inngest error: {trigger_result.get('message')}",
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=f"Inngest not available: {trigger_result.get('message')}",
+        )
+
+    return {
+        "status": "triggered",
+        "run_id": trigger_result.get("run_id"),
+        "pocketbase_record_id": record_id,
+        "audit_type": audit_type,
+    }
+
+
+@app.post("/api/webhooks/pocketbase/audit-created")
+async def pocketbase_audit_created_webhook(request: Request) -> dict[str, Any]:
+    """Webhook called by PocketBase when a new audit_run is created.
+
+    This implements the Firebase-like trigger pattern:
+    1. Frontend creates record in PocketBase (status: pending)
+    2. PocketBase hook calls this webhook
+    3. This endpoint triggers Inngest workflow
+    4. Inngest updates PocketBase (status: running → completed/failed)
+
+    PocketBase sends: { "action": "create", "record": { ... }, "collection": "audit_runs" }
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    action = payload.get("action")
+    record = payload.get("record", {})
+    collection = payload.get("collection")
+
+    # Validate this is a create action on audit_runs
+    if collection != "audit_runs" or action != "create":
+        return {"status": "ignored", "reason": f"Not a create on audit_runs: {collection}/{action}"}
+
+    audit_type = record.get("audit_type")
+    record_id = record.get("id")
+    session_id = record.get("session_id")
+
+    if audit_type is None or record_id is None:
+        raise HTTPException(status_code=400, detail="Missing audit_type or id in record")
+
+    # Trigger Inngest workflow
+    from jobs.inngest_setup import trigger_audit, trigger_onboarding_audit
+
+    try:
+        audit_enum = AuditType(audit_type)
+    except ValueError:
+        # Update PocketBase record to failed status
+        from services.pocketbase_service import get_pocketbase_service
+
+        pb = get_pocketbase_service()
+        pb.update_audit_run(record_id, status="failed", error=f"Unknown audit type: {audit_type}")
+        return {"status": "error", "reason": f"Unknown audit type: {audit_type}"}
+
+    # Trigger the appropriate workflow
+    if audit_enum == AuditType.ONBOARDING:
+        trigger_result = await trigger_onboarding_audit(
+            pocketbase_record_id=record_id, session_id=session_id
+        )
+    else:
+        trigger_result = await trigger_audit(
+            audit_type, period=30, pocketbase_record_id=record_id, session_id=session_id
+        )
+
+    if trigger_result.get("status") == "error":
+        from services.pocketbase_service import get_pocketbase_service
+
+        pb = get_pocketbase_service()
+        pb.update_audit_run(
+            record_id, status="failed", error=f"Inngest error: {trigger_result.get('message')}"
+        )
+        return {"status": "error", "reason": trigger_result.get("message")}
+
+    return {
+        "status": "triggered",
+        "record_id": record_id,
+        "audit_type": audit_type,
+        "run_id": trigger_result.get("run_id"),
+    }
 
 
 @app.get("/")

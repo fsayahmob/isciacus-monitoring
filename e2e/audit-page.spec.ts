@@ -188,8 +188,9 @@ test.describe('Audit Page - State Persistence on Refresh', () => {
     await page.waitForTimeout(2000)
 
     // Look for any "running" indicators
-    const runningIndicators = page.locator('.animate-spin, text=/En cours de/i')
-    const runningCount = await runningIndicators.count()
+    const spinners = page.locator('.animate-spin')
+    const runningText = page.locator('text=/En cours de/i')
+    const runningCount = (await spinners.count()) + (await runningText.count())
 
     // If there are running indicators, they should correspond to actual running audits
     // (not stale ones that weren't cleaned up)

@@ -229,6 +229,29 @@ class AuditOrchestrator:
         """Get the most recent audit session."""
         return self._load_session()
 
+    def cleanup_stale_running_audits(self) -> int:
+        """Clean up audits stuck in 'running' status from previous runs.
+
+        Called on backend startup to prevent stale running states after Docker restart.
+        Returns the number of audits cleaned up.
+        """
+        session = self._load_session()
+        if session is None:
+            return 0
+
+        cleaned_count = 0
+        for audit_data in session.audits.values():
+            if audit_data.status in (AuditStepStatus.RUNNING, AuditStepStatus.PENDING):
+                audit_data.status = AuditStepStatus.ERROR
+                audit_data.error_message = "Audit interrompu par redémarrage du serveur"
+                audit_data.completed_at = datetime.now(tz=UTC).isoformat()
+                cleaned_count += 1
+
+        if cleaned_count > 0:
+            self._save_session(session)
+
+        return cleaned_count
+
     def clear_all_sessions(self) -> dict[str, Any]:
         """Clear all audit sessions and caches.
 

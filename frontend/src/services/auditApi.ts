@@ -172,3 +172,122 @@ export async function clearAuditCache(): Promise<{
   }>('/api/audits/cache')
   return response.data
 }
+
+// ============================================================================
+// PocketBase-first pattern (Firebase-like architecture)
+// ============================================================================
+
+interface TriggerAuditFromPocketBaseParams {
+  pocketbaseRecordId: string
+  auditType: string
+  sessionId: string
+}
+
+interface TriggerAuditFromPocketBaseResponse {
+  status: 'triggered' | 'error'
+  run_id?: string
+  message?: string
+}
+
+/**
+ * Trigger an Inngest workflow from a PocketBase record.
+ *
+ * This is part of the Firebase-like pattern:
+ * 1. Frontend creates record in PocketBase (status: pending)
+ * 2. Frontend calls this endpoint to trigger Inngest
+ * 3. Inngest updates PocketBase (status: running → completed/failed)
+ */
+export async function triggerAuditFromPocketBase(
+  params: TriggerAuditFromPocketBaseParams
+): Promise<TriggerAuditFromPocketBaseResponse> {
+  const response = await apiClient.post<TriggerAuditFromPocketBaseResponse>(
+    '/api/audits/trigger',
+    {
+      pocketbase_record_id: params.pocketbaseRecordId,
+      audit_type: params.auditType,
+      session_id: params.sessionId,
+    }
+  )
+  return response.data
+}
+
+/**
+ * Run an audit using the PocketBase-first pattern (Firebase-like).
+ *
+ * This is the recommended way to run audits:
+ * 1. Creates a record in PocketBase (source of truth)
+ * 2. Triggers the Inngest workflow via backend
+ * 3. Returns the PocketBase record ID for realtime updates
+ *
+ * The frontend should subscribe to PocketBase realtime for status updates.
+ */
+export interface RunAuditViaPocketBaseResult {
+  pocketbaseRecordId: string
+  runId: string
+  auditType: string
+  sessionId: string
+}
+
+export async function runAuditViaPocketBase(
+  auditType: string,
+  sessionId: string
+): Promise<RunAuditViaPocketBaseResult> {
+  // Import PocketBase functions dynamically to avoid circular deps
+  const { createAuditRun, isAuditInProgress } = await import('./pocketbase')
+
+  // Check if already running
+  const alreadyRunning = await isAuditInProgress(sessionId, auditType)
+  if (alreadyRunning) {
+    throw new Error(`Audit ${auditType} is already running for this session`)
+  }
+
+  // Step 1: Create record in PocketBase (source of truth)
+  const pbRecord = await createAuditRun({ sessionId, auditType })
+
+  // Step 2: Trigger Inngest workflow via backend
+  const triggerResult = await triggerAuditFromPocketBase({
+    pocketbaseRecordId: pbRecord.id,
+    auditType,
+    sessionId,
+  })
+
+  if (triggerResult.status === 'error') {
+    // Update PocketBase record to failed
+    const { updateAuditRunStatus } = await import('./pocketbase')
+    await updateAuditRunStatus(
+      pbRecord.id,
+      'failed',
+      triggerResult.message ?? 'Failed to trigger workflow'
+    )
+    throw new Error(triggerResult.message ?? 'Failed to trigger audit workflow')
+  }
+
+  return {
+    pocketbaseRecordId: pbRecord.id,
+    runId: triggerResult.run_id ?? '',
+    auditType,
+    sessionId,
+  }
+}
+
+/**
+ * Run multiple audits in batch using PocketBase-first pattern.
+ */
+export async function runBatchAuditsViaPocketBase(
+  auditTypes: string[],
+  sessionId: string
+): Promise<RunAuditViaPocketBaseResult[]> {
+  const results: RunAuditViaPocketBaseResult[] = []
+
+  for (const auditType of auditTypes) {
+    try {
+      const result = await runAuditViaPocketBase(auditType, sessionId)
+      results.push(result)
+    } catch {
+      // Continue with next audit even if one fails
+      // The failed one will be marked in PocketBase
+    }
+  }
+
+  return results
+}

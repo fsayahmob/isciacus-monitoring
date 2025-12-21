@@ -112,9 +112,15 @@ def setup_inngest(app: FastAPI) -> bool:
         return False
 
 
-async def trigger_onboarding_audit() -> dict[str, str]:
+async def trigger_onboarding_audit(
+    pocketbase_record_id: str | None = None, session_id: str | None = None
+) -> dict[str, str]:
     """
     Trigger the onboarding audit workflow via Inngest.
+
+    Args:
+        pocketbase_record_id: ID of the audit_run record in PocketBase (for status updates)
+        session_id: Session ID for grouping audits
 
     Returns run_id for polling status.
     """
@@ -132,7 +138,11 @@ async def trigger_onboarding_audit() -> dict[str, str]:
         await inngest_client.send(
             inngest.Event(
                 name="audit/onboarding.requested",
-                data={"run_id": run_id},
+                data={
+                    "run_id": run_id,
+                    "pocketbase_record_id": pocketbase_record_id,
+                    "session_id": session_id,
+                },
             )
         )
         return {"status": "triggered", "run_id": run_id}
@@ -380,28 +390,64 @@ async def trigger_bot_access_audit() -> dict[str, str]:
         return {"status": "error", "message": str(e)}
 
 
-async def trigger_audit(audit_type: str, period: int = 30) -> dict[str, str]:
+async def trigger_audit(
+    audit_type: str,
+    period: int = 30,
+    pocketbase_record_id: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, str]:
     """
     Trigger any audit type via its dedicated Inngest workflow.
+
+    Args:
+        audit_type: Type of audit to trigger
+        period: Number of days for GA4 audit
+        pocketbase_record_id: ID of the audit_run record in PocketBase (for status updates)
+        session_id: Session ID for grouping audits
 
     Supported types: ga4_tracking, theme_code, meta_pixel, merchant_center,
     search_console, ads_readiness, capi, customer_data, cart_recovery, bot_access
     """
-    trigger_map = {
-        "ga4_tracking": lambda: trigger_ga4_audit(period),
-        "theme_code": trigger_theme_audit,
-        "meta_pixel": trigger_meta_audit,
-        "merchant_center": trigger_gmc_audit,
-        "search_console": trigger_gsc_audit,
-        "ads_readiness": trigger_ads_readiness_audit,
-        "capi": trigger_capi_audit,
-        "customer_data": trigger_customer_data_audit,
-        "cart_recovery": trigger_cart_recovery_audit,
-        "bot_access": trigger_bot_access_audit,
+    if not INNGEST_ENABLED:
+        return {"status": "error", "message": "Inngest not configured"}
+
+    from .audit_workflow import inngest_client
+
+    if inngest_client is None:
+        return {"status": "error", "message": "Inngest client not initialized"}
+
+    # Map audit types to event names
+    event_map = {
+        "ga4_tracking": "audit/ga4.requested",
+        "theme_code": "audit/theme.requested",
+        "meta_pixel": "audit/meta.requested",
+        "merchant_center": "audit/gmc.requested",
+        "search_console": "audit/gsc.requested",
+        "ads_readiness": "audit/ads_readiness.requested",
+        "capi": "audit/capi.requested",
+        "customer_data": "audit/customer-data.trigger",
+        "cart_recovery": "audit/cart-recovery.trigger",
+        "bot_access": "audit/bot-access.requested",
     }
 
-    trigger_func = trigger_map.get(audit_type)
-    if trigger_func is None:
+    event_name = event_map.get(audit_type)
+    if event_name is None:
         return {"status": "error", "message": f"Unknown audit type: {audit_type}"}
 
-    return await trigger_func()
+    run_id = str(uuid4())[:8]
+
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name=event_name,
+                data={
+                    "run_id": run_id,
+                    "period": period,
+                    "pocketbase_record_id": pocketbase_record_id,
+                    "session_id": session_id,
+                },
+            )
+        )
+        return {"status": "triggered", "run_id": run_id, "audit_type": audit_type}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

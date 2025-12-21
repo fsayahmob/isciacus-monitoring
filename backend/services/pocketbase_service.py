@@ -64,6 +64,7 @@ class PocketBaseService:
         status: str,
         result: dict[str, Any] | None = None,
         error: str | None = None,
+        run_id: str | None = None,
     ) -> dict[str, Any]:
         """Update audit run status."""
         data: dict[str, Any] = {"status": status}
@@ -73,6 +74,43 @@ class PocketBaseService:
             data["result"] = result
         if error is not None:
             data["error"] = error
+        if run_id is not None:
+            data["run_id"] = run_id
+
+        response = requests.patch(
+            self._get_url(f"/api/collections/{COLLECTION_NAME}/records/{record_id}"),
+            json=data,
+            timeout=REQUEST_TIMEOUT,
+        )
+        return self._handle_response(response)
+
+    def update_audit_run(
+        self,
+        record_id: str,
+        status: str | None = None,
+        result: dict[str, Any] | None = None,
+        error: str | None = None,
+        run_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update audit run record by ID.
+
+        More flexible than update_status - allows updating any combination
+        of fields without requiring status.
+        """
+        data: dict[str, Any] = {}
+        if status is not None:
+            data["status"] = status
+            if status in ("completed", "failed"):
+                data["completed_at"] = datetime.now(tz=UTC).isoformat()
+        if result is not None:
+            data["result"] = result
+        if error is not None:
+            data["error"] = error
+        if run_id is not None:
+            data["run_id"] = run_id
+
+        if not data:
+            return {}
 
         response = requests.patch(
             self._get_url(f"/api/collections/{COLLECTION_NAME}/records/{record_id}"),
