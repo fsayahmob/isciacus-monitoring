@@ -41,6 +41,7 @@ class AuditType(Enum):
     CAPI = "capi"  # Meta Conversion API audit
     CUSTOMER_DATA = "customer_data"  # Customer data readiness for Ads
     CART_RECOVERY = "cart_recovery"  # Cart abandonment analysis for retargeting
+    BOT_ACCESS = "bot_access"  # Check if Ads crawlers can access the site
 
 
 class AuditStepStatus(Enum):
@@ -440,6 +441,19 @@ class AuditOrchestrator:
                 "description": gsc_description,
                 "icon": "search",
                 "available": gsc_configured,
+                "last_run": None,
+                "last_status": None,
+                "issues_count": 0,
+            },
+            {
+                "type": AuditType.BOT_ACCESS.value,
+                "name": "Accès Crawlers Ads",
+                "description": (
+                    "Vérifie que Googlebot et Facebookbot peuvent accéder au site "
+                    "(robots.txt, WAF, Cloudflare, CAPTCHA)"
+                ),
+                "icon": "shield-check",
+                "available": True,  # Always available
                 "last_run": None,
                 "last_status": None,
                 "issues_count": 0,

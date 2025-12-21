@@ -101,6 +101,28 @@ export const AUDIT_STEPS: Record<string, { id: string; name: string; description
     { id: 'errors', name: 'Erreurs', description: 'Vérification des erreurs' },
     { id: 'sitemaps', name: 'Sitemaps', description: 'Statut des sitemaps' },
   ],
+  bot_access: [
+    {
+      id: 'robots_txt',
+      name: 'Robots.txt',
+      description: 'Vérification des règles pour crawlers Ads',
+    },
+    {
+      id: 'googlebot_access',
+      name: 'Accès Googlebot',
+      description: "Test d'accès avec User-Agent Googlebot",
+    },
+    {
+      id: 'facebookbot_access',
+      name: 'Accès Facebookbot',
+      description: "Test d'accès avec User-Agent Meta/Facebook",
+    },
+    {
+      id: 'protection_headers',
+      name: 'Protection Anti-Bot',
+      description: 'Détection de Cloudflare, WAF, etc.',
+    },
+  ],
 }
 
 export function createRunningResult(auditType: string, isAsync = true): AuditResult {
