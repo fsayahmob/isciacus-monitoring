@@ -3527,20 +3527,41 @@ class AuditOrchestrator:
             execution_mode=data.get("execution_mode", "sync"),
         )
 
-        for step_data in data.get("steps", []):
-            result.steps.append(
-                AuditStep(
-                    id=step_data.get("id", ""),
-                    name=step_data.get("name", ""),
-                    description=step_data.get("description", ""),
-                    status=AuditStepStatus(step_data.get("status", "pending")),
-                    started_at=step_data.get("started_at"),
-                    completed_at=step_data.get("completed_at"),
-                    duration_ms=step_data.get("duration_ms"),
-                    result=step_data.get("result"),
-                    error_message=step_data.get("error_message"),
+        # Handle both list format (standard audits) and dict format (customer_data, cart_recovery)
+        steps_data = data.get("steps", [])
+        if isinstance(steps_data, dict):
+            # Convert dict format {"step_name": {"status": "..."}} to list format
+            for step_id, step_info in steps_data.items():
+                if isinstance(step_info, dict):
+                    result.steps.append(
+                        AuditStep(
+                            id=step_id,
+                            name=step_id.replace("_", " ").title(),
+                            description=step_info.get("message", ""),
+                            status=AuditStepStatus(step_info.get("status", "pending")),
+                            started_at=step_info.get("started_at"),
+                            completed_at=step_info.get("completed_at"),
+                            duration_ms=step_info.get("duration_ms"),
+                            result=step_info.get("result"),
+                            error_message=step_info.get("message") if step_info.get("status") == "error" else None,
+                        )
+                    )
+        else:
+            # Standard list format
+            for step_data in steps_data:
+                result.steps.append(
+                    AuditStep(
+                        id=step_data.get("id", ""),
+                        name=step_data.get("name", ""),
+                        description=step_data.get("description", ""),
+                        status=AuditStepStatus(step_data.get("status", "pending")),
+                        started_at=step_data.get("started_at"),
+                        completed_at=step_data.get("completed_at"),
+                        duration_ms=step_data.get("duration_ms"),
+                        result=step_data.get("result"),
+                        error_message=step_data.get("error_message"),
+                    )
                 )
-            )
 
         for issue_data in data.get("issues", []):
             result.issues.append(
