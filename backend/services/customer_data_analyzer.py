@@ -22,9 +22,9 @@ class CustomerDataAnalyzer:
     def __init__(self) -> None:
         """Initialize with Shopify credentials from ConfigService."""
         config = ConfigService()
-        all_config = config.get_all_config()
-        self.shop_url = all_config.get("SHOPIFY_STORE_URL")
-        self.access_token = all_config.get("SHOPIFY_ACCESS_TOKEN")
+        shopify_config = config.get_shopify_config()
+        self.shop_url = shopify_config.get("store_url")
+        self.access_token = shopify_config.get("access_token")
 
     def is_configured(self) -> bool:
         """Check if Shopify credentials are configured."""
