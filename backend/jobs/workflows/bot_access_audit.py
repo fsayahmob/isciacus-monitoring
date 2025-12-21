@@ -69,6 +69,14 @@ STEPS = [
 ]
 
 
+def _get_protection_message(protections: list[dict[str, Any]]) -> str:
+    """Generate protection status message."""
+    count = sum(1 for p in protections if p.get("severity") == "high")
+    if count == 0:
+        return "✓ Aucune protection bloquante détectée"
+    return f"⚠ {count} protection(s) bloquante(s)"
+
+
 def _init_result(run_id: str) -> dict[str, Any]:
     """Initialize audit result structure."""
     now = datetime.now(tz=UTC).isoformat()
@@ -224,14 +232,14 @@ def _check_robots_txt(result: dict[str, Any]) -> dict[str, Any]:
             # Check for disallow rules that might block crawlers
             # Parse robots.txt
             current_agent = None
-            for line in content.split("\n"):
-                line = line.strip()
+            for raw_line in content.split("\n"):
+                line = raw_line.strip()
                 if line.startswith("user-agent:"):
                     current_agent = line.split(":", 1)[1].strip()
                 elif line.startswith("disallow:") and current_agent:
                     path = line.split(":", 1)[1].strip()
                     # Check if critical paths are blocked
-                    if path == "/" or path == "/*":
+                    if path in {"/", "/*"}:
                         if current_agent == "*" or "googlebot" in current_agent:
                             blocked_bots.append(
                                 f"Googlebot bloqué par Disallow: {path}"
@@ -630,11 +638,7 @@ def _check_protection_headers(result: dict[str, Any]) -> dict[str, Any]:
             "warnings": warnings,
             "count": len(protections_detected),
             "has_blocking_protection": has_high_severity,
-            "message": (
-                "✓ Aucune protection bloquante détectée"
-                if not has_high_severity
-                else f"⚠ {sum(1 for p in protections_detected if p['severity'] == 'high')} protection(s) bloquante(s)"
-            ),
+            "message": _get_protection_message(protections_detected),
         }
 
         status = "warning" if has_high_severity or warnings else "success"
@@ -748,10 +752,15 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
                 "Meta ne peut pas crawler votre site. Les Dynamic Product Ads "
                 "et le catalogue Meta ne fonctionneront pas correctement."
             ),
-            "action_available": True if is_fb_cloudflare_challenge else False,
+            "action_available": bool(is_fb_cloudflare_challenge),
             "action_status": "available" if is_fb_cloudflare_challenge else "not_available",
-            "action_label": "Tester avec Facebook Debugger" if is_fb_cloudflare_challenge else None,
-            "action_url": "https://developers.facebook.com/tools/debug/" if is_fb_cloudflare_challenge else None,
+            "action_label": (
+                "Tester avec Facebook Debugger" if is_fb_cloudflare_challenge else None
+            ),
+            "action_url": (
+                "https://developers.facebook.com/tools/debug/"
+                if is_fb_cloudflare_challenge else None
+            ),
         })
         recommendations.append(
             "Testez avec le Debugger de Partage Facebook pour confirmer"
@@ -766,8 +775,8 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
             p for p in protection.get("protections_detected", [])
             if p.get("severity") == "high"
         ]
-        for prot in high_protections:
-            issues.append({
+        issues.extend([
+            {
                 "id": f"blocking_protection_{prot['type'].lower().replace(' ', '_')}",
                 "audit_type": "bot_access",
                 "severity": "high",
@@ -775,7 +784,9 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
                 "description": prot.get("note", ""),
                 "action_available": False,
                 "action_status": "not_available",
-            })
+            }
+            for prot in high_protections
+        ])
         recommendations.append(
             "Configurez votre solution anti-bot pour autoriser les crawlers Ads"
         )
