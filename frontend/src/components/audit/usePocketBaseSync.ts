@@ -61,30 +61,40 @@ export function usePocketBaseSync(config: PocketBaseSyncConfig): void {
   }, [pbAuditRuns, pbConnected, runningAudits, setRunningAudits, setOptimisticResults, queryClient])
 
   // Detect running audits on initial load
-  const hasInitialized = React.useRef(false)
+  // Priority: PocketBase (realtime source of truth) > Backend session (fallback)
+  const hasInitializedFromPB = React.useRef(false)
+  const hasInitializedFromBackend = React.useRef(false)
+
   React.useEffect(() => {
-    if (hasInitialized.current) {
-      return
-    }
+    // If PocketBase is connected and has data, always use it (source of truth)
     if (pbConnected && pbAuditRuns.size > 0) {
-      hasInitialized.current = true
+      hasInitializedFromPB.current = true
       const running = new Map<string, RunningAuditInfo>()
       for (const [t, r] of pbAuditRuns) {
         if (r.status === 'running') {
           running.set(t, { startedAt: r.started_at })
         }
       }
-      if (running.size > 0) {
-        setRunningAudits(running)
-      }
+      // Always update from PocketBase, even if we previously initialized from backend
+      setRunningAudits(running)
       return
     }
-    if (session !== null) {
-      hasInitialized.current = true
-      const running = detectRunningAuditsFromSession(session)
-      if (running.size > 0) {
-        setRunningAudits(running)
+
+    // Fallback to backend session only if:
+    // 1. We haven't initialized from PocketBase yet
+    // 2. We haven't already fallen back to backend
+    // 3. PocketBase connection attempt has completed (connected but empty, or failed)
+    if (!hasInitializedFromPB.current && !hasInitializedFromBackend.current && session !== null) {
+      // Only use backend fallback if PocketBase is connected but has no data for this session
+      // This means the session exists in backend but not in PocketBase (legacy data)
+      if (pbConnected) {
+        hasInitializedFromBackend.current = true
+        const running = detectRunningAuditsFromSession(session)
+        if (running.size > 0) {
+          setRunningAudits(running)
+        }
       }
+      // If pbConnected is false, wait for PocketBase to connect first
     }
   }, [session, pbConnected, pbAuditRuns, setRunningAudits])
 }
