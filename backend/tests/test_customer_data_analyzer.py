@@ -17,7 +17,7 @@ def mock_config():
     """Mock ConfigService to return test credentials."""
     with patch("services.customer_data_analyzer.ConfigService") as mock_class:
         mock_instance = MagicMock()
-        mock_instance.get_shopify_config.return_value = {
+        mock_instance.get_shopify_values.return_value = {
             "store_url": "test-shop.myshopify.com",
             "access_token": "test-token",
         }
@@ -30,7 +30,7 @@ def mock_config_empty():
     """Mock ConfigService with no credentials."""
     with patch("services.customer_data_analyzer.ConfigService") as mock_class:
         mock_instance = MagicMock()
-        mock_instance.get_shopify_config.return_value = {}
+        mock_instance.get_shopify_values.return_value = {}
         mock_class.return_value = mock_instance
         yield mock_instance
 
@@ -45,8 +45,8 @@ def test_uses_config_service_not_os_environ(mock_config):
     """Test that analyzer reads credentials from ConfigService, not os.getenv."""
     analyzer = CustomerDataAnalyzer()
 
-    # Verify ConfigService.get_shopify_config was called
-    mock_config.get_shopify_config.assert_called_once()
+    # Verify ConfigService.get_shopify_values was called
+    mock_config.get_shopify_values.assert_called_once()
 
     # Verify credentials are set from ConfigService
     assert analyzer.shop_url == "test-shop.myshopify.com"
