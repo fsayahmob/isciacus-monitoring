@@ -16,8 +16,7 @@ import {
   resolveCurrentResult,
   type RunningAuditInfo,
 } from './auditSteps'
-
-const POLL_INTERVAL_MS = 1000
+import { getAuditPollInterval } from './auditPolling'
 
 interface UseAuditSessionReturn {
   session: AuditSession | null
@@ -160,10 +159,11 @@ export function useAuditSession(): UseAuditSessionReturn {
     queryKey: ['available-audits'],
     queryFn: fetchAvailableAudits,
   })
+
   const { data: sessionData } = useQuery({
     queryKey: ['audit-session'],
     queryFn: fetchLatestAuditSession,
-    refetchInterval: runningAudits.size > 0 ? POLL_INTERVAL_MS : false,
+    refetchInterval: (query) => getAuditPollInterval(runningAudits.size, query),
     refetchIntervalInBackground: true,
   })
 
