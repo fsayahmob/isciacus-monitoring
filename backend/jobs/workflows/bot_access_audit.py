@@ -24,15 +24,9 @@ from services.config_service import ConfigService
 
 # Bot User-Agents to test
 BOT_USER_AGENTS = {
-    "googlebot": (
-        "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-    ),
-    "googlebot_ads": (
-        "AdsBot-Google (+http://www.google.com/adsbot.html)"
-    ),
-    "facebookbot": (
-        "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
-    ),
+    "googlebot": ("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"),
+    "googlebot_ads": ("AdsBot-Google (+http://www.google.com/adsbot.html)"),
+    "facebookbot": ("facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"),
     "meta_crawler": (
         "meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)"
     ),
@@ -241,13 +235,9 @@ def _check_robots_txt(result: dict[str, Any]) -> dict[str, Any]:
                     # Check if critical paths are blocked
                     if path in {"/", "/*"}:
                         if current_agent == "*" or "googlebot" in current_agent:
-                            blocked_bots.append(
-                                f"Googlebot bloqué par Disallow: {path}"
-                            )
+                            blocked_bots.append(f"Googlebot bloqué par Disallow: {path}")
                         if current_agent == "*" or "facebook" in current_agent:
-                            blocked_bots.append(
-                                f"Facebookbot bloqué par Disallow: {path}"
-                            )
+                            blocked_bots.append(f"Facebookbot bloqué par Disallow: {path}")
 
             # Check for specific bot blocks
             if "googlebot" in content and "disallow: /" in content:
@@ -379,11 +369,13 @@ def _check_googlebot_access(result: dict[str, Any]) -> dict[str, Any]:
             tests.append(test_result)
 
         except requests.RequestException as e:
-            tests.append({
-                "path": path,
-                "error": str(e),
-                "accessible": False,
-            })
+            tests.append(
+                {
+                    "path": path,
+                    "error": str(e),
+                    "accessible": False,
+                }
+            )
             blocked = True
 
     # Also test AdsBot
@@ -394,11 +386,13 @@ def _check_googlebot_access(result: dict[str, Any]) -> dict[str, Any]:
             timeout=10,
         )
         adsbot_ok = response.status_code == 200
-        tests.append({
-            "path": "/ (AdsBot)",
-            "status_code": response.status_code,
-            "accessible": adsbot_ok,
-        })
+        tests.append(
+            {
+                "path": "/ (AdsBot)",
+                "status_code": response.status_code,
+                "accessible": adsbot_ok,
+            }
+        )
         if not adsbot_ok:
             blocked = True
     except requests.RequestException:
@@ -486,11 +480,13 @@ def _check_facebookbot_access(result: dict[str, Any]) -> dict[str, Any]:
             tests.append(test_result)
 
         except requests.RequestException as e:
-            tests.append({
-                "path": path,
-                "error": str(e),
-                "accessible": False,
-            })
+            tests.append(
+                {
+                    "path": path,
+                    "error": str(e),
+                    "accessible": False,
+                }
+            )
             blocked = True
 
     # Also test Meta crawler
@@ -501,11 +497,13 @@ def _check_facebookbot_access(result: dict[str, Any]) -> dict[str, Any]:
             timeout=10,
         )
         meta_ok = response.status_code == 200
-        tests.append({
-            "path": "/ (Meta Crawler)",
-            "status_code": response.status_code,
-            "accessible": meta_ok,
-        })
+        tests.append(
+            {
+                "path": "/ (Meta Crawler)",
+                "status_code": response.status_code,
+                "accessible": meta_ok,
+            }
+        )
         if not meta_ok:
             blocked = True
     except requests.RequestException:
@@ -571,28 +569,34 @@ def _check_protection_headers(result: dict[str, Any]) -> dict[str, Any]:
 
         # Check for Cloudflare
         if "cf-ray" in headers or "cf-cache-status" in headers:
-            protections_detected.append({
-                "type": "Cloudflare",
-                "severity": "info",
-                "note": "Cloudflare détecté - vérifiez que les bots Ads sont whitelistés",
-            })
+            protections_detected.append(
+                {
+                    "type": "Cloudflare",
+                    "severity": "info",
+                    "note": "Cloudflare détecté - vérifiez que les bots Ads sont whitelistés",
+                }
+            )
 
         # Check for other WAFs
         server = headers.get("server", "").lower()
         if "cloudflare" in server:
             pass  # Already detected above
         elif "sucuri" in server:
-            protections_detected.append({
-                "type": "Sucuri WAF",
-                "severity": "warning",
-                "note": "Sucuri peut bloquer les crawlers - whitelist recommandée",
-            })
+            protections_detected.append(
+                {
+                    "type": "Sucuri WAF",
+                    "severity": "warning",
+                    "note": "Sucuri peut bloquer les crawlers - whitelist recommandée",
+                }
+            )
         elif "akamai" in server:
-            protections_detected.append({
-                "type": "Akamai",
-                "severity": "info",
-                "note": "Akamai CDN détecté",
-            })
+            protections_detected.append(
+                {
+                    "type": "Akamai",
+                    "severity": "info",
+                    "note": "Akamai CDN détecté",
+                }
+            )
 
         # Check for bot detection headers
         if "x-robots-tag" in headers:
@@ -603,35 +607,41 @@ def _check_protection_headers(result: dict[str, Any]) -> dict[str, Any]:
         # Check response for JavaScript challenges
         content = response.text[:5000].lower()  # Only check first 5KB
         if "turnstile" in content or "cf-turnstile" in content:
-            protections_detected.append({
-                "type": "Cloudflare Turnstile",
-                "severity": "high",
-                "note": "Challenge CAPTCHA peut bloquer les crawlers Ads",
-            })
+            protections_detected.append(
+                {
+                    "type": "Cloudflare Turnstile",
+                    "severity": "high",
+                    "note": "Challenge CAPTCHA peut bloquer les crawlers Ads",
+                }
+            )
         if "hcaptcha" in content:
-            protections_detected.append({
-                "type": "hCaptcha",
-                "severity": "high",
-                "note": "hCaptcha bloque les crawlers - configuration requise",
-            })
+            protections_detected.append(
+                {
+                    "type": "hCaptcha",
+                    "severity": "high",
+                    "note": "hCaptcha bloque les crawlers - configuration requise",
+                }
+            )
         if "recaptcha" in content and "grecaptcha" in content:
-            protections_detected.append({
-                "type": "reCAPTCHA",
-                "severity": "medium",
-                "note": "reCAPTCHA détecté - peut affecter les crawlers",
-            })
+            protections_detected.append(
+                {
+                    "type": "reCAPTCHA",
+                    "severity": "medium",
+                    "note": "reCAPTCHA détecté - peut affecter les crawlers",
+                }
+            )
 
         # Check for Shopify's own bot protection
         if "__cf_bm" in response.cookies:
-            protections_detected.append({
-                "type": "Cloudflare Bot Management",
-                "severity": "info",
-                "note": "Cookie __cf_bm détecté (normal pour Shopify)",
-            })
+            protections_detected.append(
+                {
+                    "type": "Cloudflare Bot Management",
+                    "severity": "info",
+                    "note": "Cookie __cf_bm détecté (normal pour Shopify)",
+                }
+            )
 
-        has_high_severity = any(
-            p.get("severity") == "high" for p in protections_detected
-        )
+        has_high_severity = any(p.get("severity") == "high" for p in protections_detected)
 
         protection_data = {
             "protections_detected": protections_detected,
@@ -675,59 +685,56 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
     # Check robots.txt issues
     robots = result.get("robots_txt", {})
     if robots.get("blocked_bots"):
-        issues.append({
-            "id": "robots_blocking_bots",
-            "audit_type": "bot_access",
-            "severity": "high",
-            "title": "robots.txt bloque les crawlers Ads",
-            "description": (
-                "Votre robots.txt contient des règles qui bloquent Googlebot ou "
-                "Facebookbot. Cela empêche l'indexation de vos produits dans "
-                "Google Shopping et les Dynamic Ads Meta."
-            ),
-            "details": robots.get("blocked_bots", []),
-            "action_available": False,
-            "action_status": "not_available",
-        })
-        recommendations.append(
-            "Modifiez robots.txt pour autoriser Googlebot et Facebookbot"
+        issues.append(
+            {
+                "id": "robots_blocking_bots",
+                "audit_type": "bot_access",
+                "severity": "high",
+                "title": "robots.txt bloque les crawlers Ads",
+                "description": (
+                    "Votre robots.txt contient des règles qui bloquent Googlebot ou "
+                    "Facebookbot. Cela empêche l'indexation de vos produits dans "
+                    "Google Shopping et les Dynamic Ads Meta."
+                ),
+                "details": robots.get("blocked_bots", []),
+                "action_available": False,
+                "action_status": "not_available",
+            }
         )
+        recommendations.append("Modifiez robots.txt pour autoriser Googlebot et Facebookbot")
 
     # Check Googlebot access
     googlebot = result.get("googlebot_access", {})
     if not googlebot.get("all_accessible", True):
-        blocked_tests = [
-            t for t in googlebot.get("tests", []) if not t.get("accessible", True)
-        ]
+        blocked_tests = [t for t in googlebot.get("tests", []) if not t.get("accessible", True)]
         # Check if blocked by Cloudflare challenge
-        is_cloudflare_challenge = any(
-            "CAPTCHA" in t.get("blocked_by", "") for t in blocked_tests
+        is_cloudflare_challenge = any("CAPTCHA" in t.get("blocked_by", "") for t in blocked_tests)
+        issues.append(
+            {
+                "id": "googlebot_blocked",
+                "audit_type": "bot_access",
+                "severity": "medium" if is_cloudflare_challenge else "high",
+                "title": "Googlebot ne peut pas accéder au site",
+                "description": (
+                    "⚠️ Note: Ce test simule Googlebot depuis notre serveur. "
+                    "Cloudflare whitelist automatiquement les vraies IPs de Googlebot. "
+                    "Vérifiez avec Google Search Console > Paramètres > Exploration."
+                    if is_cloudflare_challenge
+                    else "Google ne peut pas crawler votre site. Vos produits ne seront pas "
+                    "indexés dans Google Shopping et les campagnes Performance Max "
+                    "seront impactées."
+                ),
+                "details": [
+                    f"{t['path']}: {t.get('blocked_by', 'Bloqué')}" for t in blocked_tests[:5]
+                ],
+                "action_available": False,
+                "action_status": "not_available",
+            }
         )
-        issues.append({
-            "id": "googlebot_blocked",
-            "audit_type": "bot_access",
-            "severity": "medium" if is_cloudflare_challenge else "high",
-            "title": "Googlebot ne peut pas accéder au site",
-            "description": (
-                "⚠️ Note: Ce test simule Googlebot depuis notre serveur. "
-                "Cloudflare whitelist automatiquement les vraies IPs de Googlebot. "
-                "Vérifiez avec Google Search Console > Paramètres > Exploration."
-                if is_cloudflare_challenge else
-                "Google ne peut pas crawler votre site. Vos produits ne seront pas "
-                "indexés dans Google Shopping et les campagnes Performance Max "
-                "seront impactées."
-            ),
-            "details": [
-                f"{t['path']}: {t.get('blocked_by', 'Bloqué')}"
-                for t in blocked_tests[:5]
-            ],
-            "action_available": False,
-            "action_status": "not_available",
-        })
         recommendations.append(
             "Vérifiez l'exploration dans Google Search Console > Paramètres"
-            if is_cloudflare_challenge else
-            "Whitelistez les IPs/User-Agents de Googlebot dans votre WAF"
+            if is_cloudflare_challenge
+            else "Whitelistez les IPs/User-Agents de Googlebot dans votre WAF"
         )
 
     # Check Facebookbot access
@@ -739,57 +746,59 @@ def _generate_recommendations(result: dict[str, Any]) -> None:
         is_fb_cloudflare_challenge = any(
             "CAPTCHA" in t.get("blocked_by", "") for t in blocked_fb_tests
         )
-        issues.append({
-            "id": "facebookbot_blocked",
-            "audit_type": "bot_access",
-            "severity": "medium" if is_fb_cloudflare_challenge else "high",
-            "title": "Facebookbot ne peut pas accéder au site",
-            "description": (
-                "⚠️ Note: Ce test simule Facebookbot depuis notre serveur. "
-                "Cloudflare whitelist automatiquement les vraies IPs de Meta. "
-                "Vérifiez avec le Debugger de Partage Facebook."
-                if is_fb_cloudflare_challenge else
-                "Meta ne peut pas crawler votre site. Les Dynamic Product Ads "
-                "et le catalogue Meta ne fonctionneront pas correctement."
-            ),
-            "action_available": bool(is_fb_cloudflare_challenge),
-            "action_status": "available" if is_fb_cloudflare_challenge else "not_available",
-            "action_label": (
-                "Tester avec Facebook Debugger" if is_fb_cloudflare_challenge else None
-            ),
-            "action_url": (
-                "https://developers.facebook.com/tools/debug/"
-                if is_fb_cloudflare_challenge else None
-            ),
-        })
+        issues.append(
+            {
+                "id": "facebookbot_blocked",
+                "audit_type": "bot_access",
+                "severity": "medium" if is_fb_cloudflare_challenge else "high",
+                "title": "Facebookbot ne peut pas accéder au site",
+                "description": (
+                    "⚠️ Note: Ce test simule Facebookbot depuis notre serveur. "
+                    "Cloudflare whitelist automatiquement les vraies IPs de Meta. "
+                    "Vérifiez avec le Debugger de Partage Facebook."
+                    if is_fb_cloudflare_challenge
+                    else "Meta ne peut pas crawler votre site. Les Dynamic Product Ads "
+                    "et le catalogue Meta ne fonctionneront pas correctement."
+                ),
+                "action_available": bool(is_fb_cloudflare_challenge),
+                "action_status": "available" if is_fb_cloudflare_challenge else "not_available",
+                "action_label": (
+                    "Tester avec Facebook Debugger" if is_fb_cloudflare_challenge else None
+                ),
+                "action_url": (
+                    "https://developers.facebook.com/tools/debug/"
+                    if is_fb_cloudflare_challenge
+                    else None
+                ),
+            }
+        )
         recommendations.append(
             "Testez avec le Debugger de Partage Facebook pour confirmer"
-            if is_fb_cloudflare_challenge else
-            "Whitelistez les User-Agents Meta/Facebook dans votre protection anti-bot"
+            if is_fb_cloudflare_challenge
+            else "Whitelistez les User-Agents Meta/Facebook dans votre protection anti-bot"
         )
 
     # Check protection headers
     protection = result.get("protection_headers", {})
     if protection.get("has_blocking_protection"):
         high_protections = [
-            p for p in protection.get("protections_detected", [])
-            if p.get("severity") == "high"
+            p for p in protection.get("protections_detected", []) if p.get("severity") == "high"
         ]
-        issues.extend([
-            {
-                "id": f"blocking_protection_{prot['type'].lower().replace(' ', '_')}",
-                "audit_type": "bot_access",
-                "severity": "high",
-                "title": f"{prot['type']} bloque les crawlers",
-                "description": prot.get("note", ""),
-                "action_available": False,
-                "action_status": "not_available",
-            }
-            for prot in high_protections
-        ])
-        recommendations.append(
-            "Configurez votre solution anti-bot pour autoriser les crawlers Ads"
+        issues.extend(
+            [
+                {
+                    "id": f"blocking_protection_{prot['type'].lower().replace(' ', '_')}",
+                    "audit_type": "bot_access",
+                    "severity": "high",
+                    "title": f"{prot['type']} bloque les crawlers",
+                    "description": prot.get("note", ""),
+                    "action_available": False,
+                    "action_status": "not_available",
+                }
+                for prot in high_protections
+            ]
         )
+        recommendations.append("Configurez votre solution anti-bot pour autoriser les crawlers Ads")
 
     # Determine overall status
     googlebot_ok = googlebot.get("all_accessible", True)

@@ -149,51 +149,57 @@ def _step_basic_robots_txt(site_url: str) -> dict[str, Any]:
 
             if blocks_all:
                 step["status"] = "error"
-                issues.append({
-                    "id": "robots_blocks_all",
-                    "audit_type": "search_console",
-                    "severity": "critical",
-                    "title": "⛔ Site bloqué par robots.txt",
-                    "description": (
-                        "Votre robots.txt bloque l'accès à tout le site. "
-                        "Les moteurs de recherche ne peuvent pas indexer vos pages."
-                    ),
-                    "action_available": True,
-                    "action_label": "Modifier robots.txt",
-                    "action_url": f"{site_url}/admin/settings/files",
-                    "recommendation": "Retirez la règle 'Disallow: /' pour permettre l'indexation.",
-                })
+                issues.append(
+                    {
+                        "id": "robots_blocks_all",
+                        "audit_type": "search_console",
+                        "severity": "critical",
+                        "title": "⛔ Site bloqué par robots.txt",
+                        "description": (
+                            "Votre robots.txt bloque l'accès à tout le site. "
+                            "Les moteurs de recherche ne peuvent pas indexer vos pages."
+                        ),
+                        "action_available": True,
+                        "action_label": "Modifier robots.txt",
+                        "action_url": f"{site_url}/admin/settings/files",
+                        "recommendation": "Retirez la règle 'Disallow: /' pour permettre l'indexation.",
+                    }
+                )
             elif not has_sitemap:
                 step["status"] = "warning"
-                issues.append({
-                    "id": "robots_no_sitemap",
-                    "audit_type": "search_console",
-                    "severity": "medium",
-                    "title": "⚠️ Sitemap non déclaré dans robots.txt",
-                    "description": (
-                        "Votre robots.txt ne contient pas de directive Sitemap. "
-                        "Ajoutez cette directive pour aider les moteurs de recherche."
-                    ),
-                    "action_available": False,
-                    "recommendation": f"Ajoutez: Sitemap: {urljoin(site_url, '/sitemap.xml')}",
-                })
+                issues.append(
+                    {
+                        "id": "robots_no_sitemap",
+                        "audit_type": "search_console",
+                        "severity": "medium",
+                        "title": "⚠️ Sitemap non déclaré dans robots.txt",
+                        "description": (
+                            "Votre robots.txt ne contient pas de directive Sitemap. "
+                            "Ajoutez cette directive pour aider les moteurs de recherche."
+                        ),
+                        "action_available": False,
+                        "recommendation": f"Ajoutez: Sitemap: {urljoin(site_url, '/sitemap.xml')}",
+                    }
+                )
             else:
                 step["status"] = "success"
         elif resp.status_code == 404:
             step["status"] = "warning"
             step["result"] = {"exists": False}
-            issues.append({
-                "id": "robots_not_found",
-                "audit_type": "search_console",
-                "severity": "medium",
-                "title": "⚠️ Fichier robots.txt absent",
-                "description": (
-                    "Aucun fichier robots.txt n'a été trouvé. "
-                    "Ce fichier aide les moteurs de recherche à explorer votre site efficacement."
-                ),
-                "action_available": False,
-                "recommendation": "Shopify génère un robots.txt automatiquement.",
-            })
+            issues.append(
+                {
+                    "id": "robots_not_found",
+                    "audit_type": "search_console",
+                    "severity": "medium",
+                    "title": "⚠️ Fichier robots.txt absent",
+                    "description": (
+                        "Aucun fichier robots.txt n'a été trouvé. "
+                        "Ce fichier aide les moteurs de recherche à explorer votre site efficacement."
+                    ),
+                    "action_available": False,
+                    "recommendation": "Shopify génère un robots.txt automatiquement.",
+                }
+            )
         else:
             step["status"] = "error"
             step["error_message"] = f"Erreur HTTP {resp.status_code}"
@@ -249,58 +255,66 @@ def _step_basic_sitemap(site_url: str) -> dict[str, Any]:
 
                 if url_count == 0 and sitemap_count == 0:
                     step["status"] = "warning"
-                    issues.append({
-                        "id": "sitemap_empty",
-                        "audit_type": "search_console",
-                        "severity": "medium",
-                        "title": "⚠️ Sitemap vide",
-                        "description": "Le sitemap existe mais ne contient aucune URL.",
-                        "action_available": False,
-                        "recommendation": "Vérifiez que vos produits/pages sont publiés.",
-                    })
+                    issues.append(
+                        {
+                            "id": "sitemap_empty",
+                            "audit_type": "search_console",
+                            "severity": "medium",
+                            "title": "⚠️ Sitemap vide",
+                            "description": "Le sitemap existe mais ne contient aucune URL.",
+                            "action_available": False,
+                            "recommendation": "Vérifiez que vos produits/pages sont publiés.",
+                        }
+                    )
                 elif url_count < 10 and not is_index:
                     step["status"] = "warning"
-                    issues.append({
-                        "id": "sitemap_few_urls",
-                        "audit_type": "search_console",
-                        "severity": "low",
-                        "title": f"📊 Sitemap contient seulement {url_count} URLs",
-                        "description": "Peu d'URLs dans votre sitemap, normal pour un petit site.",
-                        "action_available": False,
-                    })
+                    issues.append(
+                        {
+                            "id": "sitemap_few_urls",
+                            "audit_type": "search_console",
+                            "severity": "low",
+                            "title": f"📊 Sitemap contient seulement {url_count} URLs",
+                            "description": "Peu d'URLs dans votre sitemap, normal pour un petit site.",
+                            "action_available": False,
+                        }
+                    )
                 else:
                     step["status"] = "success"
 
             except ET.ParseError:
                 step["status"] = "error"
                 step["error_message"] = "Sitemap XML invalide"
-                issues.append({
-                    "id": "sitemap_invalid",
-                    "audit_type": "search_console",
-                    "severity": "critical",
-                    "title": "⛔ Sitemap XML invalide",
-                    "description": "Le fichier sitemap.xml contient des erreurs de syntaxe.",
-                    "action_available": False,
-                    "recommendation": "Contactez le support Shopify si le problème persiste.",
-                })
+                issues.append(
+                    {
+                        "id": "sitemap_invalid",
+                        "audit_type": "search_console",
+                        "severity": "critical",
+                        "title": "⛔ Sitemap XML invalide",
+                        "description": "Le fichier sitemap.xml contient des erreurs de syntaxe.",
+                        "action_available": False,
+                        "recommendation": "Contactez le support Shopify si le problème persiste.",
+                    }
+                )
 
         elif resp.status_code == 404:
             step["status"] = "error"
             step["result"] = {"exists": False}
-            issues.append({
-                "id": "sitemap_not_found",
-                "audit_type": "search_console",
-                "severity": "critical",
-                "title": "⛔ Sitemap introuvable",
-                "description": (
-                    "Aucun sitemap.xml trouvé à l'URL standard. "
-                    "Les moteurs de recherche ont besoin d'un sitemap pour découvrir vos pages."
-                ),
-                "action_available": True,
-                "action_label": "Vérifier dans Search Console",
-                "action_url": "https://search.google.com/search-console",
-                "recommendation": "Shopify génère automatiquement un sitemap.",
-            })
+            issues.append(
+                {
+                    "id": "sitemap_not_found",
+                    "audit_type": "search_console",
+                    "severity": "critical",
+                    "title": "⛔ Sitemap introuvable",
+                    "description": (
+                        "Aucun sitemap.xml trouvé à l'URL standard. "
+                        "Les moteurs de recherche ont besoin d'un sitemap pour découvrir vos pages."
+                    ),
+                    "action_available": True,
+                    "action_label": "Vérifier dans Search Console",
+                    "action_url": "https://search.google.com/search-console",
+                    "recommendation": "Shopify génère automatiquement un sitemap.",
+                }
+            )
         else:
             step["status"] = "error"
             step["error_message"] = f"Erreur HTTP {resp.status_code}"
@@ -369,80 +383,94 @@ def _step_basic_meta_tags(site_url: str) -> dict[str, Any]:
             # Analyze issues
             if not title:
                 step["status"] = "error"
-                issues.append({
-                    "id": "meta_no_title",
-                    "audit_type": "search_console",
-                    "severity": "critical",
-                    "title": "⛔ Balise title manquante",
-                    "description": "Balise title manquante sur la page d'accueil.",
-                    "action_available": True,
-                    "action_label": "Modifier dans Shopify",
-                    "action_url": f"{site_url}/admin/online_store/preferences",
-                    "recommendation": "Ajoutez un titre unique et descriptif (50-60 caractères).",
-                })
+                issues.append(
+                    {
+                        "id": "meta_no_title",
+                        "audit_type": "search_console",
+                        "severity": "critical",
+                        "title": "⛔ Balise title manquante",
+                        "description": "Balise title manquante sur la page d'accueil.",
+                        "action_available": True,
+                        "action_label": "Modifier dans Shopify",
+                        "action_url": f"{site_url}/admin/online_store/preferences",
+                        "recommendation": "Ajoutez un titre unique et descriptif (50-60 caractères).",
+                    }
+                )
             elif len(title) < 30:
-                issues.append({
-                    "id": "meta_title_short",
-                    "audit_type": "search_console",
-                    "severity": "medium",
-                    "title": f"⚠️ Title trop court ({len(title)} car.)",
-                    "description": f'Votre title "{title}" est trop court.',
-                    "action_available": False,
-                    "recommendation": "Visez 50-60 caractères pour un titre optimal.",
-                })
+                issues.append(
+                    {
+                        "id": "meta_title_short",
+                        "audit_type": "search_console",
+                        "severity": "medium",
+                        "title": f"⚠️ Title trop court ({len(title)} car.)",
+                        "description": f'Votre title "{title}" est trop court.',
+                        "action_available": False,
+                        "recommendation": "Visez 50-60 caractères pour un titre optimal.",
+                    }
+                )
             elif len(title) > 70:
-                issues.append({
-                    "id": "meta_title_long",
-                    "audit_type": "search_console",
-                    "severity": "low",
-                    "title": f"📊 Title long ({len(title)} car.)",
-                    "description": "Votre title sera tronqué dans les résultats Google.",
-                    "action_available": False,
-                    "recommendation": "Gardez l'essentiel dans les 60 premiers caractères.",
-                })
+                issues.append(
+                    {
+                        "id": "meta_title_long",
+                        "audit_type": "search_console",
+                        "severity": "low",
+                        "title": f"📊 Title long ({len(title)} car.)",
+                        "description": "Votre title sera tronqué dans les résultats Google.",
+                        "action_available": False,
+                        "recommendation": "Gardez l'essentiel dans les 60 premiers caractères.",
+                    }
+                )
 
             if not description:
-                issues.append({
-                    "id": "meta_no_description",
-                    "audit_type": "search_console",
-                    "severity": "medium",
-                    "title": "⚠️ Meta description manquante",
-                    "description": "Ajoutez une description pour améliorer votre taux de clic.",
-                    "action_available": True,
-                    "action_label": "Modifier dans Shopify",
-                    "action_url": f"{site_url}/admin/online_store/preferences",
-                    "recommendation": "Rédigez une description attrayante de 150-160 caractères.",
-                })
+                issues.append(
+                    {
+                        "id": "meta_no_description",
+                        "audit_type": "search_console",
+                        "severity": "medium",
+                        "title": "⚠️ Meta description manquante",
+                        "description": "Ajoutez une description pour améliorer votre taux de clic.",
+                        "action_available": True,
+                        "action_label": "Modifier dans Shopify",
+                        "action_url": f"{site_url}/admin/online_store/preferences",
+                        "recommendation": "Rédigez une description attrayante de 150-160 caractères.",
+                    }
+                )
             elif len(description) < 100:
-                issues.append({
-                    "id": "meta_desc_short",
-                    "audit_type": "search_console",
-                    "severity": "low",
-                    "title": f"📊 Meta description courte ({len(description)} car.)",
-                    "description": "Une description plus longue peut améliorer votre CTR.",
-                    "action_available": False,
-                    "recommendation": "Visez 150-160 caractères.",
-                })
+                issues.append(
+                    {
+                        "id": "meta_desc_short",
+                        "audit_type": "search_console",
+                        "severity": "low",
+                        "title": f"📊 Meta description courte ({len(description)} car.)",
+                        "description": "Une description plus longue peut améliorer votre CTR.",
+                        "action_available": False,
+                        "recommendation": "Visez 150-160 caractères.",
+                    }
+                )
 
             if h1_count == 0:
-                issues.append({
-                    "id": "meta_no_h1",
-                    "audit_type": "search_console",
-                    "severity": "medium",
-                    "title": "⚠️ Aucune balise H1",
-                    "description": "La page d'accueil n'a pas de titre principal (H1).",
-                    "action_available": False,
-                    "recommendation": "Ajoutez un H1 unique décrivant votre activité.",
-                })
+                issues.append(
+                    {
+                        "id": "meta_no_h1",
+                        "audit_type": "search_console",
+                        "severity": "medium",
+                        "title": "⚠️ Aucune balise H1",
+                        "description": "La page d'accueil n'a pas de titre principal (H1).",
+                        "action_available": False,
+                        "recommendation": "Ajoutez un H1 unique décrivant votre activité.",
+                    }
+                )
             elif h1_count > 1:
-                issues.append({
-                    "id": "meta_multiple_h1",
-                    "audit_type": "search_console",
-                    "severity": "low",
-                    "title": f"📊 {h1_count} balises H1 détectées",
-                    "description": "Idéalement, une seule H1 par page.",
-                    "action_available": False,
-                })
+                issues.append(
+                    {
+                        "id": "meta_multiple_h1",
+                        "audit_type": "search_console",
+                        "severity": "low",
+                        "title": f"📊 {h1_count} balises H1 détectées",
+                        "description": "Idéalement, une seule H1 par page.",
+                        "action_available": False,
+                    }
+                )
 
             if step["status"] != "error":
                 step["status"] = "warning" if issues else "success"
@@ -487,15 +515,17 @@ def _step_basic_seo_checks(site_url: str) -> dict[str, Any]:
         checks["https"] = site_url.startswith("https://")
 
         if not checks["https"]:
-            issues.append({
-                "id": "seo_no_https",
-                "audit_type": "search_console",
-                "severity": "critical",
-                "title": "⛔ Site non sécurisé (HTTP)",
-                "description": "Votre site n'utilise pas HTTPS, pénalisé par Google.",
-                "action_available": False,
-                "recommendation": "Activez SSL dans Shopify > Paramètres > Domaines.",
-            })
+            issues.append(
+                {
+                    "id": "seo_no_https",
+                    "audit_type": "search_console",
+                    "severity": "critical",
+                    "title": "⛔ Site non sécurisé (HTTP)",
+                    "description": "Votre site n'utilise pas HTTPS, pénalisé par Google.",
+                    "action_available": False,
+                    "recommendation": "Activez SSL dans Shopify > Paramètres > Domaines.",
+                }
+            )
 
         # Check response time and page size
         start_request = datetime.now(tz=UTC)
@@ -507,26 +537,30 @@ def _step_basic_seo_checks(site_url: str) -> dict[str, Any]:
         checks["page_size_kb"] = len(resp.content) / 1024
 
         if checks["response_time_ms"] > 3000:
-            issues.append({
-                "id": "seo_slow_response",
-                "audit_type": "search_console",
-                "severity": "medium",
-                "title": f"⚠️ Site lent ({checks['response_time_ms']}ms)",
-                "description": "Le temps de réponse est supérieur à 3 secondes.",
-                "action_available": False,
-                "recommendation": "Optimisez vos images, réduisez les apps, utilisez un CDN.",
-            })
+            issues.append(
+                {
+                    "id": "seo_slow_response",
+                    "audit_type": "search_console",
+                    "severity": "medium",
+                    "title": f"⚠️ Site lent ({checks['response_time_ms']}ms)",
+                    "description": "Le temps de réponse est supérieur à 3 secondes.",
+                    "action_available": False,
+                    "recommendation": "Optimisez vos images, réduisez les apps, utilisez un CDN.",
+                }
+            )
 
         if checks["page_size_kb"] > 3000:
-            issues.append({
-                "id": "seo_large_page",
-                "audit_type": "search_console",
-                "severity": "medium",
-                "title": f"⚠️ Page lourde ({checks['page_size_kb']:.0f} KB)",
-                "description": "La page d'accueil dépasse 3 MB.",
-                "action_available": False,
-                "recommendation": "Compressez vos images et limitez les scripts externes.",
-            })
+            issues.append(
+                {
+                    "id": "seo_large_page",
+                    "audit_type": "search_console",
+                    "severity": "medium",
+                    "title": f"⚠️ Page lourde ({checks['page_size_kb']:.0f} KB)",
+                    "description": "La page d'accueil dépasse 3 MB.",
+                    "action_available": False,
+                    "recommendation": "Compressez vos images et limitez les scripts externes.",
+                }
+            )
 
         # Check WWW redirect
         if "www" in site_url:
@@ -845,62 +879,58 @@ async def _run_basic_seo_audit(ctx: inngest.Context, result: dict[str, Any]) -> 
 
     if not site_url:
         # No site URL configured - cannot run audit
-        result["steps"].append({
-            "id": "robots_txt",
-            "name": "Robots.txt",
-            "description": "Analyse du fichier robots.txt",
-            "status": "error",
-            "error_message": "URL du site non configurée. Configurez Shopify dans Settings.",
-            "started_at": datetime.now(tz=UTC).isoformat(),
-            "completed_at": datetime.now(tz=UTC).isoformat(),
-            "duration_ms": 0,
-            "result": None,
-        })
-        for step_def in STEPS_BASIC_SEO[1:]:
-            result["steps"].append({
-                "id": step_def["id"],
-                "name": step_def["name"],
-                "description": step_def["description"],
-                "status": "skipped",
-                "started_at": None,
-                "completed_at": None,
-                "duration_ms": None,
+        result["steps"].append(
+            {
+                "id": "robots_txt",
+                "name": "Robots.txt",
+                "description": "Analyse du fichier robots.txt",
+                "status": "error",
+                "error_message": "URL du site non configurée. Configurez Shopify dans Settings.",
+                "started_at": datetime.now(tz=UTC).isoformat(),
+                "completed_at": datetime.now(tz=UTC).isoformat(),
+                "duration_ms": 0,
                 "result": None,
-                "error_message": None,
-            })
+            }
+        )
+        for step_def in STEPS_BASIC_SEO[1:]:
+            result["steps"].append(
+                {
+                    "id": step_def["id"],
+                    "name": step_def["name"],
+                    "description": step_def["description"],
+                    "status": "skipped",
+                    "started_at": None,
+                    "completed_at": None,
+                    "duration_ms": None,
+                    "result": None,
+                    "error_message": None,
+                }
+            )
         result["status"] = "error"
         result["completed_at"] = datetime.now(tz=UTC).isoformat()
         result["summary"] = {"mode": "basic_seo", "site_url": "", "issues_count": 0}
         return result
 
     # Step 1: Robots.txt
-    step1_result = await ctx.step.run(
-        "check-robots-txt", lambda: _step_basic_robots_txt(site_url)
-    )
+    step1_result = await ctx.step.run("check-robots-txt", lambda: _step_basic_robots_txt(site_url))
     result["steps"].append(step1_result["step"])
     result["issues"].extend(step1_result["issues"])
     _save_progress(result)
 
     # Step 2: Sitemap
-    step2_result = await ctx.step.run(
-        "check-sitemap", lambda: _step_basic_sitemap(site_url)
-    )
+    step2_result = await ctx.step.run("check-sitemap", lambda: _step_basic_sitemap(site_url))
     result["steps"].append(step2_result["step"])
     result["issues"].extend(step2_result["issues"])
     _save_progress(result)
 
     # Step 3: Meta Tags
-    step3_result = await ctx.step.run(
-        "check-meta-tags", lambda: _step_basic_meta_tags(site_url)
-    )
+    step3_result = await ctx.step.run("check-meta-tags", lambda: _step_basic_meta_tags(site_url))
     result["steps"].append(step3_result["step"])
     result["issues"].extend(step3_result["issues"])
     _save_progress(result)
 
     # Step 4: SEO Basics
-    step4_result = await ctx.step.run(
-        "check-seo-basics", lambda: _step_basic_seo_checks(site_url)
-    )
+    step4_result = await ctx.step.run("check-seo-basics", lambda: _step_basic_seo_checks(site_url))
     result["steps"].append(step4_result["step"])
     result["issues"].extend(step4_result["issues"])
     _save_progress(result)
@@ -934,17 +964,19 @@ async def _run_gsc_audit(
 
     if not step1_result["success"]:
         for step_def in STEPS_WITH_GSC[1:]:
-            result["steps"].append({
-                "id": step_def["id"],
-                "name": step_def["name"],
-                "description": step_def["description"],
-                "status": "skipped",
-                "started_at": None,
-                "completed_at": None,
-                "duration_ms": None,
-                "result": None,
-                "error_message": None,
-            })
+            result["steps"].append(
+                {
+                    "id": step_def["id"],
+                    "name": step_def["name"],
+                    "description": step_def["description"],
+                    "status": "skipped",
+                    "started_at": None,
+                    "completed_at": None,
+                    "duration_ms": None,
+                    "result": None,
+                    "error_message": None,
+                }
+            )
         result["status"] = "error"
         result["completed_at"] = datetime.now(tz=UTC).isoformat()
         result["summary"] = {"mode": "gsc", "site_url": site_url, "issues_count": 0}
@@ -961,9 +993,7 @@ async def _run_gsc_audit(
     _save_progress(result)
 
     # Step 3: Check errors
-    step3_result = await ctx.step.run(
-        "check-errors", lambda: _step_3_check_errors(site_url, token)
-    )
+    step3_result = await ctx.step.run("check-errors", lambda: _step_3_check_errors(site_url, token))
     result["steps"].append(step3_result["step"])
     result["issues"].extend(step3_result["issues"])
     _save_progress(result)
