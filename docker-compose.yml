@@ -10,9 +10,10 @@
 #   docker-compose logs -f         # View logs
 #
 # Services:
-#   - frontend:  React app (localhost:5173)
-#   - backend:   FastAPI (localhost:8080)
-#   - inngest:   Job queue dashboard (localhost:8288)
+#   - frontend:   React app (localhost:5173)
+#   - backend:    FastAPI (localhost:8080)
+#   - inngest:    Job queue dashboard (localhost:8288)
+#   - pocketbase: Realtime DB (localhost:8090, admin: localhost:8090/_/)
 # =====================================================
 
 services:
@@ -32,6 +33,7 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
+      - VITE_POCKETBASE_URL=http://localhost:8090
     depends_on:
       - backend
     networks:
@@ -55,8 +57,10 @@ services:
       - PYTHONUNBUFFERED=1
       - INNGEST_DEV=1
       - INNGEST_API_BASE_URL=http://inngest:8288
+      - POCKETBASE_URL=http://pocketbase:8090
     depends_on:
       - inngest
+      - pocketbase
     networks:
       - isciacus-network
 
@@ -71,6 +75,54 @@ services:
     command: ["inngest", "dev", "-u", "http://backend:8080/api/inngest"]
     networks:
       - isciacus-network
+
+  # =====================================================
+  # PocketBase - Realtime Database
+  # =====================================================
+  # Admin UI: http://localhost:8090/_/
+  # API: http://localhost:8090/api/
+  # WebSocket subscriptions for realtime audit state
+  # =====================================================
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: isciacus-pocketbase
+    ports:
+      - "8090:8090"
+    volumes:
+      - pocketbase_data:/pb_data
+      - ./docker/pocketbase/entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      - PB_ADMIN_EMAIL=admin@local.dev
+      - PB_ADMIN_PASSWORD=localdevpass123
+    entrypoint: ["/entrypoint.sh"]
+    networks:
+      - isciacus-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8090/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PocketBase initialization - creates collections on first run
+  pocketbase-init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: isciacus-pocketbase-init
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    environment:
+      - POCKETBASE_URL=http://pocketbase:8090
+      - PB_ADMIN_EMAIL=admin@local.dev
+      - PB_ADMIN_PASSWORD=localdevpass123
+    command: ["python", "scripts/init_pocketbase.py"]
+    networks:
+      - isciacus-network
+    restart: "no"
+
+volumes:
+  pocketbase_data:
 
 networks:
   isciacus-network:

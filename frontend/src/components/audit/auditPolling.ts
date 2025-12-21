@@ -2,26 +2,37 @@
  * Polling helpers for audit session queries
  */
 
+import type { Query } from '@tanstack/react-query'
 import { type AuditSession } from '../../services/api'
 
 const POLL_INTERVAL_MS = 1000
 
-interface QueryState {
-  state: {
-    data?: { session: AuditSession | null }
-  }
+interface SessionData {
+  session: AuditSession | null
 }
 
 /**
  * Determines if polling should be active based on running audits.
  * Used as refetchInterval function for React Query.
+ *
+ * Key insight: On page refresh, runningAudits is empty but backend may have
+ * running audits. We poll until we know for sure there are no running audits.
  */
-export function getAuditPollInterval(runningAuditsSize: number, query: QueryState): number | false {
+export function getAuditPollInterval(
+  runningAuditsSize: number,
+  query: Query<SessionData>
+): number | false {
   // Poll if we have locally tracked running audits
   if (runningAuditsSize > 0) {
     return POLL_INTERVAL_MS
   }
-  // Also poll if backend reports running audits (for page refresh recovery)
+
+  // If query hasn't loaded yet, poll to get initial data
+  if (query.state.status === 'pending') {
+    return POLL_INTERVAL_MS
+  }
+
+  // Once loaded, check if backend reports running audits (page refresh recovery)
   const session = query.state.data?.session
   if (session !== undefined && session !== null) {
     const hasRunning = Object.values(session.audits).some((r) => r.status === 'running')
@@ -29,6 +40,7 @@ export function getAuditPollInterval(runningAuditsSize: number, query: QueryStat
       return POLL_INTERVAL_MS
     }
   }
+
   return false
 }
 

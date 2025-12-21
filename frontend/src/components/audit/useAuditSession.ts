@@ -1,7 +1,8 @@
-/** useAuditSession - React Query based polling for audit results */
+/** useAuditSession - React Query + PocketBase realtime for audit results */
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import React from 'react'
 
+import { usePocketBaseAudit } from '../../hooks/usePocketBaseAudit'
 import {
   fetchLatestAuditSession,
   fetchAvailableAudits,
@@ -9,14 +10,15 @@ import {
   type AuditResult,
   type AuditSession,
 } from '../../services/api'
+import { type AuditRun } from '../../services/pocketbase'
 import {
   createRunningResult,
-  detectRunningAuditsFromSession,
   findCompletedAudits,
   resolveCurrentResult,
   type RunningAuditInfo,
 } from './auditSteps'
 import { getAuditPollInterval } from './auditPolling'
+import { usePocketBaseSync } from './usePocketBaseSync'
 
 interface UseAuditSessionReturn {
   session: AuditSession | null
@@ -29,6 +31,10 @@ interface UseAuditSessionReturn {
   runAudit: (auditType: string) => void
   isAuditRunning: (auditType: string) => boolean
   markAllAuditsAsRunning: (auditTypes: string[]) => void
+  /** PocketBase audit runs for realtime sync */
+  pbAuditRuns: Map<string, AuditRun>
+  /** Whether PocketBase is connected */
+  pbConnected: boolean
 }
 
 function useCompletionEffect(
@@ -96,18 +102,31 @@ type MutationType = ReturnType<
   typeof useMutation<Awaited<ReturnType<typeof runAudit>>, Error, string>
 >
 
-function useAuditControls(
-  setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>,
-  runAuditMutation: MutationType,
-  runningAudits: Map<string, RunningAuditInfo>,
-  setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>,
+interface AuditControlsConfig {
+  setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>
+  runAuditMutation: MutationType
+  runningAudits: Map<string, RunningAuditInfo>
+  session: { audits: Record<string, { status: string }> } | null
+  setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>
   setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>
-): {
+  pbAuditRuns: Map<string, { status: string }>
+}
+
+function useAuditControls(config: AuditControlsConfig): {
   selectAudit: (t: string) => void
   handleRunAudit: (t: string) => void
   isAuditRunning: (t: string) => boolean
   markAllAuditsAsRunning: (types: string[]) => void
 } {
+  const {
+    setSelectedAudit,
+    runAuditMutation,
+    runningAudits,
+    session,
+    setRunningAudits,
+    setOptimisticResults,
+    pbAuditRuns,
+  } = config
   const selectAudit = React.useCallback(
     (t: string): void => {
       setSelectedAudit((p) => (p === t ? null : t))
@@ -120,9 +139,24 @@ function useAuditControls(
     },
     [runAuditMutation]
   )
+  // Check local state, PocketBase realtime, AND backend session for running status
   const isAuditRunning = React.useCallback(
-    (t: string): boolean => runningAudits.has(t),
-    [runningAudits]
+    (t: string): boolean => {
+      // First check local tracking (for audits we just started)
+      if (runningAudits.has(t)) {
+        return true
+      }
+      // Check PocketBase realtime data (most accurate after page refresh)
+      if (pbAuditRuns.get(t)?.status === 'running') {
+        return true
+      }
+      // Fallback to backend session
+      if (session !== null && t in session.audits) {
+        return session.audits[t].status === 'running'
+      }
+      return false
+    },
+    [runningAudits, pbAuditRuns, session]
   )
   const markAllAuditsAsRunning = React.useCallback(
     (types: string[]): void => {
@@ -169,18 +203,20 @@ export function useAuditSession(): UseAuditSessionReturn {
 
   const session = sessionData?.session ?? null
 
-  // Detect running audits from backend on initial load (survives page refresh)
-  const hasInitializedFromBackend = React.useRef(false)
-  React.useEffect(() => {
-    if (hasInitializedFromBackend.current || session === null) {
-      return
-    }
-    hasInitializedFromBackend.current = true
-    const running = detectRunningAuditsFromSession(session)
-    if (running.size > 0) {
-      setRunningAudits(running)
-    }
-  }, [session])
+  // PocketBase realtime subscription for audit updates
+  const sessionId = session?.id ?? null
+  const { auditRuns: pbAuditRuns, isConnected: pbConnected } = usePocketBaseAudit(sessionId)
+
+  // Sync PocketBase realtime updates with local state
+  usePocketBaseSync({
+    pbAuditRuns,
+    pbConnected,
+    runningAudits,
+    setRunningAudits,
+    setOptimisticResults,
+    session,
+    queryClient,
+  })
 
   const removeAuditFromRunning = React.useCallback((t: string): void => {
     setRunningAudits((prev) => {
@@ -210,13 +246,15 @@ export function useAuditSession(): UseAuditSessionReturn {
     [selectedAudit, session, optimisticResults, runningAudits]
   )
 
-  const controls = useAuditControls(
+  const controls = useAuditControls({
     setSelectedAudit,
     runAuditMutation,
     runningAudits,
+    session,
     setRunningAudits,
-    setOptimisticResults
-  )
+    setOptimisticResults,
+    pbAuditRuns,
+  })
 
   return {
     session,
@@ -224,10 +262,12 @@ export function useAuditSession(): UseAuditSessionReturn {
     currentResult,
     selectedAudit,
     runningAudits,
-    isSelectedAuditRunning: selectedAudit !== null && runningAudits.has(selectedAudit),
+    isSelectedAuditRunning: selectedAudit !== null && controls.isAuditRunning(selectedAudit),
     selectAudit: controls.selectAudit,
     runAudit: controls.handleRunAudit,
     isAuditRunning: controls.isAuditRunning,
     markAllAuditsAsRunning: controls.markAllAuditsAsRunning,
+    pbAuditRuns,
+    pbConnected,
   }
 }

@@ -1,0 +1,24 @@
+{
+  "name": "audit_runs",
+  "type": "base",
+  "fields": [
+    {"name": "session_id", "type": "text", "required": true},
+    {"name": "audit_type", "type": "text", "required": true},
+    {"name": "status", "type": "select", "required": true, "values": ["pending", "running", "completed", "failed"]},
+    {"name": "started_at", "type": "date", "required": true},
+    {"name": "completed_at", "type": "date", "required": false},
+    {"name": "result", "type": "json", "required": false},
+    {"name": "error", "type": "text", "required": false},
+    {"name": "run_id", "type": "text", "required": false}
+  ],
+  "indexes": [
+    "CREATE INDEX idx_session_id ON audit_runs (session_id)",
+    "CREATE INDEX idx_status ON audit_runs (status)",
+    "CREATE INDEX idx_audit_type ON audit_runs (audit_type)"
+  ],
+  "listRule": "",
+  "viewRule": "",
+  "createRule": "",
+  "updateRule": "",
+  "deleteRule": ""
+}

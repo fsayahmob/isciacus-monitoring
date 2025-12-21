@@ -321,6 +321,17 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
         cache_service.set_products(products)
         cache_service.set_filters(filters)
 
+    # Cleanup stale PocketBase audits (audits left in 'running' state from previous runs)
+    try:
+        from services.pocketbase_service import get_pocketbase_service
+
+        pb = get_pocketbase_service()
+        cleaned = pb.cleanup_stale_running_audits()
+        if cleaned > 0:
+            print(f"✅ Cleaned up {cleaned} stale running audits from PocketBase")
+    except Exception as e:
+        print(f"⚠️  Failed to cleanup PocketBase audits on startup: {e}")
+
     yield
 
 

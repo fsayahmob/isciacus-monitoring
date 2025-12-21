@@ -1,192 +1,229 @@
-# ISCIACUS Monitoring - Claude Code Guidelines
+# ISCIACUS Monitoring - Guidelines Claude Code
 
-## Project Overview
-Dashboard de monitoring pour boutiques Shopify avec audits automatisés via Inngest.
-
-## Tech Stack
-- **Frontend**: React 18 + TypeScript + Vite + TanStack Query
-- **Backend**: Python 3.11 + FastAPI + Inngest
-- **Database**: SQLite (data/)
-
----
-
-## LINT RULES - MUST READ BEFORE CODING
+## Lint Rules - A RESPECTER AVANT DE CODER
 
 ### Frontend (TypeScript/React) - ESLint Strict
 
-| Rule | Limit | Action |
-|------|-------|--------|
-| `max-lines` | **300 lines/file** | Extract to separate files |
-| `max-lines-per-function` | **80 lines** | Split into sub-functions |
-| `max-depth` | **4 levels** | Avoid deep nesting |
-| `max-params` | **5 params** | Use config objects |
-| `max-statements` | **25 per function** | Split logic |
-| `max-nested-callbacks` | **3 levels** | Flatten with async/await |
-| `complexity` | **15** | Simplify conditions |
-| `curly` | always `{}` | Never if/else without braces |
-| `no-console` | except warn/error | Remove console.log |
-| `no-magic-numbers` | except -1,0,1,2,100 | Create constants |
-| `explicit-function-return-type` | required | Always type returns |
-| `strict-boolean-expressions` | no truthy | Use `=== null`, `!== undefined` |
-| `consistent-type-imports` | `type` keyword | `import { type X }` |
+| Regle | Limite | Action |
+|-------|--------|--------|
+| `max-lines` | 300 lignes/fichier | Extraire dans fichiers separes |
+| `max-lines-per-function` | 80 lignes | Split en sub-fonctions |
+| `max-params` | 5 params | Utiliser un objet config |
+| `max-depth` | 4 niveaux | Eviter nesting profond |
+| `curly` | toujours `{}` | Jamais if/else sans accolades |
+| `no-console` | sauf warn/error | Supprimer console.log |
+| `explicit-function-return-type` | requis | Typer les retours |
 
 ### Backend (Python) - Ruff + MyPy Strict
 
-| Rule | Limit | Action |
-|------|-------|--------|
-| `line-length` | **100 chars** | Break long lines |
-| `max-args` (PLR0913) | **6 params** | Use dataclass/dict |
-| `max-branches` | **12** | Simplify if/elif/else |
-| `max-returns` | **6 per function** | Reduce exit points |
-| `max-statements` | **50 per function** | Split logic |
-| `max-complexity` (mccabe) | **12** | Simplify conditions |
-| `T20` (print) | forbidden | Use logger |
-| `S` (security) | enabled | No hardcoded secrets |
-| `N` (naming) | PEP8 | snake_case, UPPER_CASE |
-| `mypy strict` | enabled | All types required |
+| Regle | Limite | Action |
+|-------|--------|--------|
+| `line-length` | 100 chars | Casser les lignes longues |
+| `max-args` (PLR0913) | 6 params | Utiliser dataclass/dict |
+| `max-statements` | 50/fonction | Split la logique |
+| `T20` (print) | interdit | Utiliser logger |
+| `mypy strict` | active | Tous les types requis |
 
----
-
-## Validation Commands
+### Commandes de Validation
 
 ```bash
-# Frontend - Run ALL before committing
+# Frontend - AVANT chaque commit
 npm --prefix frontend run lint
 npm --prefix frontend run typecheck
-npm --prefix frontend run format:check
 
-# Backend - Run ALL before committing
-cd backend && ruff check .
-cd backend && mypy .
-cd backend && black --check .
+# Backend - AVANT chaque commit
+cd backend && ruff check . && mypy .
 ```
 
 ---
 
-## MANDATORY Development Workflow
+## Architecture Projet
 
-### BEFORE each file modification:
-1. Check current file line count: `wc -l <file>`
-2. Review lint limits above
+### Vue d'ensemble
 
-### AFTER each file modification:
-1. Check new line count stays under limit
-2. Run lint commands for that stack
-
-### BEFORE showing code to user:
-```bash
-# Frontend
-npm --prefix frontend run lint && npm --prefix frontend run typecheck && npm --prefix frontend run format:check
-
-# Backend
-cd backend && ruff check . && black --check .
+```
+isciacus-monitoring/
+├── frontend/          # React 19 + TypeScript + Vite + Tailwind
+├── backend/           # FastAPI + Python 3.11 + Inngest
+├── e2e/               # Tests Playwright
+└── docker-compose.yml # Orchestration locale
 ```
 
-### NEVER:
-- Commit code that fails lint
-- Show user code without running validation first
-- Exceed file/function line limits
+### Services Docker
+
+| Service | Port | Description |
+|---------|------|-------------|
+| frontend | 5173 | React + Vite dev server |
+| backend | 8080 | FastAPI API |
+| inngest | 8288 | Job queue dashboard |
+| pocketbase | 8090 | Realtime DB (admin: `/_/`) |
 
 ---
 
-## Architecture & Factorization Rules
-
-### Frontend Structure (React/TypeScript)
+## Frontend (`frontend/src/`)
 
 ```
-frontend/src/
-├── components/           # UI Components (max 300 lines each)
-│   ├── audit/            # Audit pipeline & cards
-│   ├── analytics/        # Analytics dashboards
-│   │   ├── sales/        # Sales analysis
-│   │   ├── sales-analysis/
-│   │   └── funnel/       # Conversion funnel
-│   ├── filters/          # Product filters
-│   └── settings/         # Settings & wizard
-│       └── wizard/       # Setup wizard steps
-├── hooks/                # Shared React hooks
-├── lib/                  # Utility libraries
-├── pages/                # Page components (route endpoints)
-├── services/             # API calls ONLY
-│   └── api.ts            # All fetch functions + types
-├── stores/               # State management (Zustand?)
-├── constants/            # Magic numbers, config
-├── types/                # Shared TypeScript types
-└── test/                 # Test utilities
+src/
+├── pages/              # Pages (routes)
+│   ├── AuditPage.tsx
+│   ├── AnalyticsDataPage.tsx
+│   ├── SettingsPage.tsx
+│   └── BenchmarksPage.tsx
+│
+├── components/         # Composants UI
+│   ├── audit/          # Pipeline d'audits (18 fichiers)
+│   │   ├── AuditPipeline.tsx
+│   │   ├── useAuditSession.ts
+│   │   ├── useSequentialAuditRunner.ts
+│   │   └── usePocketBaseSync.ts
+│   ├── analytics/      # Dashboards analytics
+│   ├── settings/       # Config wizard
+│   └── filters/        # Filtres produits
+│
+├── hooks/              # Hooks partages
+│   ├── useRealtimeCollection.ts  # WebSocket PocketBase
+│   └── usePocketBaseAudit.ts     # Audit realtime
+│
+├── services/           # Clients API
+│   ├── api.ts          # Endpoints produits
+│   ├── auditApi.ts     # Endpoints audits
+│   ├── configApi.ts    # Endpoints config
+│   └── pocketbase.ts   # Client PocketBase
+│
+└── stores/             # State Zustand
+    └── useAppStore.ts  # Navigation, filtres
 ```
 
-### Backend Structure (Python/FastAPI)
+### Stack Frontend
+- **React 19** + TypeScript 5.9 (strict)
+- **Vite 7** pour le build
+- **Tailwind CSS 4** pour le styling
+- **TanStack Query 5** pour le data fetching
+- **Zustand 5** pour le state management
+- **PocketBase SDK** pour le realtime
+
+---
+
+## Backend (`backend/`)
 
 ```
 backend/
-├── monitoring_app.py     # FastAPI routes (50K lines - needs refactor!)
-├── services/             # Business logic services
-│   ├── audit_orchestrator.py   # Main audit orchestration (164K)
-│   ├── audit_service.py        # Audit helpers
-│   ├── shopify_analytics.py    # Shopify data fetching
+├── monitoring_app.py       # Routes FastAPI principales
+│
+├── services/               # Logique metier (~10K lignes)
+│   ├── audit_orchestrator.py   # Coordinateur central
+│   ├── shopify_analytics.py    # GraphQL Shopify
 │   ├── ga4_analytics.py        # Google Analytics 4
-│   ├── theme_analyzer.py       # Theme code analysis
-│   ├── cart_recovery_analyzer.py
-│   ├── customer_data_analyzer.py
-│   ├── permissions_checker.py
-│   ├── config_service.py       # Configuration management
-│   ├── cache_service.py        # Cache management
-│   ├── secure_store.py         # Encrypted credentials
-│   ├── benchmarks.py           # Benchmark thresholds
+│   ├── config_service.py       # Gestion secrets (SQLite)
+│   ├── cache_service.py        # Cache produits/filtres
+│   ├── pocketbase_service.py   # Client PocketBase
+│   ├── theme_analyzer.py       # Analyse theme Shopify
 │   ├── meta_capi.py            # Meta Conversions API
-│   └── rate_limiter.py
-├── jobs/                 # Inngest async workflows
-│   ├── inngest_setup.py        # Inngest client setup
-│   ├── audit_workflow.py       # Workflow definitions
-│   └── workflows/              # Individual workflow steps
-├── models/               # Pydantic models
-├── config/               # Configuration files
-├── tests/                # Test files
-└── data/                 # SQLite + JSON cache
+│   └── [autres analyseurs]
+│
+├── jobs/                   # Workflows Inngest
+│   ├── inngest_setup.py        # Config client Inngest
+│   ├── audit_workflow.py       # Definitions workflows
+│   └── workflows/              # 11 workflows d'audit
+│       ├── ga4_audit.py
+│       ├── meta_audit.py
+│       ├── gmc_audit.py
+│       ├── theme_audit.py
+│       └── [autres audits]
+│
+├── models/                 # Modeles Pydantic
+├── config/                 # Fichiers config JSON
+├── tests/                  # Tests Pytest
+└── data/                   # Persistence (SQLite + cache JSON)
 ```
 
-### Factorization Rules
-
-| When file exceeds... | Action |
-|---------------------|--------|
-| 300 lines (frontend) | Extract to new file in same folder |
-| 80 lines per function | Extract helper functions to `*Steps.ts` or `*Utils.ts` |
-| 5 params per function | Create config interface |
-| Repeated logic | Extract to `hooks/` (frontend) or new service (backend) |
-
-### Where to Put New Code
-
-| Type of code | Frontend location | Backend location |
-|--------------|-------------------|------------------|
-| API call | `services/api.ts` | `monitoring_app.py` (route) |
-| Business logic | `components/<domain>/<name>.ts` | `services/<name>_analyzer.py` |
-| React hook | `components/<domain>/use<Name>.ts` | N/A |
-| Shared hook | `hooks/use<Name>.ts` | N/A |
-| Async workflow | N/A | `jobs/workflows/<name>.py` |
-| Types/Models | `services/api.ts` (with API) | `models/<name>.py` |
-| Constants | `constants/index.ts` | `config/<name>.py` |
-| Pure functions | `components/<domain>/<name>Steps.ts` | `services/<name>.py` |
-
-### Naming Conventions
-
-**Frontend:**
-- Components: `PascalCase.tsx` (e.g., `AuditCard.tsx`)
-- Hooks: `use<Name>.ts` (e.g., `useAuditSession.ts`)
-- Pure functions: `camelCase.ts` (e.g., `auditSteps.ts`)
-- Types: `PascalCase` (e.g., `AuditResult`)
-
-**Backend:**
-- Files: `snake_case.py` (e.g., `audit_service.py`)
-- Functions: `snake_case` (e.g., `run_audit`)
-- Classes: `PascalCase` (e.g., `AuditResult`)
-- Constants: `UPPER_CASE` (e.g., `MAX_RETRIES`)
+### Stack Backend
+- **FastAPI** + Uvicorn
+- **Inngest** pour les workflows async
+- **SQLite** pour les secrets (chiffres)
+- **PocketBase** pour l'etat realtime des audits
 
 ---
 
-## Current TODO (Multi-tenant)
+## Realtime Architecture (PocketBase)
 
-1. [ ] Implement multi-tenant for multiple Shopify stores
-2. [ ] Add user authentication (login/register)
-3. [ ] Create tenant data model (stores)
-4. [ ] Isolate data per tenant (credentials, cache, audit results)
-5. [ ] Add store selector in UI
+### Collection `audit_runs`
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `session_id` | text | Groupe les audits d'une session |
+| `audit_type` | text | ga4_tracking, meta_pixel, etc. |
+| `status` | select | pending, running, completed, failed |
+| `result` | json | Resultat complet (nullable) |
+| `error` | text | Message d'erreur (nullable) |
+
+### Flux de donnees
+
+```
+Frontend                    Backend                     PocketBase
+   │                           │                            │
+   │ useRealtimeCollection()   │                            │
+   │ ──────────────────────────│────── WebSocket ──────────>│
+   │                           │                            │
+   │                           │ POST /api/audits/{type}    │
+   │                           │<───────────────────────────│
+   │                           │                            │
+   │                           │ Inngest workflow           │
+   │                           │ ─────────────────────────> │
+   │                           │   update audit_runs        │
+   │<─────────────────────────────────── realtime update ───│
+```
+
+---
+
+## Tests
+
+### E2E (Playwright)
+```bash
+npm run test:e2e           # Lancer tous les tests
+npm run test:e2e:ui        # Mode UI interactif
+```
+
+### Frontend (Vitest)
+```bash
+npm --prefix frontend run test
+```
+
+### Backend (Pytest)
+```bash
+cd backend && pytest
+```
+
+---
+
+## CI/CD
+
+### Workflows GitHub Actions
+
+1. **code-quality.yml** - Lint + Types + Format
+   - `frontend-quality`: ESLint + TypeScript + Prettier
+   - `backend-quality`: Ruff + MyPy + Black
+   - `config-guard`: Empeche l'affaiblissement des regles
+
+2. **e2e-tests.yml** - Tests Playwright
+   - Demarre tous les services Docker
+   - Execute les tests E2E
+   - Upload rapport en cas d'echec
+
+---
+
+## Commandes Utiles
+
+```bash
+# Demarrer le projet
+docker-compose up
+
+# Logs d'un service
+docker-compose logs -f backend
+
+# Lint complet
+npm --prefix frontend run lint && cd backend && ruff check .
+
+# Typecheck complet
+npm --prefix frontend run typecheck && cd backend && mypy .
+```

@@ -56,9 +56,15 @@ function useAuditMutations(): {
 
 export function AuditPipeline(): React.ReactElement {
   const session = useAuditSession()
-  const runner = useSequentialAuditRunner()
-  const { executeAction, clearCache } = useAuditMutations()
   const { audits } = session.availableAudits
+
+  // Pass PocketBase data to sequential runner for state restoration and realtime sync
+  const runner = useSequentialAuditRunner({
+    pbAuditRuns: session.pbAuditRuns,
+    pbConnected: session.pbConnected,
+    availableAudits: audits,
+  })
+  const { executeAction, clearCache } = useAuditMutations()
 
   const isRunning = session.runningAudits.size > 0 || runner.isRunning
   const checker = createAuditRunningChecker(
