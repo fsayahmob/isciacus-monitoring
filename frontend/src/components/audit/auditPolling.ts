@@ -8,7 +8,7 @@ const POLL_INTERVAL_MS = 1000
 
 interface QueryState {
   state: {
-    data?: { session: AuditSession }
+    data?: { session: AuditSession | null }
   }
 }
 
@@ -23,7 +23,7 @@ export function getAuditPollInterval(runningAuditsSize: number, query: QueryStat
   }
   // Also poll if backend reports running audits (for page refresh recovery)
   const session = query.state.data?.session
-  if (session !== undefined) {
+  if (session !== undefined && session !== null) {
     const hasRunning = Object.values(session.audits).some((r) => r.status === 'running')
     if (hasRunning) {
       return POLL_INTERVAL_MS
