@@ -162,7 +162,11 @@ function AuditBreakdownRow({
   )
 }
 
-function RecommendationsList({ recommendations }: { recommendations: string[] }): React.ReactElement | null {
+function RecommendationsList({
+  recommendations,
+}: {
+  recommendations: string[]
+}): React.ReactElement | null {
   if (recommendations.length === 0) {
     return null
   }
@@ -212,7 +216,12 @@ export function AuditCampaignSummary({
             type="button"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -220,7 +229,9 @@ export function AuditCampaignSummary({
         <div className="mb-6 flex items-center gap-6">
           <ScoreCircle score={score.total} />
           <div className="flex-1">
-            <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${READINESS_COLORS[readiness.level]}`}>
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${READINESS_COLORS[readiness.level]}`}
+            >
               <span className={`h-2 w-2 rounded-full ${READINESS_BG[readiness.level]}`} />
               <span className="font-medium">{readiness.label}</span>
             </div>

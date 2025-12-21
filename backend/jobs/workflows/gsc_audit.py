@@ -162,7 +162,7 @@ def _step_basic_robots_txt(site_url: str) -> dict[str, Any]:
                         "action_available": True,
                         "action_label": "Modifier robots.txt",
                         "action_url": f"{site_url}/admin/settings/files",
-                        "recommendation": "Retirez la règle 'Disallow: /' pour permettre l'indexation.",
+                        "recommendation": "Retirez 'Disallow: /' pour l'indexation.",
                     }
                 )
             elif not has_sitemap:
@@ -194,7 +194,7 @@ def _step_basic_robots_txt(site_url: str) -> dict[str, Any]:
                     "title": "⚠️ Fichier robots.txt absent",
                     "description": (
                         "Aucun fichier robots.txt n'a été trouvé. "
-                        "Ce fichier aide les moteurs de recherche à explorer votre site efficacement."
+                        "Il aide les moteurs de recherche à explorer votre site."
                     ),
                     "action_available": False,
                     "recommendation": "Shopify génère un robots.txt automatiquement.",
@@ -273,8 +273,8 @@ def _step_basic_sitemap(site_url: str) -> dict[str, Any]:
                             "id": "sitemap_few_urls",
                             "audit_type": "search_console",
                             "severity": "low",
-                            "title": f"📊 Sitemap contient seulement {url_count} URLs",
-                            "description": "Peu d'URLs dans votre sitemap, normal pour un petit site.",
+                            "title": f"📊 Sitemap: {url_count} URLs",
+                            "description": "Peu d'URLs, normal pour un petit site.",
                             "action_available": False,
                         }
                     )
@@ -393,7 +393,7 @@ def _step_basic_meta_tags(site_url: str) -> dict[str, Any]:
                         "action_available": True,
                         "action_label": "Modifier dans Shopify",
                         "action_url": f"{site_url}/admin/online_store/preferences",
-                        "recommendation": "Ajoutez un titre unique et descriptif (50-60 caractères).",
+                        "recommendation": "Ajoutez un titre descriptif (50-60 caractères).",
                     }
                 )
             elif len(title) < 30:
@@ -432,7 +432,7 @@ def _step_basic_meta_tags(site_url: str) -> dict[str, Any]:
                         "action_available": True,
                         "action_label": "Modifier dans Shopify",
                         "action_url": f"{site_url}/admin/online_store/preferences",
-                        "recommendation": "Rédigez une description attrayante de 150-160 caractères.",
+                        "recommendation": "Rédigez une description de 150-160 caractères.",
                     }
                 )
             elif len(description) < 100:

@@ -139,9 +139,10 @@ async function executeSequentialAudits(
 
     const { result, error } = await runSingleAudit(audits[i], queryClient)
 
-    progress[i] = result !== null
-      ? { ...progress[i], status: 'completed', result }
-      : { ...progress[i], status: 'error', error }
+    progress[i] =
+      result !== null
+        ? { ...progress[i], status: 'completed', result }
+        : { ...progress[i], status: 'error', error }
 
     onProgress([...progress], i, i + 1)
   }
@@ -197,7 +198,12 @@ export function useSequentialAuditRunner(): UseSequentialAuditRunnerReturn {
         availableAudits,
         queryClient,
         (progress, index, completed) => {
-          setState((prev) => ({ ...prev, progress, currentIndex: index, completedCount: completed }))
+          setState((prev) => ({
+            ...prev,
+            progress,
+            currentIndex: index,
+            completedCount: completed,
+          }))
         },
         (finalProgress) => {
           const finalScore = calculateCampaignScore(finalProgress)

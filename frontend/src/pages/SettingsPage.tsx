@@ -85,7 +85,12 @@ function useSettingsPage(): {
   const [editedValues, setEditedValues] = useState<Record<string, string>>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null)
 
-  const { data: config, isLoading, error, refetch } = useQuery({
+  const {
+    data: config,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['config'],
     queryFn: fetchConfig,
     staleTime: CONFIG_STALE_TIME,
@@ -133,7 +138,13 @@ function useSettingsPage(): {
     totalCount: config?.sections.length ?? 0,
     changeCount: Object.keys(editedValues).length,
     isSaving: saveMutation.isPending,
-    handlers: { handleRefreshAll, handleValueChange, handleSave, handleCancel, handleTestConnection },
+    handlers: {
+      handleRefreshAll,
+      handleValueChange,
+      handleSave,
+      handleCancel,
+      handleTestConnection,
+    },
   }
 }
 

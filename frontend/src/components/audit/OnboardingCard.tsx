@@ -12,7 +12,11 @@ interface ExtendedAudit extends AvailableAudit {
   is_primary?: boolean
 }
 
-function getRowBorderColor(isSelected: boolean, isRunning: boolean, status: AuditStepStatus | null): string {
+function getRowBorderColor(
+  isSelected: boolean,
+  isRunning: boolean,
+  status: AuditStepStatus | null
+): string {
   if (isRunning) {
     return 'ring-1 ring-info border-info/50 bg-info/5'
   }
@@ -39,7 +43,14 @@ function OnboardingIcon({ isRunning }: { isRunning: boolean }): React.ReactEleme
     >
       {isRunning ? (
         <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
           <path
             className="opacity-75"
             fill="currentColor"
@@ -48,14 +59,23 @@ function OnboardingIcon({ isRunning }: { isRunning: boolean }): React.ReactEleme
         </svg>
       ) : (
         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+          <path
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+          />
         </svg>
       )}
     </div>
   )
 }
 
-function RowRunButton({ isRunning, lastStatus, onRun }: {
+function RowRunButton({
+  isRunning,
+  lastStatus,
+  onRun,
+}: {
   isRunning: boolean
   lastStatus: string | null
   onRun: () => void
@@ -74,7 +94,10 @@ function RowRunButton({ isRunning, lastStatus, onRun }: {
   return (
     <button
       className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light"
-      onClick={(e) => { e.stopPropagation(); onRun() }}
+      onClick={(e) => {
+        e.stopPropagation()
+        onRun()
+      }}
       type="button"
     >
       <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
@@ -118,7 +141,11 @@ export function OnboardingCard({
       className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-all ${borderColor}`}
       data-audit-type={audit.type}
       onClick={onSelect}
-      onKeyDown={(e) => { if (e.key === 'Enter') { onSelect() } }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          onSelect()
+        }
+      }}
       role="button"
       tabIndex={0}
     >
