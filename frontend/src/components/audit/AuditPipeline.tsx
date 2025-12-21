@@ -17,59 +17,56 @@ import { GMCFlowKPI, type GMCFlowData } from './GMCFlowKPI'
 import { IssuesPanel } from './IssueCard'
 import { PipelineStepsPanel } from './PipelineStep'
 import { useAuditSession } from './useAuditSession'
+import type { AuditProgress } from './useSequentialAuditRunner'
 import { useSequentialAuditRunner } from './useSequentialAuditRunner'
 
 const HIGHLIGHT_DURATION_MS = 2000
 
+function createAuditRunningChecker(
+  isAuditRunning: (type: string) => boolean,
+  isSequentialRunning: boolean,
+  progress: AuditProgress[]
+): (auditType: string) => boolean {
+  return (auditType: string): boolean => {
+    if (isAuditRunning(auditType)) {
+      return true
+    }
+    if (!isSequentialRunning) {
+      return false
+    }
+    const auditProgress = progress.find((p) => p.auditType === auditType)
+    return auditProgress?.status === 'running' || false
+  }
+}
+
 export function AuditPipeline(): React.ReactElement {
   const queryClient = useQueryClient()
-
-  const {
-    session,
-    availableAudits,
-    currentResult,
-    selectedAudit,
-    runningAudits,
-    isSelectedAuditRunning,
-    selectAudit,
-    runAudit,
-    isAuditRunning,
-  } = useAuditSession()
-
+  const auditSession = useAuditSession()
   const sequentialRunner = useSequentialAuditRunner()
 
   const executeActionMutation = useMutation({
     mutationFn: ({ auditType, actionId }: { auditType: string; actionId: string }) =>
       executeAuditAction(auditType, actionId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
-    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['audit-session'] }),
   })
 
-  const { audits } = availableAudits
-
-  const handleExecuteAction = (auditType: string, actionId: string): void => {
-    executeActionMutation.mutate({ auditType, actionId })
-  }
-
-  const handleRunAllAudits = (): void => {
-    sequentialRunner.startSequentialRun(audits)
-  }
-
-  // Running state combines individual audits and sequential run
-  const hasRunningAudits = runningAudits.size > 0 || sequentialRunner.isRunning
+  const { audits } = auditSession.availableAudits
+  const hasRunningAudits = auditSession.runningAudits.size > 0 || sequentialRunner.isRunning
+  const checkAuditRunning = createAuditRunningChecker(
+    auditSession.isAuditRunning,
+    sequentialRunner.isRunning,
+    sequentialRunner.progress
+  )
 
   return (
     <div className="min-h-screen bg-bg-primary p-6">
       <div className="mx-auto max-w-6xl">
         <PageHeader
-          onRunAll={handleRunAllAudits}
+          onRunAll={() => { sequentialRunner.startSequentialRun(audits) }}
           isRunning={hasRunningAudits}
-          runningCount={sequentialRunner.isRunning ? sequentialRunner.completedCount : runningAudits.size}
+          runningCount={sequentialRunner.isRunning ? sequentialRunner.completedCount : auditSession.runningAudits.size}
           totalCount={sequentialRunner.isRunning ? sequentialRunner.totalAudits : 0}
         />
-
-        {/* Sequential run progress indicator */}
         {sequentialRunner.isRunning && (
           <div className="mb-6">
             <AuditProgressIndicator
@@ -80,34 +77,29 @@ export function AuditPipeline(): React.ReactElement {
             />
           </div>
         )}
-
         <AuditCardsGrid
           audits={audits}
-          selectedAudit={selectedAudit}
-          isAuditRunning={isAuditRunning}
-          onRun={runAudit}
-          onSelect={selectAudit}
+          selectedAudit={auditSession.selectedAudit}
+          isAuditRunning={checkAuditRunning}
+          onRun={auditSession.runAudit}
+          onSelect={auditSession.selectAudit}
         />
         <AuditResultSection
-          currentResult={currentResult}
-          selectedAudit={selectedAudit}
-          session={session}
-          isRunning={isSelectedAuditRunning}
-          onExecuteAction={handleExecuteAction}
+          currentResult={auditSession.currentResult}
+          selectedAudit={auditSession.selectedAudit}
+          session={auditSession.session}
+          isRunning={auditSession.isSelectedAuditRunning}
+          onExecuteAction={(t, a) => { executeActionMutation.mutate({ auditType: t, actionId: a }) }}
           actionPending={executeActionMutation.isPending}
         />
-
-        {/* Campaign summary modal */}
-        {sequentialRunner.showSummary &&
-          sequentialRunner.score !== null &&
-          sequentialRunner.readiness !== null && (
-            <AuditCampaignSummary
-              score={sequentialRunner.score}
-              readiness={sequentialRunner.readiness}
-              progress={sequentialRunner.progress}
-              onDismiss={sequentialRunner.dismissSummary}
-            />
-          )}
+        {sequentialRunner.showSummary && sequentialRunner.score && sequentialRunner.readiness && (
+          <AuditCampaignSummary
+            score={sequentialRunner.score}
+            readiness={sequentialRunner.readiness}
+            progress={sequentialRunner.progress}
+            onDismiss={sequentialRunner.dismissSummary}
+          />
+        )}
       </div>
     </div>
   )
