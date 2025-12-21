@@ -7,15 +7,17 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import {
   executeAuditAction,
-  runAllAudits,
   type AuditResult,
   type AuditSession,
 } from '../../services/api'
 import { AuditCardsGrid } from './AuditCard'
+import { AuditCampaignSummary } from './AuditCampaignSummary'
+import { AuditProgressIndicator } from './AuditProgressIndicator'
 import { GMCFlowKPI, type GMCFlowData } from './GMCFlowKPI'
 import { IssuesPanel } from './IssueCard'
 import { PipelineStepsPanel } from './PipelineStep'
 import { useAuditSession } from './useAuditSession'
+import { useSequentialAuditRunner } from './useSequentialAuditRunner'
 
 const HIGHLIGHT_DURATION_MS = 2000
 
@@ -32,28 +34,14 @@ export function AuditPipeline(): React.ReactElement {
     selectAudit,
     runAudit,
     isAuditRunning,
-    markAllAuditsAsRunning,
   } = useAuditSession()
+
+  const sequentialRunner = useSequentialAuditRunner()
 
   const executeActionMutation = useMutation({
     mutationFn: ({ auditType, actionId }: { auditType: string; actionId: string }) =>
       executeAuditAction(auditType, actionId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
-    },
-  })
-
-  const runAllMutation = useMutation({
-    mutationFn: () => runAllAudits(),
-    onMutate: () => {
-      // Mark all available audits as running BEFORE API call
-      const availableAuditTypes = audits
-        .filter((audit) => audit.available)
-        .map((audit) => audit.type)
-      markAllAuditsAsRunning(availableAuditTypes)
-    },
-    onSuccess: () => {
-      // Invalidate queries to fetch updated audit session
       void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
     },
   })
@@ -65,10 +53,11 @@ export function AuditPipeline(): React.ReactElement {
   }
 
   const handleRunAllAudits = (): void => {
-    runAllMutation.mutate()
+    sequentialRunner.startSequentialRun(audits)
   }
 
-  const hasRunningAudits = runningAudits.size > 0
+  // Running state combines individual audits and sequential run
+  const hasRunningAudits = runningAudits.size > 0 || sequentialRunner.isRunning
 
   return (
     <div className="min-h-screen bg-bg-primary p-6">
@@ -76,8 +65,22 @@ export function AuditPipeline(): React.ReactElement {
         <PageHeader
           onRunAll={handleRunAllAudits}
           isRunning={hasRunningAudits}
-          runningCount={runningAudits.size}
+          runningCount={sequentialRunner.isRunning ? sequentialRunner.completedCount : runningAudits.size}
+          totalCount={sequentialRunner.isRunning ? sequentialRunner.totalAudits : 0}
         />
+
+        {/* Sequential run progress indicator */}
+        {sequentialRunner.isRunning && (
+          <div className="mb-6">
+            <AuditProgressIndicator
+              progress={sequentialRunner.progress}
+              currentIndex={sequentialRunner.currentIndex}
+              totalAudits={sequentialRunner.totalAudits}
+              completedCount={sequentialRunner.completedCount}
+            />
+          </div>
+        )}
+
         <AuditCardsGrid
           audits={audits}
           selectedAudit={selectedAudit}
@@ -93,6 +96,18 @@ export function AuditPipeline(): React.ReactElement {
           onExecuteAction={handleExecuteAction}
           actionPending={executeActionMutation.isPending}
         />
+
+        {/* Campaign summary modal */}
+        {sequentialRunner.showSummary &&
+          sequentialRunner.score !== null &&
+          sequentialRunner.readiness !== null && (
+            <AuditCampaignSummary
+              score={sequentialRunner.score}
+              readiness={sequentialRunner.readiness}
+              progress={sequentialRunner.progress}
+              onDismiss={sequentialRunner.dismissSummary}
+            />
+          )}
       </div>
     </div>
   )
@@ -102,10 +117,12 @@ function PageHeader({
   onRunAll,
   isRunning,
   runningCount,
+  totalCount,
 }: {
   onRunAll: () => void
   isRunning: boolean
   runningCount: number
+  totalCount: number
 }): React.ReactElement {
   return (
     <div className="mb-8 flex items-start justify-between">
@@ -138,7 +155,9 @@ function PageHeader({
                 fill="currentColor"
               />
             </svg>
-            <span>{runningCount} en cours...</span>
+            <span>
+              {totalCount > 0 ? `${String(runningCount)}/${String(totalCount)}` : String(runningCount)} en cours...
+            </span>
           </>
         ) : (
           <>
