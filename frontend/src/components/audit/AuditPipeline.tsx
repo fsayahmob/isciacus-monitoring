@@ -33,10 +33,8 @@ function createAuditRunningChecker(
 }
 
 function useAuditMutations(): {
-  executeAction: ReturnType<
-    typeof useMutation<void, Error, { auditType: string; actionId: string }>
-  >
-  clearCache: ReturnType<typeof useMutation<void, Error, void>>
+  executeAction: ReturnType<typeof useMutation>
+  clearCache: ReturnType<typeof useMutation>
 } {
   const queryClient = useQueryClient()
 

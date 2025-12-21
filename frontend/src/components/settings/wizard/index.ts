@@ -3,4 +3,4 @@
  */
 
 export { ConfigurationWizard } from './ConfigurationWizard'
-export type { CheckStatus, WizardCheck, ServiceResult, OnboardingResults } from './types'
+export type { CheckStatus, WizardCheck } from './types'
