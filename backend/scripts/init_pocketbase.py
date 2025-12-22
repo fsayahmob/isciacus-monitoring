@@ -17,6 +17,7 @@ POCKETBASE_URL = os.getenv("POCKETBASE_URL", "http://localhost:8090")
 ADMIN_EMAIL = os.getenv("PB_ADMIN_EMAIL", "admin@local.dev")
 ADMIN_PASSWORD = os.getenv("PB_ADMIN_PASSWORD", "localdevpass123")
 REQUEST_TIMEOUT = 10
+HTTP_OK = 200
 
 # Collection schema for audit_runs (PocketBase 0.23+ format)
 AUDIT_RUNS_SCHEMA = {
@@ -55,7 +56,7 @@ def wait_for_pocketbase(max_attempts: int = 30) -> bool:
     for i in range(max_attempts):
         try:
             resp = requests.get(f"{POCKETBASE_URL}/api/health", timeout=2)
-            if resp.status_code == 200:
+            if resp.status_code == HTTP_OK:
                 print(f"PocketBase is ready at {POCKETBASE_URL}")
                 return True
         except requests.exceptions.ConnectionError:
@@ -73,7 +74,7 @@ def authenticate() -> str | None:
         json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
         timeout=REQUEST_TIMEOUT,
     )
-    if resp.status_code == 200:
+    if resp.status_code == HTTP_OK:
         token = resp.json().get("token")
         print("Authenticated as superuser")
         return token
@@ -88,7 +89,7 @@ def collection_exists(token: str, name: str) -> bool:
         headers={"Authorization": token},
         timeout=REQUEST_TIMEOUT,
     )
-    return resp.status_code == 200
+    return resp.status_code == HTTP_OK
 
 
 def create_collection(token: str, schema: dict) -> bool:
@@ -99,7 +100,7 @@ def create_collection(token: str, schema: dict) -> bool:
         json=schema,
         timeout=REQUEST_TIMEOUT,
     )
-    if resp.status_code == 200:
+    if resp.status_code == HTTP_OK:
         print(f"Collection '{schema['name']}' created successfully")
         return True
     print(f"Failed to create collection: {resp.text}")

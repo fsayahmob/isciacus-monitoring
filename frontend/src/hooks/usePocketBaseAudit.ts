@@ -27,14 +27,11 @@ interface UsePocketBaseAuditReturn {
  * @returns Object containing audit runs map, connection status, and loading state
  */
 export function usePocketBaseAudit(sessionId: string | null): UsePocketBaseAuditReturn {
-  const { records, isLoading, isConnected, error } = useRealtimeCollection<AuditRun>(
-    'audit_runs',
-    {
-      filter: sessionId !== null ? `session_id="${sessionId}"` : undefined,
-      sort: '-started_at',
-      enabled: sessionId !== null,
-    }
-  )
+  const { records, isLoading, isConnected, error } = useRealtimeCollection<AuditRun>('audit_runs', {
+    filter: sessionId !== null ? `session_id="${sessionId}"` : undefined,
+    sort: '-started_at',
+    enabled: sessionId !== null,
+  })
 
   // Convert from id-keyed Map to audit_type-keyed Map for backward compatibility
   const auditRuns = React.useMemo(() => {

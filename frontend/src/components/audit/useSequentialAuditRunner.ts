@@ -313,7 +313,12 @@ function useStartSequentialRun(
         filtered,
         queryClient,
         (progress, index, completed) => {
-          setState((prev) => ({ ...prev, progress, currentIndex: index, completedCount: completed }))
+          setState((prev) => ({
+            ...prev,
+            progress,
+            currentIndex: index,
+            completedCount: completed,
+          }))
         },
         (finalProgress) => {
           const score = calculateCampaignScore(finalProgress)

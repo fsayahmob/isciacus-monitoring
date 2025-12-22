@@ -172,15 +172,12 @@ export function useRealtimeCollection<T extends RecordWithId>(
     error: null,
   })
 
-  const setRecords = React.useCallback(
-    (updater: React.SetStateAction<Map<string, T>>) => {
-      setState((prev) => ({
-        ...prev,
-        records: typeof updater === 'function' ? updater(prev.records) : updater,
-      }))
-    },
-    []
-  )
+  const setRecords = React.useCallback((updater: React.SetStateAction<Map<string, T>>) => {
+    setState((prev) => ({
+      ...prev,
+      records: typeof updater === 'function' ? updater(prev.records) : updater,
+    }))
+  }, [])
 
   const { fetchRecords, subscribe } = useFetchAndSubscribe({
     collectionName,

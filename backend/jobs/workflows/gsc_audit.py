@@ -1084,7 +1084,9 @@ def create_gsc_audit_function() -> inngest.Function | None:
 
         if gsc_configured:
             # Run full GSC audit
-            result = await _run_gsc_audit(ctx, result, gsc_site_url, creds_path, session_id, pb_record_id)
+            result = await _run_gsc_audit(
+                ctx, result, gsc_site_url, creds_path, session_id, pb_record_id
+            )
         else:
             # Run basic SEO audit
             result = await _run_basic_seo_audit(ctx, result, session_id, pb_record_id)

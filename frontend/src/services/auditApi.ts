@@ -200,14 +200,11 @@ interface TriggerAuditFromPocketBaseResponse {
 export async function triggerAuditFromPocketBase(
   params: TriggerAuditFromPocketBaseParams
 ): Promise<TriggerAuditFromPocketBaseResponse> {
-  const response = await apiClient.post<TriggerAuditFromPocketBaseResponse>(
-    '/api/audits/trigger',
-    {
-      pocketbase_record_id: params.pocketbaseRecordId,
-      audit_type: params.auditType,
-      session_id: params.sessionId,
-    }
-  )
+  const response = await apiClient.post<TriggerAuditFromPocketBaseResponse>('/api/audits/trigger', {
+    pocketbase_record_id: params.pocketbaseRecordId,
+    audit_type: params.auditType,
+    session_id: params.sessionId,
+  })
   return response.data
 }
 
