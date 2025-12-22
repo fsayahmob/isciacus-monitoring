@@ -48,7 +48,11 @@ STEPS = [
 ]
 
 
-def _save_progress(result: dict[str, Any]) -> None:
+def _save_progress(
+    result: dict[str, Any],
+    session_id: str | None = None,
+    pocketbase_record_id: str | None = None,
+) -> None:
     """Save audit progress to session file for real-time updates."""
     storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -70,6 +74,19 @@ def _save_progress(result: dict[str, Any]) -> None:
 
     with latest_file.open("w") as f:
         json.dump(session, f, indent=2)
+
+    # Update PocketBase for realtime subscriptions
+    from jobs.pocketbase_progress import update_audit_progress
+
+    pb_session_id = session_id or session["id"]
+    update_audit_progress(
+        session_id=pb_session_id,
+        audit_type="merchant_center",
+        status=result.get("status", "running"),
+        result=result if result.get("status") in ("success", "warning", "error") else None,
+        error=result.get("error_message"),
+        pocketbase_record_id=pocketbase_record_id,
+    )
 
 
 def _init_result(run_id: str) -> dict[str, Any]:
@@ -733,8 +750,10 @@ def create_gmc_audit_function() -> inngest.Function | None:
     async def gmc_audit(ctx: inngest.Context) -> dict[str, Any]:
         """Run GMC audit with step-by-step progress."""
         run_id = ctx.event.data.get("run_id", str(uuid4())[:8])
+        session_id = ctx.event.data.get("session_id", run_id)
+        pb_record_id = ctx.event.data.get("pocketbase_record_id")
         result = _init_result(run_id)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Get config
         gmc_config = _get_gmc_config()
@@ -742,13 +761,13 @@ def create_gmc_audit_function() -> inngest.Function | None:
         creds_path = gmc_config.get("service_account_key_path", "")
 
         # Step 1: Check connection
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step1_result = await ctx.step.run(
             "check-gmc-connection",
             lambda: _step_1_check_connection(merchant_id, creds_path),
         )
         result["steps"].append(step1_result["step"])
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         if not step1_result["success"]:
             # Skip remaining steps
@@ -768,20 +787,20 @@ def create_gmc_audit_function() -> inngest.Function | None:
                 )
             result["status"] = "error"
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
-            _save_progress(result)
+            _save_progress(result, session_id, pb_record_id)
             return result
 
         token = step1_result["token"]
         account_issues = step1_result["account_issues"]
 
         # Step 2: Products status
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step2_result = await ctx.step.run(
             "fetch-products-status",
             lambda: _step_2_products_status(merchant_id, token),
         )
         result["steps"].append(step2_result["step"])
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         products_data = {
             "total_products": step2_result["total_products"],
@@ -793,24 +812,24 @@ def create_gmc_audit_function() -> inngest.Function | None:
         }
 
         # Step 3: Feed sync
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step3_result = await ctx.step.run(
             "analyze-feed-sync",
             lambda: _step_3_feed_sync(merchant_id, products_data),
         )
         result["steps"].append(step3_result["step"])
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         google_pub_status = step3_result["google_pub_status"]
 
         # Step 4: Feed quality
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step4_result = await ctx.step.run(
             "analyze-feed-quality",
             lambda: _step_5_feed_quality(merchant_id, token, products_data),
         )
         result["steps"].append(step4_result["step"])
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         quality_metrics = step4_result["quality_metrics"]
 
@@ -841,11 +860,11 @@ def create_gmc_audit_function() -> inngest.Function | None:
         step5["completed_at"] = datetime.now(tz=UTC).isoformat()
         step5["duration_ms"] = int((datetime.now(tz=UTC) - start_time).total_seconds() * 1000)
         result["steps"].append(step5)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Finalize
         final_result = _finalize_result(result, products_data, google_pub_status, quality_metrics)
-        _save_progress(final_result)
+        _save_progress(final_result, session_id, pb_record_id)
 
         return final_result
 

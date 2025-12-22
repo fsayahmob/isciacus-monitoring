@@ -33,7 +33,11 @@ def _init_result(run_id: str) -> dict[str, Any]:
     }
 
 
-def _save_progress(result: dict[str, Any]) -> None:
+def _save_progress(
+    result: dict[str, Any],
+    session_id: str | None = None,
+    pocketbase_record_id: str | None = None,
+) -> None:
     """Save progress to audit session."""
     storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -57,6 +61,19 @@ def _save_progress(result: dict[str, Any]) -> None:
     # Save
     with latest_file.open("w") as f:
         json.dump(session, f, indent=2, default=str)
+
+    # Update PocketBase for realtime subscriptions
+    from jobs.pocketbase_progress import update_audit_progress
+
+    pb_session_id = session_id or session["id"]
+    update_audit_progress(
+        session_id=pb_session_id,
+        audit_type="capi",
+        status=result.get("status", "running"),
+        result=result if result.get("status") in ("success", "warning", "error") else None,
+        error=result.get("error_message"),
+        pocketbase_record_id=pocketbase_record_id,
+    )
 
 
 def _check_credentials() -> dict[str, Any]:
@@ -218,33 +235,36 @@ def create_capi_audit_function() -> inngest.Function | None:
     )
     async def capi_audit(ctx: inngest.Context) -> dict[str, Any]:
         """Audit de la configuration CAPI."""
+        session_id = ctx.event.data.get("session_id", ctx.run_id)
+        pb_record_id = ctx.event.data.get("pocketbase_record_id")
+
         result = _init_result(ctx.run_id)
 
         # Step 1: Check credentials
         step1 = await ctx.step.run("check_credentials", _check_credentials)
         result["steps"].append(step1)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         if step1["status"] == "error":
             result["status"] = "error"
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
-            _save_progress(result)
+            _save_progress(result, session_id, pb_record_id)
             return result
 
         # Step 2: Test connection
         step2 = await ctx.step.run("test_connection", _test_connection)
         result["steps"].append(step2)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 3: Get pixel info
         step3 = await ctx.step.run("pixel_info", _get_pixel_info)
         result["steps"].append(step3)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 4: Check EMQ score
         step4 = await ctx.step.run("emq_score", _check_emq_score)
         result["steps"].append(step4)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Summary
         result["status"] = (
@@ -259,7 +279,7 @@ def create_capi_audit_function() -> inngest.Function | None:
             "last_fired": step4["result"].get("last_fired"),
         }
 
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         return result
 
     return capi_audit

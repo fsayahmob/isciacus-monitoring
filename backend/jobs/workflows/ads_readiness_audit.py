@@ -54,7 +54,11 @@ STEPS = [
 ]
 
 
-def _save_progress(result: dict[str, Any]) -> None:
+def _save_progress(
+    result: dict[str, Any],
+    session_id: str | None = None,
+    pocketbase_record_id: str | None = None,
+) -> None:
     """Save audit progress to session file."""
     storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -76,6 +80,19 @@ def _save_progress(result: dict[str, Any]) -> None:
 
     with latest_file.open("w") as f:
         json.dump(session, f, indent=2)
+
+    # Update PocketBase for realtime subscriptions
+    from jobs.pocketbase_progress import update_audit_progress
+
+    pb_session_id = session_id or session["id"]
+    update_audit_progress(
+        session_id=pb_session_id,
+        audit_type="ads_readiness",
+        status=result.get("status", "running"),
+        result=result if result.get("status") in ("success", "warning", "error") else None,
+        error=result.get("error_message"),
+        pocketbase_record_id=pocketbase_record_id,
+    )
 
 
 def _init_result(run_id: str) -> dict[str, Any]:
@@ -821,8 +838,11 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
     async def ads_readiness_audit(ctx: inngest.Context) -> dict[str, Any]:
         """Run Ads Readiness audit with step-by-step progress."""
         run_id = ctx.event.data.get("run_id", ctx.run_id)
+        session_id = ctx.event.data.get("session_id", run_id)
+        pb_record_id = ctx.event.data.get("pocketbase_record_id")
+
         result = _init_result(run_id)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         total_score = 0
         max_total_score = 100
@@ -832,7 +852,7 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
         result["steps"].append(step1_result["step"])
         result["issues"].extend(step1_result["issues"])
         total_score += step1_result["score"]
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 2: Conversion Completeness
         step2_result = await ctx.step.run(
@@ -841,14 +861,14 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
         result["steps"].append(step2_result["step"])
         result["issues"].extend(step2_result["issues"])
         total_score += step2_result["score"]
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 3: Segmentation Data
         step3_result = await ctx.step.run("check-segmentation-data", _check_segmentation_data)
         result["steps"].append(step3_result["step"])
         result["issues"].extend(step3_result["issues"])
         total_score += step3_result["score"]
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 4: Attribution Readiness
         step4_result = await ctx.step.run(
@@ -857,14 +877,14 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
         result["steps"].append(step4_result["step"])
         result["issues"].extend(step4_result["issues"])
         total_score += step4_result["score"]
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 5: Ads Metrics
         step5_result = await ctx.step.run("check-ads-metrics", _check_ads_metrics)
         result["steps"].append(step5_result["step"])
         result["issues"].extend(step5_result["issues"])
         total_score += step5_result["score"]
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Finalize
         has_errors = any(s.get("status") == "error" for s in result["steps"])
@@ -892,7 +912,7 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
             "medium_issues": len([i for i in result["issues"] if i["severity"] == "medium"]),
         }
 
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         return result
 
     return ads_readiness_audit

@@ -42,7 +42,11 @@ STEPS_BASIC_SEO = [
 STEPS = STEPS_WITH_GSC
 
 
-def _save_progress(result: dict[str, Any]) -> None:
+def _save_progress(
+    result: dict[str, Any],
+    session_id: str | None = None,
+    pocketbase_record_id: str | None = None,
+) -> None:
     """Save audit progress to session file."""
     storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -64,6 +68,19 @@ def _save_progress(result: dict[str, Any]) -> None:
 
     with latest_file.open("w") as f:
         json.dump(session, f, indent=2)
+
+    # Update PocketBase for realtime subscriptions
+    from jobs.pocketbase_progress import update_audit_progress
+
+    pb_session_id = session_id or session["id"]
+    update_audit_progress(
+        session_id=pb_session_id,
+        audit_type="search_console",
+        status=result.get("status", "running"),
+        result=result if result.get("status") in ("success", "warning", "error") else None,
+        error=result.get("error_message"),
+        pocketbase_record_id=pocketbase_record_id,
+    )
 
 
 def _init_result(run_id: str) -> dict[str, Any]:
@@ -882,7 +899,12 @@ def _step_4_check_sitemaps(site_url: str, token: str) -> dict[str, Any]:
     return {"step": step, "issues": issues}
 
 
-async def _run_basic_seo_audit(ctx: inngest.Context, result: dict[str, Any]) -> dict[str, Any]:
+async def _run_basic_seo_audit(
+    ctx: inngest.Context,
+    result: dict[str, Any],
+    session_id: str | None = None,
+    pb_record_id: str | None = None,
+) -> dict[str, Any]:
     """Run basic SEO audit (when GSC is not configured)."""
     site_url = _get_site_url()
 
@@ -924,25 +946,25 @@ async def _run_basic_seo_audit(ctx: inngest.Context, result: dict[str, Any]) -> 
     step1_result = await ctx.step.run("check-robots-txt", lambda: _step_basic_robots_txt(site_url))
     result["steps"].append(step1_result["step"])
     result["issues"].extend(step1_result["issues"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     # Step 2: Sitemap
     step2_result = await ctx.step.run("check-sitemap", lambda: _step_basic_sitemap(site_url))
     result["steps"].append(step2_result["step"])
     result["issues"].extend(step2_result["issues"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     # Step 3: Meta Tags
     step3_result = await ctx.step.run("check-meta-tags", lambda: _step_basic_meta_tags(site_url))
     result["steps"].append(step3_result["step"])
     result["issues"].extend(step3_result["issues"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     # Step 4: SEO Basics
     step4_result = await ctx.step.run("check-seo-basics", lambda: _step_basic_seo_checks(site_url))
     result["steps"].append(step4_result["step"])
     result["issues"].extend(step4_result["issues"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     # Finalize
     has_errors = any(s.get("status") == "error" for s in result["steps"])
@@ -960,7 +982,12 @@ async def _run_basic_seo_audit(ctx: inngest.Context, result: dict[str, Any]) -> 
 
 
 async def _run_gsc_audit(
-    ctx: inngest.Context, result: dict[str, Any], site_url: str, creds_path: str
+    ctx: inngest.Context,
+    result: dict[str, Any],
+    site_url: str,
+    creds_path: str,
+    session_id: str | None = None,
+    pb_record_id: str | None = None,
 ) -> dict[str, Any]:
     """Run full GSC audit (when GSC is configured)."""
     # Step 1: Check connection
@@ -969,7 +996,7 @@ async def _run_gsc_audit(
         lambda: _step_1_check_connection(site_url, creds_path),
     )
     result["steps"].append(step1_result["step"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     if not step1_result["success"]:
         for step_def in STEPS_WITH_GSC[1:]:
@@ -999,13 +1026,13 @@ async def _run_gsc_audit(
     )
     result["steps"].append(step2_result["step"])
     result["issues"].extend(step2_result["issues"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     # Step 3: Check errors
     step3_result = await ctx.step.run("check-errors", lambda: _step_3_check_errors(site_url, token))
     result["steps"].append(step3_result["step"])
     result["issues"].extend(step3_result["issues"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     # Step 4: Check sitemaps
     step4_result = await ctx.step.run(
@@ -1013,7 +1040,7 @@ async def _run_gsc_audit(
     )
     result["steps"].append(step4_result["step"])
     result["issues"].extend(step4_result["issues"])
-    _save_progress(result)
+    _save_progress(result, session_id, pb_record_id)
 
     # Finalize
     has_errors = any(s.get("status") == "error" for s in result["steps"])
@@ -1043,8 +1070,11 @@ def create_gsc_audit_function() -> inngest.Function | None:
     async def gsc_audit(ctx: inngest.Context) -> dict[str, Any]:
         """Run GSC/SEO audit with step-by-step progress."""
         run_id = ctx.event.data.get("run_id", str(uuid4())[:8])
+        session_id = ctx.event.data.get("session_id", run_id)
+        pb_record_id = ctx.event.data.get("pocketbase_record_id")
+
         result = _init_result(run_id)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Check if GSC is configured
         gsc_config = _get_gsc_config()
@@ -1054,12 +1084,12 @@ def create_gsc_audit_function() -> inngest.Function | None:
 
         if gsc_configured:
             # Run full GSC audit
-            result = await _run_gsc_audit(ctx, result, gsc_site_url, creds_path)
+            result = await _run_gsc_audit(ctx, result, gsc_site_url, creds_path, session_id, pb_record_id)
         else:
             # Run basic SEO audit
-            result = await _run_basic_seo_audit(ctx, result)
+            result = await _run_basic_seo_audit(ctx, result, session_id, pb_record_id)
 
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         return result
 
     return gsc_audit

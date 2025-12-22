@@ -1303,6 +1303,10 @@ async def run_all_audits(period: int = Query(default=30)) -> dict[str, Any]:
     """
     from jobs.inngest_setup import trigger_audit, trigger_onboarding_audit
 
+    # Get current session ID for PocketBase tracking
+    session = audit_orchestrator.get_latest_session()
+    session_id = session.id if session else None
+
     # Get list of available audits
     available = audit_orchestrator.get_available_audits()
     triggered = []
@@ -1316,9 +1320,9 @@ async def run_all_audits(period: int = Query(default=30)) -> dict[str, Any]:
 
         try:
             if audit_type == "onboarding":
-                result = await trigger_onboarding_audit()
+                result = await trigger_onboarding_audit(session_id=session_id)
             else:
-                result = await trigger_audit(audit_type, period)
+                result = await trigger_audit(audit_type, period, session_id=session_id)
 
             if result.get("status") == "triggered":
                 triggered.append(
@@ -1379,12 +1383,16 @@ async def run_audit(
         trigger_onboarding_audit,
     )
 
+    # Get current session ID for PocketBase tracking
+    session = audit_orchestrator.get_latest_session()
+    session_id = session.id if session else None
+
     # Onboarding has its own specialized workflow
     if audit_enum == AuditType.ONBOARDING:
-        trigger_result = await trigger_onboarding_audit()
+        trigger_result = await trigger_onboarding_audit(session_id=session_id)
     else:
         # Use dedicated workflows via trigger_audit dispatcher
-        trigger_result = await trigger_audit(audit_type, period)
+        trigger_result = await trigger_audit(audit_type, period, session_id=session_id)
 
     if trigger_result.get("status") == "error":
         raise HTTPException(

@@ -101,7 +101,11 @@ def _init_result(run_id: str) -> dict[str, Any]:
     }
 
 
-def _save_progress(result: dict[str, Any]) -> None:
+def _save_progress(
+    result: dict[str, Any],
+    session_id: str | None = None,
+    pocketbase_record_id: str | None = None,
+) -> None:
     """Save audit progress to session file."""
     storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -123,6 +127,19 @@ def _save_progress(result: dict[str, Any]) -> None:
 
     with latest_file.open("w") as f:
         json.dump(session, f, indent=2)
+
+    # Update PocketBase for realtime subscriptions
+    from jobs.pocketbase_progress import update_audit_progress
+
+    pb_session_id = session_id or session["id"]
+    update_audit_progress(
+        session_id=pb_session_id,
+        audit_type="bot_access",
+        status=result.get("status", "running"),
+        result=result if result.get("status") in ("success", "warning", "error") else None,
+        error=result.get("error"),
+        pocketbase_record_id=pocketbase_record_id,
+    )
 
 
 def _find_step(result: dict[str, Any], step_id: str) -> dict[str, Any] | None:
@@ -193,7 +210,6 @@ def _check_robots_txt(result: dict[str, Any]) -> dict[str, Any]:
     Step 1: Check robots.txt for crawler blocks.
     """
     _update_step(result, "robots_txt", "running")
-    _save_progress(result)
 
     shop_url = _get_shop_url()
     if not shop_url:
@@ -303,7 +319,6 @@ def _check_googlebot_access(result: dict[str, Any]) -> dict[str, Any]:
     Step 2: Test access with Googlebot user-agent.
     """
     _update_step(result, "googlebot_access", "running")
-    _save_progress(result)
 
     shop_url = _get_shop_url()
     if not shop_url:
@@ -423,7 +438,6 @@ def _check_facebookbot_access(result: dict[str, Any]) -> dict[str, Any]:
     Step 3: Test access with Facebookbot user-agent.
     """
     _update_step(result, "facebookbot_access", "running")
-    _save_progress(result)
 
     shop_url = _get_shop_url()
     if not shop_url:
@@ -534,7 +548,6 @@ def _check_protection_headers(result: dict[str, Any]) -> dict[str, Any]:
     Step 4: Check for anti-bot protection (Cloudflare, WAF, etc.).
     """
     _update_step(result, "protection_headers", "running")
-    _save_progress(result)
 
     shop_url = _get_shop_url()
     if not shop_url:
@@ -835,8 +848,11 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             Audit result with bot access status and recommendations
         """
         run_id = ctx.run_id if hasattr(ctx, "run_id") else str(ctx.event.data.get("run_id", ""))
+        session_id = ctx.event.data.get("session_id", run_id)
+        pb_record_id = ctx.event.data.get("pocketbase_record_id")
+
         result = _init_result(run_id)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 1: Check robots.txt
         robots_result = await ctx.step.run(
@@ -844,7 +860,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_robots_txt(result),
         )
         result.update(robots_result)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 2: Check Googlebot access
         googlebot_result = await ctx.step.run(
@@ -852,7 +868,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_googlebot_access(result),
         )
         result.update(googlebot_result)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 3: Check Facebookbot access
         facebookbot_result = await ctx.step.run(
@@ -860,7 +876,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_facebookbot_access(result),
         )
         result.update(facebookbot_result)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 4: Check protection headers
         protection_result = await ctx.step.run(
@@ -868,7 +884,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_protection_headers(result),
         )
         result.update(protection_result)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Mark as completed
         result["status"] = "success" if result["bots_can_access"] else "warning"
@@ -881,7 +897,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             "protections_count": result.get("protection_headers", {}).get("count", 0),
             "issues_count": len(result.get("issues", [])),
         }
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         return result
 

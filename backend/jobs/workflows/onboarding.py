@@ -26,12 +26,14 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 def _process_step_result(
     result: dict[str, Any],
     step_result: dict[str, Any],
+    session_id: str | None = None,
+    pocketbase_record_id: str | None = None,
 ) -> bool:
     """Process a step result: append step, handle issues, return success status."""
     result["steps"].append(step_result["step"])
     if step_result.get("issue"):
         result["issues"].append(step_result["issue"])
-    _save_progress(result)
+    _save_progress(result, session_id, pocketbase_record_id)
     return step_result["success"]
 
 
@@ -63,51 +65,53 @@ def create_onboarding_function() -> inngest.Function | None:
     async def onboarding_audit(ctx: inngest.Context) -> dict[str, Any]:
         """Run onboarding audit - checks all service configurations."""
         run_id = ctx.event.data.get("run_id", str(uuid4())[:8])
+        session_id = ctx.event.data.get("session_id", run_id)
+        pb_record_id = ctx.event.data.get("pocketbase_record_id")
         result = _init_audit_result(run_id)
         services_configured = 0
 
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
 
         # Step 1: Check Shopify connection
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step_result = await ctx.step.run("check-shopify", _check_shopify_connection)
-        if _process_step_result(result, step_result):
+        if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 2: Check GA4 configuration
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step_result = await ctx.step.run("check-ga4", _check_ga4_config)
-        if _process_step_result(result, step_result):
+        if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 3: Check Meta Pixel configuration
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step_result = await ctx.step.run("check-meta", _check_meta_config)
-        if _process_step_result(result, step_result):
+        if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 4: Check Google Merchant Center
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step_result = await ctx.step.run("check-gmc", _check_gmc_config)
-        if _process_step_result(result, step_result):
+        if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 5: Check Google Search Console
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step_result = await ctx.step.run("check-gsc", _check_gsc_config)
-        if _process_step_result(result, step_result):
+        if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 6: Check Google OAuth2 Credentials (for GMC & GA4 API access)
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step_result = await ctx.step.run("check-google-credentials", _check_google_credentials)
-        if _process_step_result(result, step_result):
+        if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 7: Check Meta Token Permissions
-        _save_progress(result)
+        _save_progress(result, session_id, pb_record_id)
         step_result = await ctx.step.run("check-meta-permissions", _check_meta_permissions)
-        if _process_step_result(result, step_result):
+        if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Finalize - pass a copy of result to avoid closure issues
@@ -911,7 +915,11 @@ def _finalize_result(
     return result
 
 
-def _save_progress(result: dict[str, Any]) -> dict[str, str]:
+def _save_progress(
+    result: dict[str, Any],
+    session_id: str | None = None,
+    pocketbase_record_id: str | None = None,
+) -> dict[str, str]:
     """Save audit progress to session file for real-time updates.
 
     Called after each step to provide live progress feedback.
@@ -940,6 +948,19 @@ def _save_progress(result: dict[str, Any]) -> dict[str, str]:
 
     with latest_file.open("w") as f:
         json.dump(session, f, indent=2)
+
+    # Update PocketBase for realtime subscriptions
+    from jobs.pocketbase_progress import update_audit_progress
+
+    pb_session_id = session_id or session["id"]
+    update_audit_progress(
+        session_id=pb_session_id,
+        audit_type="onboarding",
+        status=result.get("status", "running"),
+        result=result if result.get("status") in ("success", "warning", "error") else None,
+        error=result.get("error_message"),
+        pocketbase_record_id=pocketbase_record_id,
+    )
 
     return {"status": "progress_saved", "step_count": len(result.get("steps", []))}
 
