@@ -136,7 +136,8 @@ test.describe('Audit Page - PocketBase Integration', () => {
   })
 })
 
-test.describe('Audit Page - Full E2E with Orchestrator', () => {
+// Tests that modify PocketBase state must run serially to avoid conflicts
+test.describe.serial('Audit Page - Full E2E with Orchestrator', () => {
   test.beforeEach(async ({ page }) => {
     const pbAvailable = await isPocketBaseAvailable(page)
     test.skip(!pbAvailable, 'PocketBase not available - skipping orchestrator tests')
@@ -222,9 +223,10 @@ test.describe('Audit Page - Full E2E with Orchestrator', () => {
 
     // If audits completed during refresh, check for completion indicators
     if (!stateRestored) {
-      const completedText = page.locator('text=/Terminé|Completed|Succès|✓/i')
-      const completedCount = await completedText.count()
-      console.log(`No running audits - checking for completed: ${completedCount}`)
+      // UI shows "OK" or "X pb" badges for completed audits
+      const completedBadges = page.locator('text=/OK|\\d+\\s*pb/i')
+      const completedCount = await completedBadges.count()
+      console.log(`No running audits - checking for completed badges: ${completedCount}`)
       // Either running or completed indicators should be present
       expect(completedCount).toBeGreaterThan(0)
     } else {
@@ -233,7 +235,7 @@ test.describe('Audit Page - Full E2E with Orchestrator', () => {
   })
 })
 
-test.describe('Audit Page - Sequential Audit Status Updates', () => {
+test.describe.serial('Audit Page - Sequential Audit Status Updates', () => {
   test.beforeEach(async ({ page }) => {
     const pbAvailable = await isPocketBaseAvailable(page)
     test.skip(!pbAvailable, 'PocketBase not available - skipping status update tests')
@@ -338,7 +340,7 @@ test.describe('Audit Page - Sequential Audit Status Updates', () => {
   })
 })
 
-test.describe('Audit Page - State Persistence on Refresh', () => {
+test.describe.serial('Audit Page - State Persistence on Refresh', () => {
   test.beforeEach(async ({ page }) => {
     const pbAvailable = await isPocketBaseAvailable(page)
     test.skip(!pbAvailable, 'PocketBase not available - skipping persistence tests')
@@ -359,6 +361,21 @@ test.describe('Audit Page - State Persistence on Refresh', () => {
       return
     }
     console.log(`Using backend session_id: ${sessionId}`)
+
+    // Step 1.5: Delete any existing records for this audit_type to avoid conflicts
+    // The hook keeps the most recent record by started_at, so we need a clean state
+    const existingRecords = await page.request.get(
+      `http://localhost:8090/api/collections/audit_runs/records?filter=(session_id="${sessionId}" && audit_type="${testAuditType}")`
+    )
+    if (existingRecords.ok()) {
+      const existing = await existingRecords.json()
+      for (const record of existing.items ?? []) {
+        await page.request.delete(
+          `http://localhost:8090/api/collections/audit_runs/records/${record.id}`
+        )
+        console.log(`Cleaned up existing record: ${record.id}`)
+      }
+    }
 
     // Step 2: Create a "running" audit record in PocketBase with the REAL session ID
     console.log(`Creating test audit run with session_id: ${sessionId}`)

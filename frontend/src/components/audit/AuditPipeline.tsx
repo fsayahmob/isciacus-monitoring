@@ -1,5 +1,7 @@
 /**
  * Audit Pipeline - Modern Dark Theme Dashboard
+ *
+ * Simplified architecture using PocketBase as single source of truth.
  */
 
 import React from 'react'
@@ -12,20 +14,7 @@ import { PageHeader } from './AuditPageHeader'
 import { AuditProgressIndicator } from './AuditProgressIndicator'
 import { AuditResultSection } from './AuditResultSection'
 import { useAuditSession } from './useAuditSession'
-import type { AuditProgress } from './useSequentialAuditRunner'
 import { useSequentialAuditRunner } from './useSequentialAuditRunner'
-
-function createAuditRunningChecker(
-  isAuditRunning: (type: string) => boolean,
-  _isSequentialRunning: boolean,
-  _progress: AuditProgress[]
-): (auditType: string) => boolean {
-  // PocketBase via isAuditRunning is the single source of truth.
-  // The sequential runner's progress array is only used for the header UI,
-  // not for determining if individual audit cards show "running" state.
-  // This ensures buttons update immediately when PocketBase receives completion.
-  return isAuditRunning
-}
 
 function useAuditMutations(): {
   executeAction: {
@@ -50,25 +39,31 @@ function useAuditMutations(): {
   return { executeAction, clearCache }
 }
 
+/**
+ * Check if any audit is currently running in PocketBase.
+ */
+function hasRunningAudits(pbAuditRuns: Map<string, { status: string }>): boolean {
+  for (const run of pbAuditRuns.values()) {
+    if (run.status === 'running') {
+      return true
+    }
+  }
+  return false
+}
+
 export function AuditPipeline(): React.ReactElement {
   const session = useAuditSession()
   const { audits } = session.availableAudits
 
-  // Pass PocketBase data to sequential runner for state restoration and realtime sync
   const runner = useSequentialAuditRunner({
     pbAuditRuns: session.pbAuditRuns,
-    pbConnected: session.pbConnected,
     availableAudits: audits,
   })
   const { executeAction, clearCache } = useAuditMutations()
 
-  const isRunning = session.runningAudits.size > 0 || runner.isRunning
-  const checker = createAuditRunningChecker(
-    session.isAuditRunning,
-    runner.isRunning,
-    runner.progress
-  )
-  const count = runner.isRunning ? runner.completedCount : session.runningAudits.size
+  // PocketBase is the source of truth for running state
+  const anyRunning = hasRunningAudits(session.pbAuditRuns) || runner.isRunning
+  const count = runner.isRunning ? runner.completedCount : 0
 
   return (
     <div className="min-h-screen bg-bg-primary p-6">
@@ -80,7 +75,7 @@ export function AuditPipeline(): React.ReactElement {
           onClearCache={() => {
             clearCache.mutate()
           }}
-          isRunning={isRunning}
+          isRunning={anyRunning}
           isClearingCache={clearCache.isPending}
           runningCount={count}
           totalCount={runner.isRunning ? runner.totalAudits : 0}
@@ -93,7 +88,7 @@ export function AuditPipeline(): React.ReactElement {
         <AuditCardsGrid
           audits={audits}
           selectedAudit={session.selectedAudit}
-          isAuditRunning={checker}
+          isAuditRunning={session.isAuditRunning}
           onRun={session.runAudit}
           onSelect={session.selectAudit}
           onStop={session.stopAudit}
@@ -110,7 +105,7 @@ export function AuditPipeline(): React.ReactElement {
             />
           }
         />
-        {runner.showSummary && runner.score && runner.readiness && (
+        {runner.showSummary && runner.score !== null && runner.readiness !== null && (
           <AuditCampaignSummary
             score={runner.score}
             readiness={runner.readiness}
