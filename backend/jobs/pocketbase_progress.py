@@ -18,6 +18,24 @@ logger = logging.getLogger(__name__)
 
 POCKETBASE_ENABLED = os.getenv("POCKETBASE_URL", "") != ""
 
+# PocketBase only accepts these status values
+POCKETBASE_STATUS_VALUES = {"pending", "running", "completed", "failed"}
+
+
+def _map_status_to_pocketbase(status: str) -> str:
+    """Map workflow status to PocketBase-compatible status.
+
+    Workflow statuses: pending, running, success, warning, error
+    PocketBase statuses: pending, running, completed, failed
+    """
+    if status in POCKETBASE_STATUS_VALUES:
+        return status
+    if status in ("success", "warning"):
+        return "completed"
+    if status == "error":
+        return "failed"
+    return status
+
 
 def update_audit_by_record_id(
     record_id: str,
@@ -53,9 +71,10 @@ def update_audit_by_record_id(
         from services.pocketbase_service import PocketBaseError, get_pocketbase_service
 
         pb = get_pocketbase_service()
+        pb_status = _map_status_to_pocketbase(status)
         pb.update_status(
             record_id=record_id,
-            status=status,
+            status=pb_status,
             result=result,
             error=error,
             run_id=run_id,
@@ -117,6 +136,7 @@ def update_audit_progress(
         from services.pocketbase_service import PocketBaseError, get_pocketbase_service
 
         pb = get_pocketbase_service()
+        pb_status = _map_status_to_pocketbase(status)
 
         # Check for existing record
         existing = pb.get_audit_by_type(session_id, audit_type)
@@ -125,11 +145,11 @@ def update_audit_progress(
             # Update existing record
             record = pb.update_status(
                 record_id=existing["id"],
-                status=status,
+                status=pb_status,
                 result=result,
                 error=error,
             )
-            logger.info("Updated audit %s/%s to %s", session_id, audit_type, status)
+            logger.info("Updated audit %s/%s to %s", session_id, audit_type, pb_status)
             return record["id"]  # type: ignore[no-any-return]
 
         # Create new record
@@ -141,10 +161,10 @@ def update_audit_progress(
         logger.info("Created audit run %s/%s", session_id, audit_type)
 
         # If status is not "running", update it
-        if status != "running":
+        if pb_status != "running":
             record = pb.update_status(
                 record_id=record["id"],
-                status=status,
+                status=pb_status,
                 result=result,
                 error=error,
             )
