@@ -235,7 +235,13 @@ export function AuditCardsGrid({
                 onSelect={() => {
                   onSelect(audit.type)
                 }}
-                onStop={onStop !== undefined ? () => { onStop(audit.type) } : undefined}
+                onStop={
+                  onStop !== undefined
+                    ? () => {
+                        onStop(audit.type)
+                      }
+                    : undefined
+                }
               />
               {selectedAudit === audit.type && accordionContent !== undefined && (
                 <AuditAccordionContent content={accordionContent} />

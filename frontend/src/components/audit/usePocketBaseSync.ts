@@ -22,14 +22,8 @@ interface PocketBaseSyncConfig {
  * Handles both realtime updates and initial load from PocketBase.
  */
 export function usePocketBaseSync(config: PocketBaseSyncConfig): void {
-  const {
-    pbAuditRuns,
-    pbConnected,
-    setRunningAudits,
-    setOptimisticResults,
-    session,
-    queryClient,
-  } = config
+  const { pbAuditRuns, pbConnected, setRunningAudits, setOptimisticResults, session, queryClient } =
+    config
 
   // Sync PocketBase realtime updates with local state
   // Use ref to track previous state and avoid infinite loop
