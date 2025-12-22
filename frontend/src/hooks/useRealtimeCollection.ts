@@ -188,17 +188,36 @@ export function useRealtimeCollection<T extends RecordWithId>(
     setRecords,
   })
 
+  // Track if initial fetch has been done to prevent infinite loops
+  const hasFetchedRef = React.useRef(false)
+  const currentFilterRef = React.useRef(filter)
+  const currentSortRef = React.useRef(sort)
+
   React.useEffect(() => {
+    // Reset fetch flag if filter/sort changed
+    if (currentFilterRef.current !== filter || currentSortRef.current !== sort) {
+      hasFetchedRef.current = false
+      currentFilterRef.current = filter
+      currentSortRef.current = sort
+    }
+
     if (!enabled) {
       setState({ records: new Map(), isLoading: false, isConnected: false, error: null })
+      hasFetchedRef.current = false
       return
     }
+
+    // Skip if already fetched with same params
+    if (hasFetchedRef.current) {
+      return
+    }
+    hasFetchedRef.current = true
 
     void (async (): Promise<void> => {
       await fetchRecords()
       await subscribe()
     })()
-  }, [enabled, fetchRecords, subscribe])
+  }, [enabled, filter, sort, fetchRecords, subscribe])
 
   const recordsArray = React.useMemo(() => Array.from(state.records.values()), [state.records])
 
