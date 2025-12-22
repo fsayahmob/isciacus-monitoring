@@ -2,13 +2,20 @@
  * Polling helpers for audit session queries
  */
 
-import type { Query } from '@tanstack/react-query'
 import { type AuditSession } from '../../services/api'
 
 const POLL_INTERVAL_MS = 1000
 
 interface SessionData {
   session: AuditSession | null
+}
+
+/** Minimal query state interface for polling decisions */
+interface QueryState {
+  state: {
+    status: string
+    data?: SessionData
+  }
 }
 
 /**
@@ -20,8 +27,7 @@ interface SessionData {
  */
 export function getAuditPollInterval(
   runningAuditsSize: number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  query: Query<SessionData, any, SessionData, any>
+  query: QueryState
 ): number | false {
   // Poll if we have locally tracked running audits
   if (runningAuditsSize > 0) {
