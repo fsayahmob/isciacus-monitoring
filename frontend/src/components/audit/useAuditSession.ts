@@ -144,24 +144,26 @@ function useAuditControls(config: AuditControlsConfig): {
     },
     [runAuditMutation]
   )
-  // Check local state, PocketBase realtime, AND backend session for running status
+  // Check running status: PocketBase is source of truth, with local fallback for optimistic UI
   const isAuditRunning = React.useCallback(
     (t: string): boolean => {
-      // First check local tracking (for audits we just started)
+      // PocketBase realtime data is the source of truth
+      const pbStatus = pbAuditRuns.get(t)?.status
+      if (pbStatus !== undefined) {
+        return pbStatus === 'running'
+      }
+      // Fallback to local tracking only if PocketBase doesn't have data yet
+      // (brief window after clicking Run before PocketBase receives the update)
       if (runningAudits.has(t)) {
         return true
       }
-      // Check PocketBase realtime data (most accurate after page refresh)
-      if (pbAuditRuns.get(t)?.status === 'running') {
-        return true
-      }
-      // Fallback to backend session
+      // Last resort: check backend session (for legacy data)
       if (session !== null && t in session.audits) {
         return session.audits[t].status === 'running'
       }
       return false
     },
-    [runningAudits, pbAuditRuns, session]
+    [pbAuditRuns, runningAudits, session]
   )
   const markAllAuditsAsRunning = React.useCallback(
     (types: string[]): void => {
