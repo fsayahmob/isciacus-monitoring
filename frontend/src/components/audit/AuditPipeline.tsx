@@ -17,18 +17,14 @@ import { useSequentialAuditRunner } from './useSequentialAuditRunner'
 
 function createAuditRunningChecker(
   isAuditRunning: (type: string) => boolean,
-  isSequentialRunning: boolean,
-  progress: AuditProgress[]
+  _isSequentialRunning: boolean,
+  _progress: AuditProgress[]
 ): (auditType: string) => boolean {
-  return (auditType: string): boolean => {
-    if (isAuditRunning(auditType)) {
-      return true
-    }
-    if (!isSequentialRunning) {
-      return false
-    }
-    return progress.find((p) => p.auditType === auditType)?.status === 'running' || false
-  }
+  // PocketBase via isAuditRunning is the single source of truth.
+  // The sequential runner's progress array is only used for the header UI,
+  // not for determining if individual audit cards show "running" state.
+  // This ensures buttons update immediately when PocketBase receives completion.
+  return isAuditRunning
 }
 
 function useAuditMutations(): {
