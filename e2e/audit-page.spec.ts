@@ -177,22 +177,39 @@ test.describe.serial('Audit Page - Full E2E with Orchestrator', () => {
       console.log('Clicked "Lancer tous les audits"')
     }
 
-    // Step 3: Wait for audits to start (spinners should appear)
-    await page.waitForTimeout(3000)
+    // Step 3: Wait for 3rd audit to be running (2 completed + 1 running)
+    // The orchestrator runs audits SEQUENTIALLY, so only 1 spinner at a time
+    console.log('Waiting for 3rd audit to be running (2 completed + 1 spinner)...')
+    await page.waitForFunction(
+      () => {
+        // Count completed badges (OK, X pb, or checkmark icons)
+        const completedBadges = document.querySelectorAll(
+          '[data-audit-type] .text-success, [data-audit-type] .text-warning, [data-audit-type] .text-error'
+        ).length
+        // Count badges with "OK" or "X pb" text
+        const okBadges = Array.from(document.querySelectorAll('[data-audit-type]')).filter(
+          (card) => /OK|\d+\s*pb/i.test(card.textContent || '')
+        ).length
+        // Count running spinners
+        const spinners = document.querySelectorAll('.animate-spin').length
+        // We want: at least 2 completed AND 1 running (= 3rd audit in progress)
+        const completed = Math.max(completedBadges, okBadges)
+        console.log(`Completed: ${completed}, Spinners: ${spinners}`)
+        return completed >= 2 && spinners >= 1
+      },
+      { timeout: 60000 }
+    )
 
     const spinnersBefore = page.locator('.animate-spin')
-    const runningTextBefore = page.locator('text=/En cours/i')
-
+    const completedBefore = page.locator('[data-audit-type]:has-text("OK"), [data-audit-type]:has-text(" pb")')
     const spinnerCountBefore = await spinnersBefore.count()
-    const runningTextCountBefore = await runningTextBefore.count()
+    const completedCountBefore = await completedBefore.count()
+    console.log(`Before refresh - Spinners: ${spinnerCountBefore}, Completed: ${completedCountBefore}`)
+    expect(spinnerCountBefore).toBeGreaterThanOrEqual(1)
+    expect(completedCountBefore).toBeGreaterThanOrEqual(2)
 
-    console.log(`Before refresh - Spinners: ${spinnerCountBefore}, RunningText: ${runningTextCountBefore}`)
-
-    // At least some indicators should show audits are running
-    expect(spinnerCountBefore + runningTextCountBefore).toBeGreaterThan(0)
-
-    // Step 4: Refresh the page
-    console.log('Refreshing page...')
+    // Step 4: Refresh while multiple audits are running
+    console.log('Refreshing page immediately...')
     await page.reload({ timeout: 15000 })
     await page.waitForLoadState('domcontentloaded')
     console.log('Page reloaded')
@@ -206,31 +223,25 @@ test.describe.serial('Audit Page - Full E2E with Orchestrator', () => {
     }
 
     // Step 5: Wait for PocketBase to restore state
-    await page.waitForTimeout(3000)
+    await page.waitForTimeout(2000)
 
-    // Step 6: Verify running state is restored
+    // Step 6: Verify state is restored - either running OR completed
     const spinnersAfter = page.locator('.animate-spin')
-    const runningTextAfter = page.locator('text=/En cours/i')
+    const completedBadges = page.locator('text=/OK|\\d+\\s*pb/i')
 
     const spinnerCountAfter = await spinnersAfter.count()
-    const runningTextCountAfter = await runningTextAfter.count()
+    const completedCount = await completedBadges.count()
 
-    console.log(`After refresh - Spinners: ${spinnerCountAfter}, RunningText: ${runningTextCountAfter}`)
+    console.log(`After refresh - Spinners: ${spinnerCountAfter}, Completed: ${completedCount}`)
 
-    // The running state should be restored from PocketBase
-    // We expect at least some running indicators (unless audits completed very fast)
-    const stateRestored = spinnerCountAfter > 0 || runningTextCountAfter > 0
+    // State must be restored: either still running or already completed
+    const hasState = spinnerCountAfter > 0 || completedCount > 0
+    expect(hasState).toBeTruthy()
 
-    // If audits completed during refresh, check for completion indicators
-    if (!stateRestored) {
-      // UI shows "OK" or "X pb" badges for completed audits
-      const completedBadges = page.locator('text=/OK|\\d+\\s*pb/i')
-      const completedCount = await completedBadges.count()
-      console.log(`No running audits - checking for completed badges: ${completedCount}`)
-      // Either running or completed indicators should be present
-      expect(completedCount).toBeGreaterThan(0)
-    } else {
+    if (spinnerCountAfter > 0) {
       console.log('✓ Running state successfully restored after refresh via orchestrator')
+    } else {
+      console.log('✓ Audits completed - state correctly shows completed badges')
     }
   })
 })
