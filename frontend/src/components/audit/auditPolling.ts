@@ -25,10 +25,7 @@ interface QueryState {
  * Key insight: On page refresh, runningAudits is empty but backend may have
  * running audits. We poll until we know for sure there are no running audits.
  */
-export function getAuditPollInterval(
-  runningAuditsSize: number,
-  query: QueryState
-): number | false {
+export function getAuditPollInterval(runningAuditsSize: number, query: QueryState): number | false {
   // Poll if we have locally tracked running audits
   if (runningAuditsSize > 0) {
     return POLL_INTERVAL_MS

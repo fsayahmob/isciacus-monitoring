@@ -233,6 +233,110 @@ test.describe('Audit Page - Full E2E with Orchestrator', () => {
   })
 })
 
+test.describe('Audit Page - Sequential Audit Status Updates', () => {
+  test.beforeEach(async ({ page }) => {
+    const pbAvailable = await isPocketBaseAvailable(page)
+    test.skip(!pbAvailable, 'PocketBase not available - skipping status update tests')
+  })
+
+  test('should update first audit to completed when second audit starts', async ({ page }) => {
+    test.setTimeout(60000)
+    const firstAuditType = 'ga4_tracking'
+    const secondAuditType = 'meta_pixel'
+
+    // Get current session ID
+    const sessionResponse = await page.request.get('http://localhost:8080/api/audits/session')
+    expect(sessionResponse.ok()).toBeTruthy()
+    const sessionData = await sessionResponse.json()
+    const sessionId = sessionData.session?.id
+
+    if (!sessionId) {
+      test.skip(true, 'No backend session available')
+      return
+    }
+
+    // Create first audit as "running"
+    const firstAuditResponse = await page.request.post(
+      'http://localhost:8090/api/collections/audit_runs/records',
+      {
+        data: {
+          session_id: sessionId,
+          audit_type: firstAuditType,
+          status: 'running',
+          started_at: new Date().toISOString(),
+        },
+      }
+    )
+    expect(firstAuditResponse.ok()).toBeTruthy()
+    const firstRecord = await firstAuditResponse.json()
+
+    try {
+      // Navigate to audit page
+      await page.goto('/audit')
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(2000)
+
+      // Verify first audit shows as running
+      const runningIndicator = page.locator('.animate-spin, text=/En cours/i')
+      const runningCountBefore = await runningIndicator.count()
+      console.log(`First audit running indicators: ${runningCountBefore}`)
+      expect(runningCountBefore).toBeGreaterThan(0)
+
+      // Update first audit to "completed" in PocketBase
+      const updateResponse = await page.request.patch(
+        `http://localhost:8090/api/collections/audit_runs/records/${firstRecord.id}`,
+        {
+          data: {
+            status: 'completed',
+            result: { score: 100, issues: [] },
+          },
+        }
+      )
+      expect(updateResponse.ok()).toBeTruthy()
+      console.log('Updated first audit to completed')
+
+      // Create second audit as "running"
+      const secondAuditResponse = await page.request.post(
+        'http://localhost:8090/api/collections/audit_runs/records',
+        {
+          data: {
+            session_id: sessionId,
+            audit_type: secondAuditType,
+            status: 'running',
+            started_at: new Date().toISOString(),
+          },
+        }
+      )
+      expect(secondAuditResponse.ok()).toBeTruthy()
+      const secondRecord = await secondAuditResponse.json()
+
+      // Wait for PocketBase realtime update
+      await page.waitForTimeout(3000)
+
+      // Verify: first audit should NOT show as running anymore
+      // Check for the specific first audit card
+      const firstAuditCard = page.locator(`[data-audit-type="${firstAuditType}"]`)
+      const firstAuditSpinner = firstAuditCard.locator('.animate-spin')
+      const firstAuditSpinnerCount = await firstAuditSpinner.count()
+
+      console.log(`First audit spinners after completion: ${firstAuditSpinnerCount}`)
+
+      // First audit should not have spinners (it's completed)
+      expect(firstAuditSpinnerCount).toBe(0)
+
+      // Clean up second record
+      await page.request.delete(
+        `http://localhost:8090/api/collections/audit_runs/records/${secondRecord.id}`
+      )
+    } finally {
+      // Cleanup first record
+      await page.request.delete(
+        `http://localhost:8090/api/collections/audit_runs/records/${firstRecord.id}`
+      )
+    }
+  })
+})
+
 test.describe('Audit Page - State Persistence on Refresh', () => {
   test.beforeEach(async ({ page }) => {
     const pbAvailable = await isPocketBaseAvailable(page)

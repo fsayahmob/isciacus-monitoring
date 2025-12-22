@@ -78,8 +78,13 @@ export function usePocketBaseSync(config: PocketBaseSyncConfig): void {
   const hasInitializedFromBackend = React.useRef(false)
 
   React.useEffect(() => {
-    // If PocketBase is connected and has data, always use it (source of truth)
+    // If PocketBase is connected and has data, use it for initial load only
+    // After initialization, the first effect handles incremental updates
     if (pbConnected && pbAuditRuns.size > 0) {
+      // Only initialize once from PocketBase
+      if (hasInitializedFromPB.current) {
+        return
+      }
       hasInitializedFromPB.current = true
       const running = new Map<string, RunningAuditInfo>()
       for (const [t, r] of pbAuditRuns) {
@@ -87,8 +92,9 @@ export function usePocketBaseSync(config: PocketBaseSyncConfig): void {
           running.set(t, { startedAt: r.started_at })
         }
       }
-      // Always update from PocketBase, even if we previously initialized from backend
       setRunningAudits(running)
+      // Initialize prevPbRunsRef so first effect can track changes
+      prevPbRunsRef.current = new Map(pbAuditRuns)
       return
     }
 
