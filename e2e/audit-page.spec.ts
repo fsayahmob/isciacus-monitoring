@@ -128,52 +128,100 @@ test.describe('Audit Page - State Persistence on Refresh', () => {
     test.skip(!pbAvailable, 'PocketBase not available - skipping persistence tests')
   })
 
-  test('should maintain running audit state after page refresh', async ({ page }) => {
-    await page.goto('/audit')
-    await page.waitForLoadState('networkidle')
+  test('should restore running audit state from PocketBase after refresh', async ({ page }) => {
+    test.setTimeout(60000) // 60 seconds timeout
+    const testAuditType = 'ga4_tracking'
 
-    // Find and click "Run All Audits" button if available
-    const runAllButton = page.locator('button:has-text("Lancer tous"), button:has-text("Run All")')
-    const buttonVisible = await runAllButton.isVisible().catch(() => false)
+    // Step 1: Get the current session ID from the backend
+    const sessionResponse = await page.request.get('http://localhost:8080/api/audits/session')
+    expect(sessionResponse.ok()).toBeTruthy()
+    const sessionData = await sessionResponse.json()
+    const sessionId = sessionData.session?.id
 
-    if (!buttonVisible) {
-      test.skip(true, 'Run All button not visible - may need configuration')
+    if (!sessionId) {
+      test.skip(true, 'No backend session available')
       return
     }
+    console.log(`Using backend session_id: ${sessionId}`)
 
-    // Click to start audits
-    await runAllButton.click()
+    // Step 2: Create a "running" audit record in PocketBase with the REAL session ID
+    console.log(`Creating test audit run with session_id: ${sessionId}`)
+    const createResponse = await page.request.post(
+      'http://localhost:8090/api/collections/audit_runs/records',
+      {
+        data: {
+          session_id: sessionId,
+          audit_type: testAuditType,
+          status: 'running',
+          started_at: new Date().toISOString(),
+        },
+      }
+    )
+    expect(createResponse.ok()).toBeTruthy()
+    const createdRecord = await createResponse.json()
+    console.log(`Created PocketBase record: ${createdRecord.id}`)
 
-    // Wait for progress indicator to appear
-    const progressIndicator = page.locator('text=/Exécution|En cours|Running/i')
-    await expect(progressIndicator).toBeVisible({ timeout: 5000 })
+    try {
+      // Step 3: Navigate to audit page
+      await page.goto('/')
+      await page.waitForLoadState('networkidle')
 
-    // Store the progress text before refresh
-    const progressTextBefore = await progressIndicator.textContent()
+      // Click on Audit tab in navigation
+      const auditTab = page.locator('button:has-text("Audit")')
+      await auditTab.click()
+      await page.waitForTimeout(1000)
 
-    // Refresh the page
-    await page.reload()
-    await page.waitForLoadState('networkidle')
+      // Step 4: Wait for PocketBase to sync
+      await page.waitForTimeout(3000)
 
-    // Wait for PocketBase to restore state
-    await page.waitForTimeout(2000)
+      // Look for the running audit indicators
+      const spinner = page.locator('.animate-spin')
+      const runningText = page.locator('text=/En cours/i')
 
-    // Check if progress is still visible after refresh
-    const progressAfterRefresh = page.locator('text=/Exécution|En cours|Running/i')
-    const isStillRunning = await progressAfterRefresh.isVisible().catch(() => false)
+      const hasSpinner = await spinner.count()
+      const hasRunningText = await runningText.count()
 
-    // Either progress should still show, or audits should have completed
-    // The key is that we don't lose the state completely
-    if (isStillRunning) {
-      // Progress indicator should still be visible
-      await expect(progressAfterRefresh).toBeVisible()
-      console.log('✓ Running state persisted after refresh')
-    } else {
-      // If not running, check if we have audit results (completed during refresh)
-      const auditResults = page.locator('[data-audit-type]')
-      const resultsCount = await auditResults.count()
-      expect(resultsCount).toBeGreaterThan(0)
-      console.log('✓ Audits completed - results visible after refresh')
+      console.log(`Before refresh - Spinner: ${hasSpinner}, RunningText: ${hasRunningText}`)
+
+      // Step 5: Refresh the page
+      console.log('Refreshing page...')
+      await page.reload({ timeout: 10000 })
+      await page.waitForLoadState('domcontentloaded')
+      console.log('Page reloaded')
+
+      // The app should restore the Audit tab state, but if not, click on it
+      // Use more specific selector for the navigation tab
+      const auditNavTab = page.locator('nav button:has-text("Audit"), [role="navigation"] button:has-text("Audit")')
+      const tabCount = await auditNavTab.count()
+      if (tabCount > 0) {
+        await auditNavTab.first().click({ timeout: 5000 })
+        console.log('Clicked Audit nav tab after refresh')
+      } else {
+        console.log('Already on Audit page after refresh')
+      }
+
+      // Step 6: Wait for PocketBase to restore state
+      await page.waitForTimeout(2000)
+
+      // Step 7: Verify the running state is restored
+      const spinnerAfter = page.locator('.animate-spin')
+      const runningTextAfter = page.locator('text=/En cours/i')
+
+      const hasSpinnerAfter = await spinnerAfter.count()
+      const hasRunningTextAfter = await runningTextAfter.count()
+
+      console.log(`After refresh - Spinner: ${hasSpinnerAfter}, RunningText: ${hasRunningTextAfter}`)
+
+      // The running state should be restored from PocketBase
+      const stateRestored = hasSpinnerAfter > 0 || hasRunningTextAfter > 0
+      expect(stateRestored).toBeTruthy()
+      console.log('✓ Running state successfully restored after refresh')
+    } finally {
+      // Cleanup: Delete the test record
+      await page.request.delete(
+        `http://localhost:8090/api/collections/audit_runs/records/${createdRecord.id}`
+      )
+      console.log(`Cleaned up test record: ${createdRecord.id}`)
     }
   })
 
