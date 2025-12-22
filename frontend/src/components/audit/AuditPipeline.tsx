@@ -100,6 +100,7 @@ export function AuditPipeline(): React.ReactElement {
           isAuditRunning={checker}
           onRun={session.runAudit}
           onSelect={session.selectAudit}
+          onStop={session.stopAudit}
           accordionContent={
             <AuditResultSection
               currentResult={session.currentResult}

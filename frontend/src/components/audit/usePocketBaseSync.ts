@@ -11,7 +11,6 @@ import { detectRunningAuditsFromSession, type RunningAuditInfo } from './auditSt
 interface PocketBaseSyncConfig {
   pbAuditRuns: Map<string, AuditRun>
   pbConnected: boolean
-  runningAudits: Map<string, RunningAuditInfo>
   setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>
   setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>
   session: AuditSession | null
@@ -26,7 +25,6 @@ export function usePocketBaseSync(config: PocketBaseSyncConfig): void {
   const {
     pbAuditRuns,
     pbConnected,
-    runningAudits,
     setRunningAudits,
     setOptimisticResults,
     session,
@@ -34,16 +32,32 @@ export function usePocketBaseSync(config: PocketBaseSyncConfig): void {
   } = config
 
   // Sync PocketBase realtime updates with local state
+  // Use ref to track previous state and avoid infinite loop
+  const prevPbRunsRef = React.useRef<Map<string, AuditRun>>(new Map())
+
   React.useEffect(() => {
     if (!pbConnected || pbAuditRuns.size === 0) {
       return
     }
+
+    // Compare with previous PocketBase state to detect changes
+    const prevRuns = prevPbRunsRef.current
+    let hasChanges = false
+
     for (const [auditType, pbRun] of pbAuditRuns) {
+      const prevRun = prevRuns.get(auditType)
+      const statusChanged = prevRun?.status !== pbRun.status
+
+      if (!statusChanged) {
+        continue
+      }
+
+      hasChanges = true
       const isRunning = pbRun.status === 'running'
-      const wasRunning = runningAudits.has(auditType)
-      if (isRunning && !wasRunning) {
+
+      if (isRunning) {
         setRunningAudits((prev) => new Map(prev).set(auditType, { startedAt: pbRun.started_at }))
-      } else if (!isRunning && wasRunning) {
+      } else {
         setRunningAudits((prev) => {
           const n = new Map(prev)
           n.delete(auditType)
@@ -58,7 +72,11 @@ export function usePocketBaseSync(config: PocketBaseSyncConfig): void {
         void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
       }
     }
-  }, [pbAuditRuns, pbConnected, runningAudits, setRunningAudits, setOptimisticResults, queryClient])
+
+    if (hasChanges) {
+      prevPbRunsRef.current = new Map(pbAuditRuns)
+    }
+  }, [pbAuditRuns, pbConnected, setRunningAudits, setOptimisticResults, queryClient])
 
   // Detect running audits on initial load
   // Priority: PocketBase (realtime source of truth) > Backend session (fallback)

@@ -39,16 +39,33 @@ function RowRunButton({
   available,
   isRunning,
   onRun,
+  onStop,
 }: {
   available: boolean
   isRunning: boolean
   onRun: () => void
+  onStop?: () => void
 }): React.ReactElement {
   if (isRunning) {
     return (
-      <div className="flex items-center gap-2 text-info">
+      <div className="flex items-center gap-2">
         <LoadingSpinner size="sm" />
-        <span className="text-xs">En cours...</span>
+        <span className="text-xs text-info">En cours...</span>
+        {onStop !== undefined && (
+          <button
+            className="flex items-center gap-1 rounded-lg bg-error/20 px-2 py-1 text-xs font-medium text-error transition-colors hover:bg-error/30"
+            onClick={(e) => {
+              e.stopPropagation()
+              onStop()
+            }}
+            type="button"
+          >
+            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+              <rect x="6" y="6" width="12" height="12" />
+            </svg>
+            Stop
+          </button>
+        )}
       </div>
     )
   }
@@ -91,12 +108,14 @@ function AuditRowItem({
   isSelected,
   onRun,
   onSelect,
+  onStop,
 }: {
   audit: AvailableAudit
   isRunning: boolean
   isSelected: boolean
   onRun: () => void
   onSelect: () => void
+  onStop?: () => void
 }): React.ReactElement {
   const borderColor = getRowBorderColor(isSelected, isRunning, audit.last_status)
   const iconStatus = isRunning ? 'running' : audit.last_status
@@ -128,7 +147,12 @@ function AuditRowItem({
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <RowRunButton available={audit.available} isRunning={isRunning} onRun={onRun} />
+        <RowRunButton
+          available={audit.available}
+          isRunning={isRunning}
+          onRun={onRun}
+          onStop={onStop}
+        />
         <ChevronIcon isOpen={isSelected} />
       </div>
     </div>
@@ -161,6 +185,7 @@ export function AuditCardsGrid({
   isAuditRunning,
   onRun,
   onSelect,
+  onStop,
   accordionContent,
 }: {
   audits: ExtendedAudit[]
@@ -168,6 +193,7 @@ export function AuditCardsGrid({
   isAuditRunning: (auditType: string) => boolean
   onRun: (auditType: string) => void
   onSelect: (auditType: string) => void
+  onStop?: (auditType: string) => void
   accordionContent?: React.ReactNode
 }): React.ReactElement {
   const onboardingAudit = audits.find((a) => a.type === 'onboarding')
@@ -209,6 +235,7 @@ export function AuditCardsGrid({
                 onSelect={() => {
                   onSelect(audit.type)
                 }}
+                onStop={onStop !== undefined ? () => { onStop(audit.type) } : undefined}
               />
               {selectedAudit === audit.type && accordionContent !== undefined && (
                 <AuditAccordionContent content={accordionContent} />

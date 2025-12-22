@@ -288,3 +288,11 @@ export async function runBatchAuditsViaPocketBase(
 
   return results
 }
+
+/**
+ * Stop a running audit by updating its status to 'failed' in PocketBase.
+ */
+export async function stopAudit(recordId: string): Promise<void> {
+  const { cancelAuditRun } = await import('./pocketbase')
+  await cancelAuditRun(recordId)
+}

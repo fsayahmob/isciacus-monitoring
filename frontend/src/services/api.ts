@@ -53,6 +53,7 @@ export {
   executeAuditAction,
   fetchShopifyPermissions,
   clearAuditCache,
+  stopAudit,
 } from './auditApi'
 
 // Re-export config functions

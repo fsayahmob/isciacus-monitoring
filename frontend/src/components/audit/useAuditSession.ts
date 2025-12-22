@@ -7,6 +7,7 @@ import {
   fetchLatestAuditSession,
   fetchAvailableAudits,
   runAudit,
+  stopAudit as stopAuditApi,
   type AuditResult,
   type AuditSession,
 } from '../../services/api'
@@ -29,6 +30,7 @@ interface UseAuditSessionReturn {
   isSelectedAuditRunning: boolean
   selectAudit: (auditType: string) => void
   runAudit: (auditType: string) => void
+  stopAudit: (auditType: string) => void
   isAuditRunning: (auditType: string) => boolean
   markAllAuditsAsRunning: (auditTypes: string[]) => void
   /** PocketBase audit runs for realtime sync */
@@ -109,12 +111,14 @@ interface AuditControlsConfig {
   session: { audits: Record<string, { status: string }> } | null
   setRunningAudits: React.Dispatch<React.SetStateAction<Map<string, RunningAuditInfo>>>
   setOptimisticResults: React.Dispatch<React.SetStateAction<Map<string, AuditResult>>>
-  pbAuditRuns: Map<string, { status: string }>
+  pbAuditRuns: Map<string, AuditRun>
+  removeAuditFromRunning: (auditType: string) => void
 }
 
 function useAuditControls(config: AuditControlsConfig): {
   selectAudit: (t: string) => void
   handleRunAudit: (t: string) => void
+  handleStopAudit: (t: string) => void
   isAuditRunning: (t: string) => boolean
   markAllAuditsAsRunning: (types: string[]) => void
 } {
@@ -126,6 +130,7 @@ function useAuditControls(config: AuditControlsConfig): {
     setRunningAudits,
     setOptimisticResults,
     pbAuditRuns,
+    removeAuditFromRunning,
   } = config
   const selectAudit = React.useCallback(
     (t: string): void => {
@@ -178,7 +183,18 @@ function useAuditControls(config: AuditControlsConfig): {
     },
     [setRunningAudits, setOptimisticResults]
   )
-  return { selectAudit, handleRunAudit, isAuditRunning, markAllAuditsAsRunning }
+  const handleStopAudit = React.useCallback(
+    (auditType: string): void => {
+      const pbRun = pbAuditRuns.get(auditType)
+      if (pbRun === undefined) {
+        return
+      }
+      void stopAuditApi(pbRun.id)
+      removeAuditFromRunning(auditType)
+    },
+    [pbAuditRuns, removeAuditFromRunning]
+  )
+  return { selectAudit, handleRunAudit, handleStopAudit, isAuditRunning, markAllAuditsAsRunning }
 }
 
 export function useAuditSession(): UseAuditSessionReturn {
@@ -211,7 +227,6 @@ export function useAuditSession(): UseAuditSessionReturn {
   usePocketBaseSync({
     pbAuditRuns,
     pbConnected,
-    runningAudits,
     setRunningAudits,
     setOptimisticResults,
     session,
@@ -254,6 +269,7 @@ export function useAuditSession(): UseAuditSessionReturn {
     setRunningAudits,
     setOptimisticResults,
     pbAuditRuns,
+    removeAuditFromRunning,
   })
 
   return {
@@ -265,6 +281,7 @@ export function useAuditSession(): UseAuditSessionReturn {
     isSelectedAuditRunning: selectedAudit !== null && controls.isAuditRunning(selectedAudit),
     selectAudit: controls.selectAudit,
     runAudit: controls.handleRunAudit,
+    stopAudit: controls.handleStopAudit,
     isAuditRunning: controls.isAuditRunning,
     markAllAuditsAsRunning: controls.markAllAuditsAsRunning,
     pbAuditRuns,
