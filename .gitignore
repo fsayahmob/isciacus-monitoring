@@ -45,6 +45,7 @@ backend/data/.config_key
 backend/data/.google_temp.json
 backend/data/audits/
 backend/data/cache/
+backend/data/*_cache.json
 
 # Claude Code hooks (local config)
 .claude/
