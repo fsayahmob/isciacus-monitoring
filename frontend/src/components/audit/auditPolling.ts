@@ -20,7 +20,7 @@ interface SessionData {
  */
 export function getAuditPollInterval(
   runningAuditsSize: number,
-  query: Query<SessionData, Error, SessionData, readonly unknown[]>
+  query: Query<SessionData>
 ): number | false {
   // Poll if we have locally tracked running audits
   if (runningAuditsSize > 0) {
