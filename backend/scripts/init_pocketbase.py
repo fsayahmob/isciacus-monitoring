@@ -9,6 +9,7 @@ Usage: python scripts/init_pocketbase.py
 import os
 import sys
 import time
+from typing import Any
 
 import requests
 
@@ -75,7 +76,7 @@ def authenticate() -> str | None:
         timeout=REQUEST_TIMEOUT,
     )
     if resp.status_code == HTTP_OK:
-        token = resp.json().get("token")
+        token: str | None = resp.json().get("token")
         print("Authenticated as superuser")
         return token
     print(f"Failed to authenticate: {resp.text}")
@@ -92,7 +93,7 @@ def collection_exists(token: str, name: str) -> bool:
     return resp.status_code == HTTP_OK
 
 
-def create_collection(token: str, schema: dict) -> bool:
+def create_collection(token: str, schema: dict[str, Any]) -> bool:
     """Create a collection."""
     resp = requests.post(
         f"{POCKETBASE_URL}/api/collections",
