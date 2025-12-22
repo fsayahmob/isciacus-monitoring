@@ -180,8 +180,7 @@ class PocketBaseService:
         filter_str = 'status="running"'
         encoded_filter = quote(filter_str, safe="")
         url = self._get_url(
-            f"/api/collections/{COLLECTION_NAME}/records"
-            f"?filter={encoded_filter}&perPage=500"
+            f"/api/collections/{COLLECTION_NAME}/records" f"?filter={encoded_filter}&perPage=500"
         )
         try:
             response = requests.get(url, timeout=REQUEST_TIMEOUT)

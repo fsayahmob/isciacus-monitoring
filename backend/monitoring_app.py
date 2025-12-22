@@ -1529,9 +1529,7 @@ async def trigger_audit_from_pocketbase(request: Request) -> dict[str, Any]:
         from services.pocketbase_service import get_pocketbase_service
 
         pb = get_pocketbase_service()
-        pb.update_audit_run(
-            record_id, status="failed", error=f"Unknown audit type: {audit_type}"
-        )
+        pb.update_audit_run(record_id, status="failed", error=f"Unknown audit type: {audit_type}")
         raise HTTPException(status_code=400, detail=f"Unknown audit type: {audit_type}")
 
     # Trigger the appropriate Inngest workflow
