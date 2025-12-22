@@ -58,7 +58,61 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$(dirname "$SCRIPT_DIR")"
 HOOK_DATA_FILE="$CLAUDE_DIR/hook-data.json"
 
-cat > "$HOOK_DATA_FILE" <<EOF
+# ==========================================
+# DÉTECTION DES ACTIONS À FAIRE
+# ==========================================
+
+# 1. Vérifier git diff (fichiers modifiés non commités)
+has_changes=$(cd "$cwd" && git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+has_staged=$(cd "$cwd" && git diff --staged --name-only 2>/dev/null | wc -l | tr -d ' ')
+
+# 2. Lire le transcript pour voir ce que Claude a fait
+ran_e2e=$(grep -c "npm run test:e2e" "$transcript_path" 2>/dev/null || echo "0")
+ran_git_commit=$(grep -c "git commit" "$transcript_path" 2>/dev/null || echo "0")
+
+# ==========================================
+# CONSTRUIRE LE MESSAGE DYNAMIQUE
+# Seulement si du code a été modifié !
+# ==========================================
+
+inject_message=""
+
+# Ne rien injecter si aucun fichier n'a été modifié
+if [ "$has_changes" -gt 0 ] || [ "$has_staged" -gt 0 ]; then
+  inject_message="hook_stop: "
+  inject_message+="⚠️ Tu as des fichiers modifiés non commités. Fais un git add && git commit avec le bon commentaire.
+"
+  inject_message+="🔄 Vérifie que la pipeline CI passe et ne change pas la sévérité du guard.
+"
+
+  # E2E: si pas lancé dans la session → demander de lancer
+  if [ "$ran_e2e" -eq 0 ]; then
+    inject_message+="🧪 Tu n'as pas lancé les E2E. Lance: npm run test:e2e et valide le résultat.
+"
+  else
+    inject_message+="🧪 Vérifie si les E2E doivent être mis à jour suite à tes modifications.
+"
+  fi
+fi
+
+# ==========================================
+# ÉCRIRE LE JSON
+# ==========================================
+
+# N'injecter que si on a quelque chose à dire
+if [ -n "$inject_message" ]; then
+  cat > "$HOOK_DATA_FILE" <<EOF
+{
+  "lastMessage": $(echo "$last_claude_message" | jq -Rs .),
+  "repoName": "$repository_name",
+  "conversationId": "$conversation_id",
+  "conversationName": "$conversation_name",
+  "timestamp": "$timestamp",
+  "injectMessage": $(echo "$inject_message" | jq -Rs .)
+}
+EOF
+else
+  cat > "$HOOK_DATA_FILE" <<EOF
 {
   "lastMessage": $(echo "$last_claude_message" | jq -Rs .),
   "repoName": "$repository_name",
@@ -67,6 +121,6 @@ cat > "$HOOK_DATA_FILE" <<EOF
   "timestamp": "$timestamp"
 }
 EOF
+fi
 
-echo "✓ Hook stop exécuté - données sauvegardées"
 exit 0

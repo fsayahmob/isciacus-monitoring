@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Hook PreToolUse pour Edit/Write
-# Force Claude à relire CLAUDE.md avant chaque modification de fichier code
+# Écrit les données dans un fichier JSON pour le plugin VSCode autoclaude
 
 input=$(cat)
 tool_name=$(echo "$input" | jq -r '.tool_name // empty')
 file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty')
 
-# Ne s'applique qu'aux outils Edit et Write sur fichiers code
+# Ne s'applique qu'aux outils Edit et Write
 if [[ "$tool_name" != "Edit" && "$tool_name" != "Write" ]]; then
   exit 0
 fi
@@ -17,23 +17,53 @@ if [[ "$file_path" != *".ts" && "$file_path" != *".tsx" && "$file_path" != *".py
   exit 0
 fi
 
-# Rappel des règles
-cat << 'EOF'
-📋 RAPPEL CLAUDE.md - Vérifie avant de modifier:
+# Déterminer le type de fichier et le message à injecter
+file_type="other"
+inject_message="pre-edit : "
 
-FRONTEND (max-lines=300, max-function=80, max-params=5):
-- Toujours {} pour if/else
-- Pas de console.log (sauf warn/error)
-- Types explicites sur retours de fonction
-- wc -l avant/après modification
+if [[ "$file_path" == *".py" ]]; then
+  file_type="backend"
+  inject_message+="📗 LINT BACKEND (Ruff + MyPy):
+| Règle | Limite |
+| line-length | 100 chars |
+| max-args (PLR0913) | 6 params |
+| max-statements | 50/fonction |
+| T20 (print) | interdit |
+| mypy strict | tous les types requis |
+✓ cd backend && ruff check . && mypy ."
+fi
 
-BACKEND (line-length=100, max-args=6, max-statements=50):
-- Pas de print (utiliser logger)
-- Types obligatoires (mypy strict)
-- snake_case pour fonctions
+if [[ "$file_path" == *".ts" || "$file_path" == *".tsx" || "$file_path" == *".js" || "$file_path" == *".jsx" ]]; then
+  file_type="frontend"
+  inject_message+="📘 LINT FRONTEND (ESLint):
+| Règle | Limite |
+| max-lines | 300 lignes/fichier |
+| max-lines-per-function | 80 lignes |
+| max-params | 5 params |
+| max-depth | 4 niveaux |
+| curly | toujours {} |
+| no-console | sauf warn/error |
+| explicit-function-return-type | requis |
+✓ npm --prefix frontend run lint && typecheck"
+fi
 
-Après modification: npm run lint && npm run typecheck (frontend)
-                   ruff check . && black --check . (backend)
+# Obtenir le répertoire du script (hooks/)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLAUDE_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Écrire les données JSON pour le plugin VSCode
+cat > "$CLAUDE_DIR/pre-edit-data.json" <<EOF
+{
+  "hookType": "pre-edit",
+  "toolName": "$tool_name",
+  "filePath": "$file_path",
+  "fileType": "$file_type",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "injectMessage": $(echo "$inject_message" | jq -Rs .)
+}
 EOF
+
+# Debug log
+echo "[$(date)] pre-edit: $file_path ($file_type)" >> /tmp/claude-hooks.log
 
 exit 0
