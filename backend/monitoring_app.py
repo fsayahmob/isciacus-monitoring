@@ -1292,6 +1292,29 @@ async def get_latest_audit_session() -> dict[str, Any]:
     }
 
 
+@app.post("/api/audits/stop/{record_id}")
+async def stop_audit(record_id: str) -> dict[str, Any]:
+    """Stop a running audit by marking it as cancelled in PocketBase.
+
+    The Inngest workflow will check this status before each step and terminate early.
+
+    Args:
+        record_id: The PocketBase record ID of the audit to stop
+    """
+    from services.pocketbase_service import PocketBaseError, get_pocketbase_service
+
+    try:
+        pb = get_pocketbase_service()
+        pb.update_status(
+            record_id=record_id,
+            status="failed",
+            error="Cancelled by user",
+        )
+        return {"status": "stopped", "record_id": record_id}
+    except PocketBaseError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop audit: {e}")
+
+
 @app.post("/api/audits/run-all")
 async def run_all_audits(period: int = Query(default=30)) -> dict[str, Any]:
     """Run ALL available audits in parallel via Inngest workflows.

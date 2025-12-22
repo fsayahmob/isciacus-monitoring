@@ -165,6 +165,43 @@ class PocketBaseService:
             return existing
         return self.create_audit_run(session_id, audit_type, run_id)
 
+    def get_audit_status(self, record_id: str) -> str | None:
+        """Get the current status of an audit run.
+
+        Used by workflows to check if audit was cancelled before each step.
+
+        Args:
+            record_id: The PocketBase record ID
+
+        Returns:
+            Status string ('pending', 'running', 'completed', 'failed') or None if not found
+        """
+        try:
+            response = requests.get(
+                self._get_url(f"/api/collections/{COLLECTION_NAME}/records/{record_id}"),
+                timeout=REQUEST_TIMEOUT,
+            )
+            if response.status_code == 404:
+                return None
+            data = self._handle_response(response)
+            return data.get("status")  # type: ignore[no-any-return]
+        except PocketBaseError:
+            return None
+
+    def is_audit_cancelled(self, record_id: str) -> bool:
+        """Check if an audit has been cancelled (status = failed).
+
+        Workflows call this before each step to support early termination.
+
+        Args:
+            record_id: The PocketBase record ID
+
+        Returns:
+            True if audit was cancelled, False otherwise
+        """
+        status = self.get_audit_status(record_id)
+        return status == "failed"
+
     def cleanup_stale_running_audits(self) -> int:
         """Mark all 'running' audits as 'failed' (called on startup).
 

@@ -208,3 +208,30 @@ def fail_audit_run(
         status="failed",
         error=error,
     )
+
+
+def is_audit_cancelled(pocketbase_record_id: str | None) -> bool:
+    """Check if an audit has been cancelled by the user.
+
+    Workflows should call this before each step to support early termination.
+
+    Args:
+        pocketbase_record_id: The PocketBase record ID (can be None)
+
+    Returns:
+        True if audit was cancelled, False otherwise (also False if no record ID)
+    """
+    if not POCKETBASE_ENABLED:
+        return False
+
+    if pocketbase_record_id is None or pocketbase_record_id == "":
+        return False
+
+    try:
+        from services.pocketbase_service import get_pocketbase_service
+
+        pb = get_pocketbase_service()
+        return pb.is_audit_cancelled(pocketbase_record_id)
+    except Exception:
+        logger.exception("Error checking audit cancellation status")
+        return False
