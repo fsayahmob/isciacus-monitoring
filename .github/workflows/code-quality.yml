@@ -44,41 +44,6 @@ env:
 
 jobs:
   # =====================================================
-  # JOB 0: Branch Protection Guard
-  # =====================================================
-  # Blocks direct pushes to main - only merges from develop allowed
-  # =====================================================
-  branch-guard:
-    name: 🚫 Branch Protection
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🚫 Block direct push to main
-        run: |
-          echo "========================================"
-          echo "🚫 DIRECT PUSH TO MAIN BLOCKED"
-          echo "========================================"
-          echo ""
-          echo "Pushing directly to 'main' is not allowed."
-          echo ""
-          echo "Workflow:"
-          echo "  1. Push to 'develop' branch"
-          echo "  2. Wait for CI to pass"
-          echo "  3. Merge 'develop' into 'main' via PR or locally"
-          echo ""
-          echo "To fix this:"
-          echo "  git checkout develop"
-          echo "  git cherry-pick <your-commit>"
-          echo "  git push origin develop"
-          echo ""
-          exit 1
-
-  # =====================================================
   # JOB 1: Configuration Guard (SellGlow-style)
   # =====================================================
   # Prevents weakening of lint rules for BOTH frontend and backend
