@@ -90,7 +90,7 @@ def collection_exists(token: str, name: str) -> bool:
         headers={"Authorization": token},
         timeout=REQUEST_TIMEOUT,
     )
-    return resp.status_code == HTTP_OK
+    return bool(resp.status_code == HTTP_OK)
 
 
 def create_collection(token: str, schema: dict[str, Any]) -> bool:
