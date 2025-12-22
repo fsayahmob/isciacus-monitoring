@@ -20,7 +20,8 @@ interface SessionData {
  */
 export function getAuditPollInterval(
   runningAuditsSize: number,
-  query: Query<SessionData>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query: Query<SessionData, any, SessionData, any>
 ): number | false {
   // Poll if we have locally tracked running audits
   if (runningAuditsSize > 0) {
