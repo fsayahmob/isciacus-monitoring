@@ -461,11 +461,13 @@ jobs:
 
   # =====================================================
   # JOB 6: E2E Tests (Playwright)
+  # Only run on develop/main branches, not on PRs (saves CI time)
   # =====================================================
   e2e-tests:
     name: 🎭 E2E Tests
     runs-on: ubuntu-latest
     needs: [frontend-quality, backend-quality, security-audit]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     timeout-minutes: 15
     services:
       inngest:
@@ -539,11 +541,12 @@ jobs:
 
   # =====================================================
   # JOB 7: Build
+  # Runs after quality checks and unit tests pass.
   # =====================================================
   build:
     name: 🏗️ Build
     runs-on: ubuntu-latest
-    needs: [frontend-quality, backend-quality, security-audit, e2e-tests]
+    needs: [frontend-quality, backend-quality, security-audit, frontend-tests, backend-tests]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -588,12 +591,13 @@ jobs:
 
   # =====================================================
   # JOB 8: Docker Build (for production)
+  # Only on develop/main after E2E tests pass
   # =====================================================
   docker-build:
     name: 🐳 Docker Build
     runs-on: ubuntu-latest
     needs: [frontend-quality, backend-quality, security-audit, e2e-tests]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
