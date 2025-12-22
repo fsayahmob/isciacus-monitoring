@@ -122,13 +122,110 @@ test.describe('Audit Page - PocketBase Integration', () => {
   })
 })
 
+test.describe('Audit Page - Full E2E with Orchestrator', () => {
+  test.beforeEach(async ({ page }) => {
+    const pbAvailable = await isPocketBaseAvailable(page)
+    test.skip(!pbAvailable, 'PocketBase not available - skipping orchestrator tests')
+  })
+
+  test('should launch audits via orchestrator and restore state after refresh', async ({ page }) => {
+    test.setTimeout(120000) // 2 minutes - audits can take time
+
+    // Step 1: Navigate to audit page
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    // Click on Audit tab in navigation
+    const auditNavTab = page.locator('nav button:has-text("Audit")')
+    await auditNavTab.first().click()
+    await page.waitForTimeout(1000)
+
+    console.log('On Audit page')
+
+    // Step 2: Find and click "Lancer tous les audits" button
+    const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
+    const buttonCount = await runAllButton.count()
+    console.log(`Found ${buttonCount} "Lancer tous les audits" button(s)`)
+
+    if (buttonCount === 0) {
+      // Button might show "en cours" if audits are already running
+      const runningButton = page.locator('button:has-text("en cours")')
+      const runningCount = await runningButton.count()
+      if (runningCount > 0) {
+        console.log('Audits already running - continuing with test')
+      } else {
+        throw new Error('Could not find run all audits button')
+      }
+    } else {
+      // Click the button to start all audits
+      await runAllButton.click()
+      console.log('Clicked "Lancer tous les audits"')
+    }
+
+    // Step 3: Wait for audits to start (spinners should appear)
+    await page.waitForTimeout(3000)
+
+    const spinnersBefore = page.locator('.animate-spin')
+    const runningTextBefore = page.locator('text=/En cours/i')
+
+    const spinnerCountBefore = await spinnersBefore.count()
+    const runningTextCountBefore = await runningTextBefore.count()
+
+    console.log(`Before refresh - Spinners: ${spinnerCountBefore}, RunningText: ${runningTextCountBefore}`)
+
+    // At least some indicators should show audits are running
+    expect(spinnerCountBefore + runningTextCountBefore).toBeGreaterThan(0)
+
+    // Step 4: Refresh the page
+    console.log('Refreshing page...')
+    await page.reload({ timeout: 15000 })
+    await page.waitForLoadState('domcontentloaded')
+    console.log('Page reloaded')
+
+    // Click on Audit tab again after refresh
+    const auditNavTabAfter = page.locator('nav button:has-text("Audit")')
+    const tabCountAfter = await auditNavTabAfter.count()
+    if (tabCountAfter > 0) {
+      await auditNavTabAfter.first().click({ timeout: 5000 })
+      console.log('Clicked Audit nav tab after refresh')
+    }
+
+    // Step 5: Wait for PocketBase to restore state
+    await page.waitForTimeout(3000)
+
+    // Step 6: Verify running state is restored
+    const spinnersAfter = page.locator('.animate-spin')
+    const runningTextAfter = page.locator('text=/En cours/i')
+
+    const spinnerCountAfter = await spinnersAfter.count()
+    const runningTextCountAfter = await runningTextAfter.count()
+
+    console.log(`After refresh - Spinners: ${spinnerCountAfter}, RunningText: ${runningTextCountAfter}`)
+
+    // The running state should be restored from PocketBase
+    // We expect at least some running indicators (unless audits completed very fast)
+    const stateRestored = spinnerCountAfter > 0 || runningTextCountAfter > 0
+
+    // If audits completed during refresh, check for completion indicators
+    if (!stateRestored) {
+      const completedText = page.locator('text=/Terminé|Completed|Succès|✓/i')
+      const completedCount = await completedText.count()
+      console.log(`No running audits - checking for completed: ${completedCount}`)
+      // Either running or completed indicators should be present
+      expect(completedCount).toBeGreaterThan(0)
+    } else {
+      console.log('✓ Running state successfully restored after refresh via orchestrator')
+    }
+  })
+})
+
 test.describe('Audit Page - State Persistence on Refresh', () => {
   test.beforeEach(async ({ page }) => {
     const pbAvailable = await isPocketBaseAvailable(page)
     test.skip(!pbAvailable, 'PocketBase not available - skipping persistence tests')
   })
 
-  test('should restore running audit state from PocketBase after refresh', async ({ page }) => {
+  test('should restore running audit state from PocketBase after refresh (direct PB)', async ({ page }) => {
     test.setTimeout(60000) // 60 seconds timeout
     const testAuditType = 'ga4_tracking'
 
