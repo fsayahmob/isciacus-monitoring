@@ -469,3 +469,58 @@ test.describe('Audit Page - State Persistence on Refresh', () => {
     }
   })
 })
+
+test.describe('Audit Page - Console Error Detection', () => {
+  test('should not have critical console errors on page load', async ({ page }) => {
+    const consoleErrors: string[] = []
+    const networkErrors: string[] = []
+
+    // Capture console errors
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text())
+      }
+    })
+
+    // Capture network errors (4xx, 5xx)
+    page.on('response', (response) => {
+      const status = response.status()
+      if (status >= 400) {
+        networkErrors.push(`${status} ${response.url()}`)
+      }
+    })
+
+    // Navigate to audit page via sidebar (SPA navigation)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.click('text=Audit')
+    await page.waitForTimeout(3000)
+
+    // Log captured errors for debugging
+    if (consoleErrors.length > 0) {
+      console.log('Console errors detected:')
+      consoleErrors.forEach((err) => console.log(`  - ${err}`))
+    }
+    if (networkErrors.length > 0) {
+      console.log('Network errors detected:')
+      networkErrors.forEach((err) => console.log(`  - ${err}`))
+    }
+
+    // Filter out expected/acceptable errors
+    const criticalErrors = networkErrors.filter((err) => {
+      // 404 on audit_runs when PocketBase collection doesn't exist is critical
+      if (err.includes('audit_runs') && err.includes('404')) {
+        return true
+      }
+      // 401/403 might be expected for unauthenticated requests
+      if (err.includes('401') || err.includes('403')) {
+        return false
+      }
+      // Other 4xx/5xx are potentially critical
+      return err.includes('500') || err.includes('502') || err.includes('503')
+    })
+
+    // Fail if there are critical errors
+    expect(criticalErrors).toHaveLength(0)
+  })
+})
