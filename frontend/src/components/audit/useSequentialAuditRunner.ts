@@ -25,6 +25,8 @@ export type { AuditProgress, CampaignReadiness, CampaignScore }
 
 // Constants
 const POCKETBASE_SETTLE_DELAY_MS = 500
+const POLL_INTERVAL_MS = 1000
+const MAX_WAIT_TIME_MS = 120000 // 2 minutes max per audit
 
 export interface SequentialRunnerState {
   isRunning: boolean
@@ -96,18 +98,55 @@ function buildAuditNameMap(audits: AvailableAudit[]): Map<string, string> {
 }
 
 /**
+ * Compute campaign score and readiness when all audits are done.
+ */
+function computeScoreAndReadiness(
+  allDone: boolean,
+  progress: AuditProgress[]
+): { score: CampaignScore | null; readiness: CampaignReadiness | null } {
+  if (!allDone || progress.length === 0) {
+    return { score: null, readiness: null }
+  }
+  const s = calculateCampaignScore(progress)
+  const r = determineCampaignReadiness(s, progress)
+  return { score: s, readiness: r }
+}
+
+/**
+ * Wait for an audit to complete by polling PocketBase.
+ */
+async function waitForAuditCompletion(
+  auditType: string,
+  getPbRuns: () => Map<string, AuditRun>
+): Promise<void> {
+  const startTime = Date.now()
+  while (Date.now() - startTime < MAX_WAIT_TIME_MS) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+    const pbRun = getPbRuns().get(auditType)
+    if (pbRun !== undefined && pbRun.status !== 'running' && pbRun.status !== 'pending') {
+      return // Audit completed (success, warning, error, or failed)
+    }
+  }
+  // Timeout - continue to next audit anyway
+}
+
+/**
  * Run audits sequentially by triggering them one at a time.
+ * Waits for each audit to complete in PocketBase before starting the next.
  */
 async function executeSequentialAudits(
   audits: AvailableAudit[],
-  onProgress: (index: number) => void
+  onProgress: (index: number) => void,
+  getPbRuns: () => Map<string, AuditRun>
 ): Promise<void> {
   for (let i = 0; i < audits.length; i++) {
     onProgress(i)
     try {
       await runAudit(audits[i].type)
-      // Wait a bit for PocketBase to receive the update
+      // Wait a bit for PocketBase to receive the initial "running" status
       await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
+      // Wait for the audit to complete before starting the next one
+      await waitForAuditCompletion(audits[i].type, getPbRuns)
     } catch {
       // Continue with next audit even if one fails
     }
@@ -126,6 +165,10 @@ export function useSequentialAuditRunner(
   const [currentIndex, setCurrentIndex] = React.useState(-1)
   const [showSummary, setShowSummary] = React.useState(false)
 
+  // Ref to access current pbAuditRuns from async callback
+  const pbAuditRunsRef = React.useRef(pbAuditRuns)
+  pbAuditRunsRef.current = pbAuditRuns
+
   const auditNameMap = React.useMemo(() => buildAuditNameMap(availableAudits), [availableAudits])
 
   // Derive progress from PocketBase data
@@ -141,14 +184,10 @@ export function useSequentialAuditRunner(
   const allDone = auditOrder.length > 0 && completedCount === auditOrder.length
 
   // Compute score when all audits are done
-  const { score, readiness } = React.useMemo(() => {
-    if (!allDone || progress.length === 0) {
-      return { score: null, readiness: null }
-    }
-    const s = calculateCampaignScore(progress)
-    const r = determineCampaignReadiness(s, progress)
-    return { score: s, readiness: r }
-  }, [allDone, progress])
+  const { score, readiness } = React.useMemo(
+    () => computeScoreAndReadiness(allDone, progress),
+    [allDone, progress]
+  )
 
   // Auto-show summary when all done
   React.useEffect(() => {
@@ -161,22 +200,29 @@ export function useSequentialAuditRunner(
     }
   }, [allDone, isRunning, queryClient])
 
-  const startSequentialRun = React.useCallback((audits: AvailableAudit[]): void => {
-    const filtered = audits.filter((a) => a.available)
-    if (filtered.length === 0) {
-      return
-    }
+  const startSequentialRun = React.useCallback(
+    (audits: AvailableAudit[]): void => {
+      const filtered = audits.filter((a) => a.available)
+      if (filtered.length === 0) {
+        return
+      }
 
-    const order = filtered.map((a) => a.type)
-    setAuditOrder(order)
-    setIsRunning(true)
-    setCurrentIndex(0)
-    setShowSummary(false)
+      const order = filtered.map((a) => a.type)
+      setAuditOrder(order)
+      setIsRunning(true)
+      setCurrentIndex(0)
+      setShowSummary(false)
 
-    void executeSequentialAudits(filtered, (index) => {
-      setCurrentIndex(index)
-    })
-  }, [])
+      void executeSequentialAudits(
+        filtered,
+        (index) => {
+          setCurrentIndex(index)
+        },
+        () => pbAuditRunsRef.current
+      )
+    },
+    []
+  )
 
   const dismissSummary = React.useCallback((): void => {
     setShowSummary(false)

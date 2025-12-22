@@ -117,6 +117,7 @@ def create_onboarding_function() -> inngest.Function | None:
         # Finalize - pass a copy of result to avoid closure issues
         final_result = _finalize_result(dict(result), services_configured, 7)
         _save_audit_session(final_result)
+        _save_progress(final_result, session_id, pb_record_id)
 
         return final_result
 

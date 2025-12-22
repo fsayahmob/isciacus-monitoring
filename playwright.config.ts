@@ -43,6 +43,7 @@ export default defineConfig({
       env: {
         TEST_MODE: 'true',
         INNGEST_DEV: 'true',
+        POCKETBASE_URL: 'http://localhost:8090',
       },
     },
   ],
