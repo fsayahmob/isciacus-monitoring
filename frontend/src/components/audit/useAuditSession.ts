@@ -16,12 +16,13 @@ import {
   stopAudit as stopAuditApi,
   type AuditResult,
   type AuditSession,
+  type AvailableAudit,
 } from '../../services/api'
 import { type AuditRun } from '../../services/pocketbase'
 
 interface UseAuditSessionReturn {
   session: AuditSession | null
-  availableAudits: { audits: { type: string; name: string; available: boolean }[] }
+  availableAudits: { audits: AvailableAudit[] }
   currentResult: AuditResult | null
   selectedAudit: string | null
   isSelectedAuditRunning: boolean
@@ -45,7 +46,7 @@ function resolveCurrentResult(
 
   const pbRun = pbAuditRuns.get(selectedAudit)
   if (pbRun?.status === 'completed' && pbRun.result !== null) {
-    return pbRun.result as AuditResult
+    return pbRun.result as unknown as AuditResult
   }
 
   if (session !== null && selectedAudit in session.audits) {
@@ -54,12 +55,15 @@ function resolveCurrentResult(
 
   if (pbRun?.status === 'running' || optimisticRunning.has(selectedAudit)) {
     return {
+      id: `running-${selectedAudit}`,
       audit_type: selectedAudit,
       status: 'running',
       started_at: pbRun?.started_at ?? new Date().toISOString(),
       completed_at: null,
       steps: [],
       issues: [],
+      summary: {},
+      raw_data: null,
     } as AuditResult
   }
 
