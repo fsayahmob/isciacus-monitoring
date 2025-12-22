@@ -592,30 +592,34 @@ async def _run_ga4_audit_steps(
 def _add_skipped_steps(result: dict[str, Any]) -> None:
     """Add skipped steps when connection fails."""
     for step_def in STEPS[1:]:
-        result["steps"].append({
-            "id": step_def["id"],
-            "name": step_def["name"],
-            "description": step_def["description"],
-            "status": "skipped",
-            "started_at": None,
-            "completed_at": None,
-            "duration_ms": None,
-            "result": None,
-            "error_message": None,
-        })
+        result["steps"].append(
+            {
+                "id": step_def["id"],
+                "name": step_def["name"],
+                "description": step_def["description"],
+                "status": "skipped",
+                "started_at": None,
+                "completed_at": None,
+                "duration_ms": None,
+                "result": None,
+                "error_message": None,
+            }
+        )
 
 
 def _add_audit_error(result: dict[str, Any], error_msg: str) -> None:
     """Add audit error issue."""
     result["status"] = "error"
-    result["issues"].append({
-        "id": "audit_error",
-        "audit_type": "ga4_tracking",
-        "severity": "critical",
-        "title": "Erreur d'audit",
-        "description": error_msg,
-        "action_available": False,
-    })
+    result["issues"].append(
+        {
+            "id": "audit_error",
+            "audit_type": "ga4_tracking",
+            "severity": "critical",
+            "title": "Erreur d'audit",
+            "description": error_msg,
+            "action_available": False,
+        }
+    )
     result["completed_at"] = datetime.now(tz=UTC).isoformat()
 
 

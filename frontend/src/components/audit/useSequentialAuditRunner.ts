@@ -161,25 +161,22 @@ export function useSequentialAuditRunner(
     }
   }, [allDone, isRunning, queryClient])
 
-  const startSequentialRun = React.useCallback(
-    (audits: AvailableAudit[]): void => {
-      const filtered = audits.filter((a) => a.available)
-      if (filtered.length === 0) {
-        return
-      }
+  const startSequentialRun = React.useCallback((audits: AvailableAudit[]): void => {
+    const filtered = audits.filter((a) => a.available)
+    if (filtered.length === 0) {
+      return
+    }
 
-      const order = filtered.map((a) => a.type)
-      setAuditOrder(order)
-      setIsRunning(true)
-      setCurrentIndex(0)
-      setShowSummary(false)
+    const order = filtered.map((a) => a.type)
+    setAuditOrder(order)
+    setIsRunning(true)
+    setCurrentIndex(0)
+    setShowSummary(false)
 
-      void executeSequentialAudits(filtered, (index) => {
-        setCurrentIndex(index)
-      })
-    },
-    []
-  )
+    void executeSequentialAudits(filtered, (index) => {
+      setCurrentIndex(index)
+    })
+  }, [])
 
   const dismissSummary = React.useCallback((): void => {
     setShowSummary(false)
