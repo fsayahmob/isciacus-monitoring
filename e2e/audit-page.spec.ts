@@ -12,12 +12,26 @@ import { test, expect, type Page } from '@playwright/test'
  */
 
 /**
- * Helper to check if PocketBase is available
+ * Helper to check if PocketBase is available AND collection exists
  */
 async function isPocketBaseAvailable(page: Page): Promise<boolean> {
   try {
-    const response = await page.request.get('http://localhost:8090/api/health')
-    return response.ok()
+    // Check health endpoint
+    const healthResponse = await page.request.get('http://localhost:8090/api/health')
+    if (!healthResponse.ok()) {
+      return false
+    }
+
+    // Check that audit_runs collection is accessible (not just health)
+    const collectionResponse = await page.request.get(
+      'http://localhost:8090/api/collections/audit_runs/records?perPage=1'
+    )
+    if (!collectionResponse.ok()) {
+      console.error('PocketBase audit_runs collection not accessible - run init_pocketbase.py')
+      return false
+    }
+
+    return true
   } catch {
     return false
   }
