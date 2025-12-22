@@ -15,6 +15,7 @@ from uuid import uuid4
 import inngest
 
 from jobs.audit_workflow import inngest_client
+from jobs.pocketbase_progress import is_audit_cancelled
 
 
 COVERAGE_RATE_HIGH = 90
@@ -368,6 +369,18 @@ def _step_google_ads_integration() -> dict[str, Any]:
     return {"step": step, "issues": []}
 
 
+class AuditCancelledError(Exception):
+    """Raised when an audit has been cancelled by the user."""
+
+
+def _check_cancelled(pb_record_id: str | None, result: dict[str, Any]) -> None:
+    """Check if audit was cancelled and raise exception if so."""
+    if is_audit_cancelled(pb_record_id):
+        result["status"] = "error"
+        result["completed_at"] = datetime.now(tz=UTC).isoformat()
+        raise AuditCancelledError
+
+
 def _build_issues(full_audit: dict[str, Any]) -> list[dict[str, Any]]:
     """Build issues from full audit data."""
     issues = []
@@ -500,96 +513,119 @@ def create_ga4_audit_function() -> inngest.Function | None:
         run_id = ctx.event.data.get("run_id", str(uuid4())[:8])
         session_id = ctx.event.data.get("session_id", run_id)
         period = ctx.event.data.get("period", 30)
-        # Firebase-like pattern: frontend creates PB record, passes ID here
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
         result = _init_result(run_id)
         _save_progress(result, session_id, pb_record_id)
 
-        # Get config
-        ga4_config = _get_ga4_config()
-        measurement_id = ga4_config.get("measurement_id", "")
-
-        # Step 1: Check connection
-        step1_result = await ctx.step.run(
-            "check-ga4-connection",
-            lambda: _step_1_check_connection(measurement_id),
-        )
-        result["steps"].append(step1_result["step"])
-        _save_progress(result, session_id, pb_record_id)
-
-        if not step1_result["success"]:
-            for step_def in STEPS[1:]:
-                result["steps"].append(
-                    {
-                        "id": step_def["id"],
-                        "name": step_def["name"],
-                        "description": step_def["description"],
-                        "status": "skipped",
-                        "started_at": None,
-                        "completed_at": None,
-                        "duration_ms": None,
-                        "result": None,
-                        "error_message": None,
-                    }
-                )
-            result["status"] = "error"
-            result["completed_at"] = datetime.now(tz=UTC).isoformat()
-            _save_progress(result, session_id, pb_record_id)
-            return result
-
-        # Step 2-5: Run full audit
-        audit_result = await ctx.step.run(
-            "run-full-ga4-audit",
-            lambda: _step_2_run_full_audit(period),
-        )
-
-        if not audit_result["success"]:
-            result["status"] = "error"
-            result["issues"].append(
-                {
-                    "id": "audit_error",
-                    "audit_type": "ga4_tracking",
-                    "severity": "critical",
-                    "title": "Erreur d'audit",
-                    "description": audit_result.get("error", "Erreur inconnue"),
-                    "action_available": False,
-                }
-            )
-            result["completed_at"] = datetime.now(tz=UTC).isoformat()
-            _save_progress(result, session_id, pb_record_id)
-            return result
-
-        full_audit = audit_result["data"]
-
-        # Add coverage steps
-        coverage_steps = _build_coverage_steps(full_audit)
-        for step in coverage_steps:
-            result["steps"].append(step)
-            _save_progress(result, session_id, pb_record_id)
-
-        # Step 6: Google Ads Integration
-        google_ads_result = await ctx.step.run(
-            "check-google-ads-integration",
-            _step_google_ads_integration,
-        )
-        result["steps"].append(google_ads_result["step"])
-        result["issues"].extend(google_ads_result["issues"])
-        _save_progress(result, session_id, pb_record_id)
-
-        # Build issues
-        result["issues"].extend(_build_issues(full_audit))
-
-        # Finalize
-        has_errors = any(s.get("status") == "error" for s in result["steps"])
-        has_warnings = any(s.get("status") == "warning" for s in result["steps"])
-        result["status"] = "error" if has_errors else ("warning" if has_warnings else "success")
-        result["completed_at"] = datetime.now(tz=UTC).isoformat()
-        result["summary"] = full_audit.get("summary", {})
+        try:
+            _check_cancelled(pb_record_id, result)
+            full_audit = await _run_ga4_audit_steps(ctx, result, session_id, pb_record_id, period)
+            _finalize_result(result, full_audit)
+        except AuditCancelledError:
+            pass  # Result already updated by _check_cancelled
 
         _save_progress(result, session_id, pb_record_id)
         return result
 
     return ga4_audit
+
+
+async def _run_ga4_audit_steps(
+    ctx: inngest.Context,
+    result: dict[str, Any],
+    session_id: str,
+    pb_record_id: str | None,
+    period: int,
+) -> dict[str, Any]:
+    """Execute GA4 audit steps with cancellation checks."""
+    ga4_config = _get_ga4_config()
+    measurement_id = ga4_config.get("measurement_id", "")
+
+    # Step 1: Check connection
+    step1_result = await ctx.step.run(
+        "check-ga4-connection",
+        lambda: _step_1_check_connection(measurement_id),
+    )
+    result["steps"].append(step1_result["step"])
+    _save_progress(result, session_id, pb_record_id)
+    _check_cancelled(pb_record_id, result)
+
+    if not step1_result["success"]:
+        _add_skipped_steps(result)
+        result["status"] = "error"
+        result["completed_at"] = datetime.now(tz=UTC).isoformat()
+        raise AuditCancelledError
+
+    # Step 2-5: Run full audit
+    audit_result = await ctx.step.run(
+        "run-full-ga4-audit",
+        lambda: _step_2_run_full_audit(period),
+    )
+    _check_cancelled(pb_record_id, result)
+
+    if not audit_result["success"]:
+        _add_audit_error(result, audit_result.get("error", "Erreur inconnue"))
+        raise AuditCancelledError
+
+    full_audit = audit_result["data"]
+
+    # Add coverage steps
+    for step in _build_coverage_steps(full_audit):
+        result["steps"].append(step)
+        _save_progress(result, session_id, pb_record_id)
+
+    _check_cancelled(pb_record_id, result)
+
+    # Step 6: Google Ads Integration
+    google_ads_result = await ctx.step.run(
+        "check-google-ads-integration",
+        _step_google_ads_integration,
+    )
+    result["steps"].append(google_ads_result["step"])
+    result["issues"].extend(google_ads_result["issues"])
+    _save_progress(result, session_id, pb_record_id)
+
+    result["issues"].extend(_build_issues(full_audit))
+    return full_audit
+
+
+def _add_skipped_steps(result: dict[str, Any]) -> None:
+    """Add skipped steps when connection fails."""
+    for step_def in STEPS[1:]:
+        result["steps"].append({
+            "id": step_def["id"],
+            "name": step_def["name"],
+            "description": step_def["description"],
+            "status": "skipped",
+            "started_at": None,
+            "completed_at": None,
+            "duration_ms": None,
+            "result": None,
+            "error_message": None,
+        })
+
+
+def _add_audit_error(result: dict[str, Any], error_msg: str) -> None:
+    """Add audit error issue."""
+    result["status"] = "error"
+    result["issues"].append({
+        "id": "audit_error",
+        "audit_type": "ga4_tracking",
+        "severity": "critical",
+        "title": "Erreur d'audit",
+        "description": error_msg,
+        "action_available": False,
+    })
+    result["completed_at"] = datetime.now(tz=UTC).isoformat()
+
+
+def _finalize_result(result: dict[str, Any], full_audit: dict[str, Any]) -> None:
+    """Finalize the audit result with status and summary."""
+    has_errors = any(s.get("status") == "error" for s in result["steps"])
+    has_warnings = any(s.get("status") == "warning" for s in result["steps"])
+    result["status"] = "error" if has_errors else ("warning" if has_warnings else "success")
+    result["completed_at"] = datetime.now(tz=UTC).isoformat()
+    result["summary"] = full_audit.get("summary", {})
 
 
 ga4_audit_function = create_ga4_audit_function()
