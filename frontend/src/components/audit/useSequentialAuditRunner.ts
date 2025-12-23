@@ -29,6 +29,7 @@ import {
   pbRunsToProgress,
   buildAuditNameMap,
   executeSequentialAudits,
+  resumeSequentialAudits,
   countCompleted,
 } from './sequentialRunnerUtils'
 
@@ -84,6 +85,9 @@ interface RecoveryConfig {
   sessionId: string | null
   hasLocalState: boolean
   hasAuditsLoaded: boolean
+  availableAudits: AvailableAudit[]
+  pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>
+  wasStartedLocallyRef: React.RefObject<boolean>
   setOrchSession: (s: OrchestratorSession | null) => void
   setPlannedAudits: (a: string[]) => void
   setIsRunning: (r: boolean) => void
@@ -94,6 +98,9 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
     sessionId,
     hasLocalState,
     hasAuditsLoaded,
+    availableAudits,
+    pbAuditRunsRef,
+    wasStartedLocallyRef,
     setOrchSession,
     setPlannedAudits,
     setIsRunning,
@@ -108,9 +115,26 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
         setOrchSession(session)
         setPlannedAudits(session.planned_audits)
         setIsRunning(true)
+        wasStartedLocallyRef.current = true
+        // Resume execution of remaining audits
+        await resumeSequentialAudits(
+          session.planned_audits,
+          availableAudits,
+          () => pbAuditRunsRef.current
+        )
       }
     })()
-  }, [sessionId, hasLocalState, hasAuditsLoaded, setOrchSession, setPlannedAudits, setIsRunning])
+  }, [
+    sessionId,
+    hasLocalState,
+    hasAuditsLoaded,
+    availableAudits,
+    pbAuditRunsRef,
+    wasStartedLocallyRef,
+    setOrchSession,
+    setPlannedAudits,
+    setIsRunning,
+  ])
 }
 
 interface AutoCompleteConfig {
@@ -235,6 +259,9 @@ export function useSequentialAuditRunner(
     sessionId,
     hasLocalState: plannedAudits.length > 0,
     hasAuditsLoaded: availableAudits.length > 0,
+    availableAudits,
+    pbAuditRunsRef,
+    wasStartedLocallyRef,
     setOrchSession,
     setPlannedAudits,
     setIsRunning,

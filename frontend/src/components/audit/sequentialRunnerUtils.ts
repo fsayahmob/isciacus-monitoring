@@ -96,6 +96,47 @@ export async function executeSequentialAudits(
 }
 
 /**
+ * Resume execution of remaining audits after page refresh.
+ * Skips already completed/failed audits and continues from pending ones.
+ */
+export async function resumeSequentialAudits(
+  plannedAuditTypes: string[],
+  availableAudits: AvailableAudit[],
+  getPbRuns: () => Map<string, AuditRun>
+): Promise<void> {
+  const auditMap = new Map(availableAudits.map((a) => [a.type, a]))
+
+  for (const auditType of plannedAuditTypes) {
+    const pbRun = getPbRuns().get(auditType)
+    const isAlreadyDone = pbRun?.status === 'completed' || pbRun?.status === 'failed'
+
+    if (isAlreadyDone) {
+      continue
+    }
+
+    // If running, wait for it to complete
+    if (pbRun?.status === 'running') {
+      await waitForAuditCompletion(auditType, getPbRuns)
+      continue
+    }
+
+    // Pending - start it
+    const audit = auditMap.get(auditType)
+    if (audit === undefined) {
+      continue
+    }
+
+    try {
+      await runAudit(audit.type)
+      await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
+      await waitForAuditCompletion(audit.type, getPbRuns)
+    } catch {
+      // Continue with next audit even if one fails
+    }
+  }
+}
+
+/**
  * Count completed audits in progress array.
  */
 export function countCompleted(progress: AuditProgress[]): number {
