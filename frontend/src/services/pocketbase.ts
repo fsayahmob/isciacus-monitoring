@@ -213,11 +213,20 @@ export async function getOrchestratorSession(
 
 /**
  * Mark an orchestrator session as completed.
+ * Returns null if the record doesn't exist (e.g., after cleanup or page refresh).
  */
-export async function completeOrchestratorSession(recordId: string): Promise<OrchestratorSession> {
+export async function completeOrchestratorSession(
+  recordId: string
+): Promise<OrchestratorSession | null> {
   const pb = getPocketBase()
-  return pb.collection('orchestrator_sessions').update<OrchestratorSession>(recordId, {
-    status: 'completed',
-    completed_at: new Date().toISOString(),
-  })
+  try {
+    return await pb.collection('orchestrator_sessions').update<OrchestratorSession>(recordId, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    })
+  } catch {
+    // Record may have been deleted - not a critical error
+    console.warn('Could not complete orchestrator session (record may not exist):', recordId)
+    return null
+  }
 }
