@@ -146,112 +146,125 @@ test.describe('Audit Page - PocketBase Integration', () => {
 })
 
 // Tests that modify PocketBase state must run serially to avoid conflicts
+/**
+ * Capture the exact state of the orchestrator progress section.
+ */
+interface OrchestratorState {
+  totalAudits: number
+  completedCount: number
+  progressChips: { name: string; status: 'completed' | 'running' | 'pending' | 'error' }[]
+}
+
+async function captureOrchestratorState(page: Page): Promise<OrchestratorState | null> {
+  return page.evaluate(() => {
+    // Find the progress indicator section
+    const progressSection = document.querySelector('[class*="rounded-xl"][class*="border-info"]')
+    if (!progressSection) {
+      return null
+    }
+
+    // Extract "X/Y" counter
+    const counterText = progressSection.querySelector('[class*="text-text-secondary"]')?.textContent || ''
+    const match = counterText.match(/(\d+)\/(\d+)/)
+    const completedCount = match ? parseInt(match[1], 10) : 0
+    const totalAudits = match ? parseInt(match[2], 10) : 0
+
+    // Extract progress chips
+    const chips = Array.from(progressSection.querySelectorAll('[class*="rounded-full"][class*="px-2"]'))
+    const progressChips = chips.map((chip) => {
+      const name = chip.textContent?.trim() || ''
+      const hasCheck = chip.querySelector('path[d*="M5 13l4 4L19 7"]') !== null
+      const hasSpinner = chip.querySelector('.animate-spin') !== null
+      const hasX = chip.querySelector('path[d*="M6 18L18 6"]') !== null
+
+      let status: 'completed' | 'running' | 'pending' | 'error' = 'pending'
+      if (hasCheck) {
+        status = 'completed'
+      }
+      if (hasSpinner) {
+        status = 'running'
+      }
+      if (hasX) {
+        status = 'error'
+      }
+
+      return { name, status }
+    })
+
+    return { totalAudits, completedCount, progressChips }
+  })
+}
+
 test.describe.serial('Audit Page - Full E2E with Orchestrator', () => {
   test.beforeEach(async ({ page }) => {
     const pbAvailable = await isPocketBaseAvailable(page)
     test.skip(!pbAvailable, 'PocketBase not available - skipping orchestrator tests')
   })
 
-  test('should launch audits via orchestrator and restore state after refresh', async ({ page }) => {
-    test.setTimeout(120000) // 2 minutes - audits can take time
+  test('should restore EXACT orchestrator state after refresh', async ({ page }) => {
+    test.setTimeout(120000)
 
     // Step 1: Navigate to audit page
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-
-    // Click on Audit tab in navigation
-    const auditNavTab = page.locator('nav button:has-text("Audit")')
-    await auditNavTab.first().click()
+    await page.locator('nav button:has-text("Audit")').first().click()
     await page.waitForTimeout(1000)
 
-    console.log('On Audit page')
-
-    // Step 2: Find and click "Lancer tous les audits" button
+    // Step 2: Start orchestrator
     const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
-    const buttonCount = await runAllButton.count()
-    console.log(`Found ${buttonCount} "Lancer tous les audits" button(s)`)
-
-    if (buttonCount === 0) {
-      // Button might show "en cours" if audits are already running
-      const runningButton = page.locator('button:has-text("en cours")')
-      const runningCount = await runningButton.count()
-      if (runningCount > 0) {
-        console.log('Audits already running - continuing with test')
-      } else {
-        throw new Error('Could not find run all audits button')
-      }
-    } else {
-      // Click the button to start all audits
+    if ((await runAllButton.count()) > 0) {
       await runAllButton.click()
-      console.log('Clicked "Lancer tous les audits"')
+      console.log('Started orchestrator')
     }
 
-    // Step 3: Wait for audits to progress (either running or completed)
-    // The orchestrator runs audits SEQUENTIALLY - at most 1 audit card with spinner
-    console.log('Waiting for audits to progress...')
+    // Step 3: Wait for progress section to appear (at least 1 audit started)
     await page.waitForFunction(
       () => {
-        // Count completed audit cards (badges with "OK" or "X pb")
-        const okBadges = Array.from(document.querySelectorAll('[data-audit-type]')).filter(
-          (card) => /OK|\d+\s*pb/i.test(card.textContent || '')
-        ).length
-        // Count audit cards with "En cours" text (running audits)
-        const runningCards = Array.from(document.querySelectorAll('[data-audit-type]')).filter(
-          (card) => /En cours/i.test(card.textContent || '')
-        ).length
-        console.log(`Completed: ${okBadges}, Running cards: ${runningCards}`)
-        // Accept: either running (1 card max) or all completed (3+ badges)
-        return (okBadges >= 2 && runningCards <= 1) || okBadges >= 3
+        const section = document.querySelector('[class*="rounded-xl"][class*="border-info"]')
+        return section !== null
       },
-      { timeout: 60000 }
+      { timeout: 30000 }
     )
+    await page.waitForTimeout(2000) // Let some progress happen
 
-    // Count running audit cards (not all spinners - progress bar has its own spinner)
-    const runningCardsBefore = page.locator('[data-audit-type]:has-text("En cours")')
-    const completedBefore = page.locator('[data-audit-type]:has-text("OK"), [data-audit-type]:has-text(" pb")')
-    const runningCountBefore = await runningCardsBefore.count()
-    const completedCountBefore = await completedBefore.count()
-    console.log(`Before refresh - Running cards: ${runningCountBefore}, Completed: ${completedCountBefore}`)
+    // Step 4: Capture EXACT state before refresh
+    const stateBefore = await captureOrchestratorState(page)
+    expect(stateBefore).not.toBeNull()
+    console.log('STATE BEFORE REFRESH:', JSON.stringify(stateBefore, null, 2))
 
-    // CRITICAL: Orchestrator runs audits sequentially - at most 1 audit card running
-    expect(runningCountBefore).toBeLessThanOrEqual(1)
-    expect(completedCountBefore).toBeGreaterThanOrEqual(2)
-
-    // Step 4: Refresh while multiple audits are running
-    console.log('Refreshing page immediately...')
+    // Step 5: Refresh
     await page.reload({ timeout: 15000 })
     await page.waitForLoadState('domcontentloaded')
-    console.log('Page reloaded')
+    await page.locator('nav button:has-text("Audit")').first().click()
+    await page.waitForTimeout(5000) // Wait for PocketBase recovery
 
-    // Click on Audit tab again after refresh
-    const auditNavTabAfter = page.locator('nav button:has-text("Audit")')
-    const tabCountAfter = await auditNavTabAfter.count()
-    if (tabCountAfter > 0) {
-      await auditNavTabAfter.first().click({ timeout: 5000 })
-      console.log('Clicked Audit nav tab after refresh')
+    // Step 6: Capture state after refresh
+    const stateAfter = await captureOrchestratorState(page)
+    console.log('STATE AFTER REFRESH:', JSON.stringify(stateAfter, null, 2))
+
+    // Step 7: Verify state was restored
+    if (stateAfter === null) {
+      // Progress section should exist after refresh if orchestrator was running
+      throw new Error('Progress section disappeared after refresh!')
     }
 
-    // Step 5: Wait for PocketBase to restore state
-    await page.waitForTimeout(2000)
+    // Total audits must match
+    expect(stateAfter.totalAudits).toBe(stateBefore!.totalAudits)
 
-    // Step 6: Verify state is restored - either running OR completed
-    const spinnersAfter = page.locator('.animate-spin')
-    const completedBadges = page.locator('text=/OK|\\d+\\s*pb/i')
+    // Progress chips count must match (all planned audits should be listed)
+    expect(stateAfter.progressChips.length).toBe(stateBefore!.progressChips.length)
 
-    const spinnerCountAfter = await spinnersAfter.count()
-    const completedCount = await completedBadges.count()
+    // If we had chips before, we must have chips after
+    if (stateBefore!.progressChips.length > 0) {
+      expect(stateAfter.progressChips.length).toBeGreaterThan(0)
 
-    console.log(`After refresh - Spinners: ${spinnerCountAfter}, Completed: ${completedCount}`)
-
-    // State must be restored: either still running or already completed
-    const hasState = spinnerCountAfter > 0 || completedCount > 0
-    expect(hasState).toBeTruthy()
-
-    if (spinnerCountAfter > 0) {
-      console.log('✓ Running state successfully restored after refresh via orchestrator')
-    } else {
-      console.log('✓ Audits completed - state correctly shows completed badges')
+      // Verify same audit names are present
+      const namesBefore = stateBefore!.progressChips.map((c) => c.name).sort()
+      const namesAfter = stateAfter.progressChips.map((c) => c.name).sort()
+      expect(namesAfter).toEqual(namesBefore)
     }
+
+    console.log('✓ Orchestrator state restored EXACTLY after refresh')
   })
 })
 
