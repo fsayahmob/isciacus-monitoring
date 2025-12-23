@@ -12,6 +12,20 @@ import { STATUS_CONFIG, isStepCompleted } from './stepperConfig'
 import { formatDuration } from './utils'
 
 /**
+ * Get the progress label for step count display.
+ * Avoids nested ternary by using early returns.
+ */
+function getStepProgressLabel(totalSteps: number, completed: number, running: boolean): string {
+  if (totalSteps > 0) {
+    return `${String(completed)} / ${String(totalSteps)} étapes complétées`
+  }
+  if (running) {
+    return 'Chargement des étapes...'
+  }
+  return 'Aucune étape'
+}
+
+/**
  * Vertical line connecting steps
  * z-index: 0 to go BEHIND the icons (z-10)
  */
@@ -165,7 +179,7 @@ export function PipelineStepsPanel({
           />
         </div>
         <p className="mt-1.5 text-xs text-text-tertiary">
-          {completedSteps} / {steps.length} étapes complétées
+          {getStepProgressLabel(steps.length, completedSteps, isRunning)}
         </p>
       </div>
 
