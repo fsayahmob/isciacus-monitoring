@@ -186,7 +186,7 @@ export function IssueCard({
           </div>
           <p className="mt-1 text-sm text-text-secondary">{issue.description}</p>
 
-          {issue.details !== null && issue.details.length > 0 && (
+          {Array.isArray(issue.details) && issue.details.length > 0 && (
             <IssueDetails details={issue.details} />
           )}
         </div>

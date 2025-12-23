@@ -119,15 +119,19 @@ export function shouldRecoverState(
 
 /**
  * Recover audit order from PocketBase runs.
+ * Returns all available audits when recovering (not just started ones).
+ * This shows completed, running, and pending audits in the progress section.
  */
 export function recoverAuditOrder(
   pbRuns: Map<string, AuditRun>,
   availableOrder: string[]
 ): string[] {
-  // Get all audits that have been started (have a PocketBase record)
-  const startedAudits = new Set(pbRuns.keys())
-  // Return them in the order defined by availableAudits
-  return availableOrder.filter((type) => startedAudits.has(type))
+  // When recovering, return all available audits to show full progress
+  // The pbRunsToProgress function handles showing correct status for each
+  if (pbRuns.size > 0) {
+    return availableOrder
+  }
+  return []
 }
 
 /**
