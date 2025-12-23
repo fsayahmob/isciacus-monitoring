@@ -64,7 +64,10 @@ function computeScoreAndReadiness(
   if (!allDone || progress.length === 0) {
     return { score: null, readiness: null }
   }
-  return { score: calculateCampaignScore(progress), readiness: determineCampaignReadiness(calculateCampaignScore(progress), progress) }
+  return {
+    score: calculateCampaignScore(progress),
+    readiness: determineCampaignReadiness(calculateCampaignScore(progress), progress),
+  }
 }
 
 interface RunnerState {
@@ -87,7 +90,13 @@ type RunnerAction =
 function runnerReducer(state: RunnerState, action: RunnerAction): RunnerState {
   switch (action.type) {
     case 'START':
-      return { ...state, auditOrder: action.order, isRunning: true, currentIndex: 0, showSummary: false }
+      return {
+        ...state,
+        auditOrder: action.order,
+        isRunning: true,
+        currentIndex: 0,
+        showSummary: false,
+      }
     case 'SET_INDEX':
       return { ...state, currentIndex: action.index }
     case 'FINISH':
@@ -97,7 +106,13 @@ function runnerReducer(state: RunnerState, action: RunnerAction): RunnerState {
     case 'DISMISS_SUMMARY':
       return { ...state, showSummary: false }
     case 'RESET':
-      return { auditOrder: [], isRunning: false, currentIndex: -1, showSummary: false, hasRecovered: state.hasRecovered }
+      return {
+        auditOrder: [],
+        isRunning: false,
+        currentIndex: -1,
+        showSummary: false,
+        hasRecovered: state.hasRecovered,
+      }
     case 'MARK_RECOVERED':
       return { ...state, hasRecovered: true }
   }
@@ -146,7 +161,10 @@ export function useSequentialAuditRunner(
 
   const completedCount = countCompleted(progress)
   const allDone = state.auditOrder.length > 0 && completedCount === state.auditOrder.length
-  const { score, readiness } = React.useMemo(() => computeScoreAndReadiness(allDone, progress), [allDone, progress])
+  const { score, readiness } = React.useMemo(
+    () => computeScoreAndReadiness(allDone, progress),
+    [allDone, progress]
+  )
 
   // Auto-show summary when all done
   React.useEffect(() => {
