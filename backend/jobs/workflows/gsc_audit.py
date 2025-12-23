@@ -44,8 +44,6 @@ STEPS_BASIC_SEO = [
 STEPS = STEPS_WITH_GSC
 
 
-
-
 def _get_gsc_config() -> dict[str, str]:
     """Get GSC config from ConfigService."""
     try:

@@ -103,8 +103,6 @@ def _init_result(run_id: str) -> dict[str, Any]:
     }
 
 
-
-
 def _find_step(result: dict[str, Any], step_id: str) -> dict[str, Any] | None:
     """Find a step by ID in the steps list."""
     for step in result["steps"]:

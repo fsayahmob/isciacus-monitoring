@@ -50,8 +50,6 @@ STEPS = [
 ]
 
 
-
-
 def _get_gmc_config() -> dict[str, str]:
     """Get GMC config from ConfigService."""
     try:

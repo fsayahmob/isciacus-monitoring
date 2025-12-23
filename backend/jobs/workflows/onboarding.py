@@ -918,9 +918,5 @@ def _finalize_result(
     return result
 
 
-
-
-
-
 # Create the function if enabled
 onboarding_audit_function = create_onboarding_function()

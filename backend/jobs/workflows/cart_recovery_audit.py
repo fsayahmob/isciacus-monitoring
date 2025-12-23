@@ -84,8 +84,6 @@ def _init_result() -> dict[str, Any]:
     }
 
 
-
-
 def create_cart_recovery_audit_workflow() -> inngest.Function | None:
     """
     Create Cart Recovery Analysis Audit workflow.

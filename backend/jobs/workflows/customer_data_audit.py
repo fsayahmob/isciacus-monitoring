@@ -76,8 +76,6 @@ def _init_result() -> dict[str, Any]:
     }
 
 
-
-
 def create_customer_data_audit_workflow() -> inngest.Function | None:
     """
     Create Customer Data Readiness Audit workflow.

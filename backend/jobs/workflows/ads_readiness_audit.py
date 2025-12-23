@@ -59,8 +59,6 @@ STEPS = [
 ]
 
 
-
-
 def _get_ga4_audit_results(session_id: str) -> dict[str, Any] | None:
     """Récupère les résultats de l'audit GA4 depuis PocketBase."""
     return get_audit_result(session_id, "ga4_tracking")

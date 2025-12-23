@@ -43,8 +43,6 @@ STEPS = [
 ]
 
 
-
-
 def _get_ga4_config() -> dict[str, str]:
     """Get GA4 config from ConfigService."""
     try:
