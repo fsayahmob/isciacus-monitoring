@@ -6,16 +6,18 @@ Full async workflow with step-by-step progress updates.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import inngest
 
 from jobs.audit_workflow import inngest_client
-from jobs.pocketbase_progress import is_audit_cancelled
+from jobs.pocketbase_progress import (
+    init_audit_result,
+    is_audit_cancelled,
+    save_audit_progress,
+)
 
 
 COVERAGE_RATE_HIGH = 90
@@ -55,62 +57,7 @@ STEPS = [
 ]
 
 
-def _save_progress(
-    result: dict[str, Any],
-    session_id: str | None = None,
-    pocketbase_record_id: str | None = None,
-) -> None:
-    """Save audit progress to session file and PocketBase."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    latest_file = storage_dir / "latest_session.json"
-
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": result["id"],
-            "created_at": result["started_at"],
-            "updated_at": datetime.now(tz=UTC).isoformat(),
-            "audits": {},
-        }
-
-    session["audits"]["ga4_tracking"] = result
-    session["updated_at"] = datetime.now(tz=UTC).isoformat()
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    # Update PocketBase for realtime subscriptions
-    # Uses record_id if provided (Firebase-like pattern), else falls back to session lookup
-    from jobs.pocketbase_progress import update_audit_progress
-
-    pb_session_id = session_id or session["id"]
-    update_audit_progress(
-        session_id=pb_session_id,
-        audit_type="ga4_tracking",
-        status=result.get("status", "running"),
-        result=result if result.get("status") in ("success", "warning", "error") else None,
-        error=result.get("error_message"),
-        pocketbase_record_id=pocketbase_record_id,
-    )
-
-
-def _init_result(run_id: str) -> dict[str, Any]:
-    """Initialize audit result."""
-    return {
-        "id": run_id,
-        "audit_type": "ga4_tracking",
-        "audit_category": "config",
-        "status": "running",
-        "execution_mode": "inngest",
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": None,
-        "steps": [],
-        "issues": [],
-        "summary": {},
-    }
+AUDIT_TYPE = "ga4_tracking"
 
 
 def _get_ga4_config() -> dict[str, str]:
@@ -514,8 +461,8 @@ def create_ga4_audit_function() -> inngest.Function | None:
         session_id = ctx.event.data.get("session_id", run_id)
         period = ctx.event.data.get("period", 30)
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
-        result = _init_result(run_id)
-        _save_progress(result, session_id, pb_record_id)
+        result = init_audit_result(run_id, AUDIT_TYPE)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         try:
             _check_cancelled(pb_record_id, result)
@@ -524,7 +471,7 @@ def create_ga4_audit_function() -> inngest.Function | None:
         except AuditCancelledError:
             pass  # Result already updated by _check_cancelled
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         return result
 
     return ga4_audit
@@ -547,7 +494,7 @@ async def _run_ga4_audit_steps(
         lambda: _step_1_check_connection(measurement_id),
     )
     result["steps"].append(step1_result["step"])
-    _save_progress(result, session_id, pb_record_id)
+    save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
     _check_cancelled(pb_record_id, result)
 
     if not step1_result["success"]:
@@ -572,7 +519,7 @@ async def _run_ga4_audit_steps(
     # Add coverage steps
     for step in _build_coverage_steps(full_audit):
         result["steps"].append(step)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
     _check_cancelled(pb_record_id, result)
 
@@ -583,7 +530,7 @@ async def _run_ga4_audit_steps(
     )
     result["steps"].append(google_ads_result["step"])
     result["issues"].extend(google_ads_result["issues"])
-    _save_progress(result, session_id, pb_record_id)
+    save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
     result["issues"].extend(_build_issues(full_audit))
     return full_audit

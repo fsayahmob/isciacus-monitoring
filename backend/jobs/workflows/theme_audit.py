@@ -6,16 +6,17 @@ Full async workflow with step-by-step progress updates.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import inngest
 
 from jobs.audit_workflow import inngest_client
+from jobs.pocketbase_progress import init_audit_result, save_audit_progress
 
+
+AUDIT_TYPE = "theme_code"
 
 STEPS = [
     {
@@ -42,61 +43,6 @@ STEPS = [
 ]
 
 
-def _save_progress(
-    result: dict[str, Any],
-    session_id: str | None = None,
-    pocketbase_record_id: str | None = None,
-) -> None:
-    """Save audit progress to session file and PocketBase."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    latest_file = storage_dir / "latest_session.json"
-
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": result["id"],
-            "created_at": result["started_at"],
-            "updated_at": datetime.now(tz=UTC).isoformat(),
-            "audits": {},
-        }
-
-    session["audits"]["theme_code"] = result
-    session["updated_at"] = datetime.now(tz=UTC).isoformat()
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    # Update PocketBase for realtime subscriptions
-    from jobs.pocketbase_progress import update_audit_progress
-
-    pb_session_id = session_id or session["id"]
-    update_audit_progress(
-        session_id=pb_session_id,
-        audit_type="theme_code",
-        status=result.get("status", "running"),
-        result=result if result.get("status") in ("success", "warning", "error") else None,
-        error=result.get("error_message"),
-        pocketbase_record_id=pocketbase_record_id,
-    )
-
-
-def _init_result(run_id: str) -> dict[str, Any]:
-    """Initialize audit result."""
-    return {
-        "id": run_id,
-        "audit_type": "theme_code",
-        "audit_category": "config",
-        "status": "running",
-        "execution_mode": "inngest",
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": None,
-        "steps": [],
-        "issues": [],
-        "summary": {},
-    }
 
 
 def _get_ga4_config() -> dict[str, str]:
@@ -685,60 +631,60 @@ def create_theme_audit_function() -> inngest.Function | None:
         run_id = ctx.event.data.get("run_id", str(uuid4())[:8])
         session_id = ctx.event.data.get("session_id", run_id)
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
-        result = _init_result(run_id)
-        _save_progress(result, session_id, pb_record_id)
+        result = init_audit_result(run_id, AUDIT_TYPE)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         ga4_config = _get_ga4_config()
         ga4_measurement_id = ga4_config.get("measurement_id", "")
 
         if not ga4_measurement_id:
             result = _handle_ga4_not_configured(result)
-            _save_progress(result, session_id, pb_record_id)
+            save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
             return result
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step1_result = await ctx.step.run("access-theme", _step_1_theme_access)
         result["steps"].append(step1_result["step"])
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         if not step1_result["success"]:
             result = _handle_theme_access_failed(result)
-            _save_progress(result, session_id, pb_record_id)
+            save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
             return result
 
         analysis = step1_result["analysis"]
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step2_result = await ctx.step.run(
             "analyze-ga4-code",
             lambda: _step_2_ga4_code(analysis, ga4_measurement_id),
         )
         result["steps"].append(step2_result["step"])
         result["issues"].extend(step2_result["issues"])
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step3_result = await ctx.step.run("analyze-meta-code", lambda: _step_3_meta_code(analysis))
         result["steps"].append(step3_result["step"])
         result["issues"].extend(step3_result["issues"])
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step4_result = await ctx.step.run("analyze-gtm-code", lambda: _step_4_gtm_code(analysis))
         result["steps"].append(step4_result["step"])
         result["issues"].extend(step4_result["issues"])
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step5_result = await ctx.step.run(
             "detect-issues", lambda: _step_5_issues_detection(analysis)
         )
         result["steps"].append(step5_result["step"])
         result["issues"].extend(step5_result["issues"])
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         result = _finalize_theme_result(result, analysis)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         return result
 
     return theme_audit

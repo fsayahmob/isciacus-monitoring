@@ -8,14 +8,16 @@ Inngest workflow that analyzes abandoned carts for Ads retargeting:
 4. Calculate recovery revenue potential
 """
 
-import json
-from pathlib import Path
 from typing import Any
 
 import inngest
 
 from jobs.audit_workflow import inngest_client
+from jobs.pocketbase_progress import save_audit_progress
 from services.cart_recovery_analyzer import CartRecoveryAnalyzer
+
+
+AUDIT_TYPE = "cart_recovery"
 
 
 STEPS = [
@@ -82,45 +84,6 @@ def _init_result() -> dict[str, Any]:
     }
 
 
-def _save_progress(
-    result: dict[str, Any],
-    session_id: str | None = None,
-    pocketbase_record_id: str | None = None,
-) -> None:
-    """Save audit progress to session file."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    latest_file = storage_dir / "latest_session.json"
-
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": "cart_recovery_session",
-            "created_at": result.get("started_at", ""),
-            "updated_at": "",
-            "audits": {},
-        }
-
-    session["audits"]["cart_recovery"] = result
-    session["updated_at"] = result.get("completed_at") or result.get("started_at", "")
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    # Update PocketBase for realtime subscriptions
-    from jobs.pocketbase_progress import update_audit_progress
-
-    pb_session_id = session_id or session["id"]
-    update_audit_progress(
-        session_id=pb_session_id,
-        audit_type="cart_recovery",
-        status=result.get("status", "running"),
-        result=result if result.get("status") in ("success", "warning", "error") else None,
-        error=result.get("error"),
-        pocketbase_record_id=pocketbase_record_id,
-    )
 
 
 def create_cart_recovery_audit_workflow() -> inngest.Function | None:
@@ -157,7 +120,7 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
 
         result = _init_result()
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         analyzer = CartRecoveryAnalyzer()
 
@@ -167,7 +130,7 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
             lambda: _check_cart_tracking(analyzer, result),
         )
         result = tracking_result
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # If tracking not enabled, skip remaining steps
         if not result["cart_tracking"].get("enabled"):
@@ -176,7 +139,7 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
             result["status"] = "warning"
             result["progress"] = 100
             result["completed_at"] = datetime.now(tz=UTC).isoformat()
-            _save_progress(result, session_id, pb_record_id)
+            save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
             return result
 
         # Step 2: Analyze abandonment volume
@@ -185,7 +148,7 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
             lambda: _analyze_abandonment_volume(analyzer, result),
         )
         result = volume_result
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 3: Check email capture
         email_result = await ctx.step.run(
@@ -193,7 +156,7 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
             lambda: _check_email_capture(analyzer, result),
         )
         result = email_result
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 4: Calculate recovery potential
         potential_result = await ctx.step.run(
@@ -201,7 +164,7 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
             lambda: _calculate_recovery_potential(analyzer, result),
         )
         result = potential_result
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Mark as completed
         from datetime import UTC, datetime
@@ -209,7 +172,7 @@ def create_cart_recovery_audit_workflow() -> inngest.Function | None:
         result["status"] = "success"
         result["progress"] = 100
         result["completed_at"] = datetime.now(tz=UTC).isoformat()
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         return result
 

@@ -15,15 +15,23 @@ Score final : X/100 avec détails des problèmes.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import inngest
 
 from jobs.audit_workflow import inngest_client
+from jobs.pocketbase_progress import (
+    get_audit_result,
+    init_audit_result,
+    save_audit_progress,
+)
 
+
+AUDIT_TYPE = "ads_readiness"
+
+# Session ID stored during workflow execution for cross-audit lookups
+_current_session_id: str | None = None
 
 STEPS = [
     {
@@ -54,114 +62,27 @@ STEPS = [
 ]
 
 
-def _save_progress(
-    result: dict[str, Any],
-    session_id: str | None = None,
-    pocketbase_record_id: str | None = None,
-) -> None:
-    """Save audit progress to session file."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    latest_file = storage_dir / "latest_session.json"
-
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": result["id"],
-            "created_at": result["started_at"],
-            "updated_at": datetime.now(tz=UTC).isoformat(),
-            "audits": {},
-        }
-
-    session["audits"]["ads_readiness"] = result
-    session["updated_at"] = datetime.now(tz=UTC).isoformat()
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    # Update PocketBase for realtime subscriptions
-    from jobs.pocketbase_progress import update_audit_progress
-
-    pb_session_id = session_id or session["id"]
-    update_audit_progress(
-        session_id=pb_session_id,
-        audit_type="ads_readiness",
-        status=result.get("status", "running"),
-        result=result if result.get("status") in ("success", "warning", "error") else None,
-        error=result.get("error_message"),
-        pocketbase_record_id=pocketbase_record_id,
-    )
-
-
-def _init_result(run_id: str) -> dict[str, Any]:
-    """Initialize audit result."""
-    return {
-        "id": run_id,
-        "audit_type": "ads_readiness",
-        "audit_category": "metrics",
-        "status": "running",
-        "execution_mode": "inngest",
-        "started_at": datetime.now(tz=UTC).isoformat(),
-        "completed_at": None,
-        "steps": [],
-        "issues": [],
-        "summary": {},
-    }
 
 
 def _get_ga4_audit_results() -> dict[str, Any] | None:
-    """
-    Récupère les résultats de l'audit GA4 depuis la session.
-
-    L'audit GA4 vérifie les événements réellement trackés via l'API GA4,
-    pas seulement le code dans le thème (qui peut être via Custom Pixels).
-    """
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    latest_file = storage_dir / "latest_session.json"
-
-    if not latest_file.exists():
+    """Récupère les résultats de l'audit GA4 depuis PocketBase."""
+    if _current_session_id is None:
         return None
-
-    try:
-        with latest_file.open() as f:
-            session = json.load(f)
-        return session.get("audits", {}).get("ga4_tracking")
-    except (json.JSONDecodeError, OSError):
-        return None
+    return get_audit_result(_current_session_id, "ga4_tracking")
 
 
 def _get_capi_audit_results() -> dict[str, Any] | None:
-    """Récupère les résultats de l'audit CAPI depuis la session."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    latest_file = storage_dir / "latest_session.json"
-
-    if not latest_file.exists():
+    """Récupère les résultats de l'audit CAPI depuis PocketBase."""
+    if _current_session_id is None:
         return None
-
-    try:
-        with latest_file.open() as f:
-            session = json.load(f)
-        return session.get("audits", {}).get("capi")
-    except (json.JSONDecodeError, OSError):
-        return None
+    return get_audit_result(_current_session_id, "capi")
 
 
 def _get_meta_audit_results() -> dict[str, Any] | None:
-    """Récupère les résultats de l'audit Meta Pixel depuis la session."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    latest_file = storage_dir / "latest_session.json"
-
-    if not latest_file.exists():
+    """Récupère les résultats de l'audit Meta Pixel depuis PocketBase."""
+    if _current_session_id is None:
         return None
-
-    try:
-        with latest_file.open() as f:
-            session = json.load(f)
-        return session.get("audits", {}).get("meta_pixel")
-    except (json.JSONDecodeError, OSError):
-        return None
+    return get_audit_result(_current_session_id, "meta_pixel")
 
 
 def _check_tracking_quality() -> dict[str, Any]:
@@ -837,12 +758,16 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
     )
     async def ads_readiness_audit(ctx: inngest.Context) -> dict[str, Any]:
         """Run Ads Readiness audit with step-by-step progress."""
+        global _current_session_id  # noqa: PLW0603
         run_id = ctx.event.data.get("run_id", ctx.run_id)
         session_id = ctx.event.data.get("session_id", run_id)
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
 
-        result = _init_result(run_id)
-        _save_progress(result, session_id, pb_record_id)
+        # Set session ID for cross-audit lookups
+        _current_session_id = session_id
+
+        result = init_audit_result(run_id, AUDIT_TYPE, "metrics")
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         total_score = 0
         max_total_score = 100
@@ -852,7 +777,7 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
         result["steps"].append(step1_result["step"])
         result["issues"].extend(step1_result["issues"])
         total_score += step1_result["score"]
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 2: Conversion Completeness
         step2_result = await ctx.step.run(
@@ -861,14 +786,14 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
         result["steps"].append(step2_result["step"])
         result["issues"].extend(step2_result["issues"])
         total_score += step2_result["score"]
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 3: Segmentation Data
         step3_result = await ctx.step.run("check-segmentation-data", _check_segmentation_data)
         result["steps"].append(step3_result["step"])
         result["issues"].extend(step3_result["issues"])
         total_score += step3_result["score"]
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 4: Attribution Readiness
         step4_result = await ctx.step.run(
@@ -877,14 +802,14 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
         result["steps"].append(step4_result["step"])
         result["issues"].extend(step4_result["issues"])
         total_score += step4_result["score"]
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 5: Ads Metrics
         step5_result = await ctx.step.run("check-ads-metrics", _check_ads_metrics)
         result["steps"].append(step5_result["step"])
         result["issues"].extend(step5_result["issues"])
         total_score += step5_result["score"]
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Finalize
         has_errors = any(s.get("status") == "error" for s in result["steps"])
@@ -912,7 +837,7 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
             "medium_issues": len([i for i in result["issues"] if i["severity"] == "medium"]),
         }
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         return result
 
     return ads_readiness_audit

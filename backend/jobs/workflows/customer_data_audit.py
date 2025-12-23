@@ -7,15 +7,16 @@ Inngest workflow that analyzes customer data to determine Ads readiness:
 3. Validate data quality (emails, order values)
 """
 
-import json
-from pathlib import Path
 from typing import Any
 
 import inngest
 
 from jobs.audit_workflow import inngest_client
+from jobs.pocketbase_progress import save_audit_progress
 from services.customer_data_analyzer import CustomerDataAnalyzer
 
+
+AUDIT_TYPE = "customer_data"
 
 STEPS = [
     {
@@ -75,45 +76,6 @@ def _init_result() -> dict[str, Any]:
     }
 
 
-def _save_progress(
-    result: dict[str, Any],
-    session_id: str | None = None,
-    pocketbase_record_id: str | None = None,
-) -> None:
-    """Save audit progress to session file."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    latest_file = storage_dir / "latest_session.json"
-
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": "customer_data_session",
-            "created_at": result.get("started_at", ""),
-            "updated_at": "",
-            "audits": {},
-        }
-
-    session["audits"]["customer_data"] = result
-    session["updated_at"] = result.get("completed_at") or result.get("started_at", "")
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    # Update PocketBase for realtime subscriptions
-    from jobs.pocketbase_progress import update_audit_progress
-
-    pb_session_id = session_id or session["id"]
-    update_audit_progress(
-        session_id=pb_session_id,
-        audit_type="customer_data",
-        status=result.get("status", "running"),
-        result=result if result.get("status") in ("success", "warning", "error") else None,
-        error=result.get("error"),
-        pocketbase_record_id=pocketbase_record_id,
-    )
 
 
 def create_customer_data_audit_workflow() -> inngest.Function | None:
@@ -149,7 +111,7 @@ def create_customer_data_audit_workflow() -> inngest.Function | None:
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
 
         result = _init_result()
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         analyzer = CustomerDataAnalyzer()
 
@@ -159,7 +121,7 @@ def create_customer_data_audit_workflow() -> inngest.Function | None:
             lambda: _check_customer_count(analyzer, result),
         )
         result = count_result
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 2: Analyze data history
         history_result = await ctx.step.run(
@@ -167,7 +129,7 @@ def create_customer_data_audit_workflow() -> inngest.Function | None:
             lambda: _analyze_data_history(analyzer, result),
         )
         result = history_result
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 3: Validate data quality
         quality_result = await ctx.step.run(
@@ -175,7 +137,7 @@ def create_customer_data_audit_workflow() -> inngest.Function | None:
             lambda: _validate_data_quality(analyzer, result),
         )
         result = quality_result
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Mark as completed
         from datetime import UTC, datetime
@@ -183,7 +145,7 @@ def create_customer_data_audit_workflow() -> inngest.Function | None:
         result["status"] = "success"
         result["progress"] = 100
         result["completed_at"] = datetime.now(tz=UTC).isoformat()
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         return result
 

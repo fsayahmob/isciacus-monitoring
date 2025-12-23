@@ -10,16 +10,18 @@ Inngest workflow that checks if Ads crawlers can access the site:
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import inngest
 import requests
 
 from jobs.audit_workflow import INNGEST_ENABLED, inngest_client
+from jobs.pocketbase_progress import save_audit_progress
 from services.config_service import ConfigService
+
+
+AUDIT_TYPE = "bot_access"
 
 
 # Bot User-Agents to test
@@ -101,45 +103,6 @@ def _init_result(run_id: str) -> dict[str, Any]:
     }
 
 
-def _save_progress(
-    result: dict[str, Any],
-    session_id: str | None = None,
-    pocketbase_record_id: str | None = None,
-) -> None:
-    """Save audit progress to session file."""
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    latest_file = storage_dir / "latest_session.json"
-
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": f"session_{result['id'][:8]}",
-            "created_at": result.get("started_at", ""),
-            "updated_at": "",
-            "audits": {},
-        }
-
-    session["audits"]["bot_access"] = result
-    session["updated_at"] = result.get("completed_at") or result.get("started_at", "")
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    # Update PocketBase for realtime subscriptions
-    from jobs.pocketbase_progress import update_audit_progress
-
-    pb_session_id = session_id or session["id"]
-    update_audit_progress(
-        session_id=pb_session_id,
-        audit_type="bot_access",
-        status=result.get("status", "running"),
-        result=result if result.get("status") in ("success", "warning", "error") else None,
-        error=result.get("error"),
-        pocketbase_record_id=pocketbase_record_id,
-    )
 
 
 def _find_step(result: dict[str, Any], step_id: str) -> dict[str, Any] | None:
@@ -852,7 +815,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
 
         result = _init_result(run_id)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 1: Check robots.txt
         robots_result = await ctx.step.run(
@@ -860,7 +823,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_robots_txt(result),
         )
         result.update(robots_result)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 2: Check Googlebot access
         googlebot_result = await ctx.step.run(
@@ -868,7 +831,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_googlebot_access(result),
         )
         result.update(googlebot_result)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 3: Check Facebookbot access
         facebookbot_result = await ctx.step.run(
@@ -876,7 +839,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_facebookbot_access(result),
         )
         result.update(facebookbot_result)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 4: Check protection headers
         protection_result = await ctx.step.run(
@@ -884,7 +847,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             lambda: _check_protection_headers(result),
         )
         result.update(protection_result)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Mark as completed
         result["status"] = "success" if result["bots_can_access"] else "warning"
@@ -897,7 +860,7 @@ def create_bot_access_audit_function() -> inngest.Function | None:
             "protections_count": result.get("protection_headers", {}).get("count", 0),
             "issues_count": len(result.get("issues", [])),
         }
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         return result
 

@@ -17,7 +17,10 @@ import requests
 
 # Import shared Inngest client from audit_workflow
 from jobs.audit_workflow import inngest_client
+from jobs.pocketbase_progress import save_audit_progress
 
+
+AUDIT_TYPE = "onboarding"
 
 # Backend API URL for internal calls
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
@@ -33,7 +36,7 @@ def _process_step_result(
     result["steps"].append(step_result["step"])
     if step_result.get("issue"):
         result["issues"].append(step_result["issue"])
-    _save_progress(result, session_id, pocketbase_record_id)
+    save_audit_progress(result, AUDIT_TYPE, session_id, pocketbase_record_id)
     return step_result["success"]
 
 
@@ -70,54 +73,53 @@ def create_onboarding_function() -> inngest.Function | None:
         result = _init_audit_result(run_id)
         services_configured = 0
 
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
 
         # Step 1: Check Shopify connection
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step_result = await ctx.step.run("check-shopify", _check_shopify_connection)
         if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 2: Check GA4 configuration
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step_result = await ctx.step.run("check-ga4", _check_ga4_config)
         if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 3: Check Meta Pixel configuration
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step_result = await ctx.step.run("check-meta", _check_meta_config)
         if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 4: Check Google Merchant Center
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step_result = await ctx.step.run("check-gmc", _check_gmc_config)
         if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 5: Check Google Search Console
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step_result = await ctx.step.run("check-gsc", _check_gsc_config)
         if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 6: Check Google OAuth2 Credentials (for GMC & GA4 API access)
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step_result = await ctx.step.run("check-google-credentials", _check_google_credentials)
         if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Step 7: Check Meta Token Permissions
-        _save_progress(result, session_id, pb_record_id)
+        save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
         step_result = await ctx.step.run("check-meta-permissions", _check_meta_permissions)
         if _process_step_result(result, step_result, session_id, pb_record_id):
             services_configured += 1
 
         # Finalize - pass a copy of result to avoid closure issues
         final_result = _finalize_result(dict(result), services_configured, 7)
-        _save_audit_session(final_result)
-        _save_progress(final_result, session_id, pb_record_id)
+        save_audit_progress(final_result, AUDIT_TYPE, session_id, pb_record_id)
 
         return final_result
 
@@ -916,87 +918,8 @@ def _finalize_result(
     return result
 
 
-def _save_progress(
-    result: dict[str, Any],
-    session_id: str | None = None,
-    pocketbase_record_id: str | None = None,
-) -> dict[str, str]:
-    """Save audit progress to session file for real-time updates.
-
-    Called after each step to provide live progress feedback.
-    """
-    import json
-    from pathlib import Path
-
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-
-    latest_file = storage_dir / "latest_session.json"
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": result["id"],
-            "created_at": result["started_at"],
-            "updated_at": datetime.now(tz=UTC).isoformat(),
-            "audits": {},
-        }
-
-    # Update session with current progress
-    session["audits"]["onboarding"] = result
-    session["updated_at"] = datetime.now(tz=UTC).isoformat()
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    # Update PocketBase for realtime subscriptions
-    from jobs.pocketbase_progress import update_audit_progress
-
-    pb_session_id = session_id or session["id"]
-    update_audit_progress(
-        session_id=pb_session_id,
-        audit_type="onboarding",
-        status=result.get("status", "running"),
-        result=result if result.get("status") in ("success", "warning", "error") else None,
-        error=result.get("error_message"),
-        pocketbase_record_id=pocketbase_record_id,
-    )
-
-    return {"status": "progress_saved", "step_count": len(result.get("steps", []))}
 
 
-def _save_audit_session(result: dict[str, Any]) -> dict[str, str]:
-    """Save final audit result to session."""
-    import json
-    from pathlib import Path
-
-    storage_dir = Path(__file__).parent.parent.parent / "data" / "audits"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-
-    latest_file = storage_dir / "latest_session.json"
-    if latest_file.exists():
-        with latest_file.open() as f:
-            session = json.load(f)
-    else:
-        session = {
-            "id": result["id"],
-            "created_at": result["started_at"],
-            "updated_at": result["completed_at"],
-            "audits": {},
-        }
-
-    session["audits"]["onboarding"] = result
-    session["updated_at"] = result["completed_at"]
-
-    with latest_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    session_file = storage_dir / f"session_{session['id']}.json"
-    with session_file.open("w") as f:
-        json.dump(session, f, indent=2)
-
-    return {"status": "saved", "session_id": session["id"]}
 
 
 # Create the function if enabled
