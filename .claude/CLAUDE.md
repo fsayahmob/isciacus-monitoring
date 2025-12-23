@@ -253,17 +253,17 @@ npm --prefix frontend run typecheck && cd backend && mypy .
 
 | Composant | Avant | Actuel | Cible |
 |-----------|-------|--------|-------|
-| Fichiers `components/audit/` | 28 | 25 | 16 |
+| Fichiers `components/audit/` | 28 | 27 | ~27 |
 | Sources d'etat | 4 | 1 (PocketBase) ✅ | 1 (PocketBase) |
-| `audit_orchestrator.py` | 3827 LOC | 3827 LOC | 500 LOC |
-| Workflows Inngest | 11 copies | 11 copies | 1 generique |
+| `audit_orchestrator.py` | 3827 LOC | 1367 LOC ✅ | ~1000 LOC |
+| Workflows Inngest | 11 copies | 11 copies | 11 (ROI refacto < effort) |
 | Tests unitaires | 0% | 0% | 70% |
 
-### Detail des 25 fichiers audit/
+### Detail des 27 fichiers audit/
 
 | Type | Fichiers | Contenu |
 |------|----------|---------|
-| Composants UI | 15 | AuditCard, IssueCard, PipelineStep, GMCFlowKPI, etc. |
+| Composants UI | 17 | AuditCard, IssueCard, PipelineStep, GMCFlowKPI + 3 splits, etc. |
 | Hooks | 2 | useAudit (unifie), useAuditHelpers |
 | Utils/Types | 5 | campaignScoreUtils, sequentialRunnerUtils, etc. |
 | Config | 3 | auditConfig, stepperConfig, auditTooltips |
@@ -282,14 +282,22 @@ npm --prefix frontend run typecheck && cd backend && mypy .
 
 ---
 
-### Epic 2 : Refactor Composants UI (Priorite 🟡 Moyen)
+### Epic 2 : Refactor Composants UI ✅ TERMINE
 
-| Story | Tache | Effort | Impact |
+| Story | Tache | Effort | Status |
 |-------|-------|--------|--------|
-| 2.1 | Split `GMCFlowKPI.tsx` (330 LOC) en 3 composants | 1j | Respect regle 300 LOC |
-| 2.2 | Fusionner fichiers redondants (StepIcon + StatusIcons, AuditResults + AuditResultSection) | 1j | Moins de fichiers |
+| 2.1 | Split `GMCFlowKPI.tsx` (330 LOC) en 4 fichiers | 0.5j | ✅ Done |
+| 2.2 | Analyse fichiers "redondants" | 0.5j | ✅ Done (pas de fusion necessaire) |
 
-**Resultat** : ~20 → ~16 fichiers
+**Resultat** : 25 → 27 fichiers (split GMCFlowKPI en 4 fichiers modulaires)
+
+**Note Story 2.1** : Split de `GMCFlowKPI.tsx` (330 LOC) en :
+- `GMCFlowKPI.tsx` (193 LOC) - Composant principal
+- `GMCFlowComponents.tsx` (93 LOC) - FlowStage, FlowArrow
+- `GMCFlowIcons.tsx` (42 LOC) - SVG icons
+- `GMCFlowConstants.ts` (17 LOC) - Constantes et helpers
+
+**Note Story 2.2** : Apres analyse, StepIcon/StatusIcons et AuditResults/AuditResultSection ont des responsabilites distinctes et ne doivent pas etre fusionnes.
 
 ---
 
@@ -339,20 +347,25 @@ npm --prefix frontend run typecheck && cd backend && mypy .
 | Epic | Stories | Effort | Status |
 |------|---------|--------|--------|
 | 1. Etat Frontend | 3 | 3.5j | ✅ Termine |
-| 2. Composants UI | 2 | 2j | 🟡 A faire |
+| 2. Composants UI | 2 | 1j | ✅ Termine |
 | 3. Backend simplifie | 2/4 | 2j | ✅ Termine (partiel) |
 | 4. Nettoyage orchestrator | 2 | 1j | ✅ Termine |
-| 5. Tests | 2 | 4j | 🟢 Apres refacto |
+| 5. Tests | 2 | 4j | 🟢 A faire |
 
-**Effort restant** : ~8 jours
+**Effort restant** : ~4 jours (Epic 5 uniquement)
 
-**Ordre d'execution** : ~~Epic 1~~ → ~~Epic 3~~ → ~~Epic 4~~ → Epic 2 → Epic 5
+**Ordre d'execution** : ~~Epic 1~~ → ~~Epic 3~~ → ~~Epic 4~~ → ~~Epic 2~~ → Epic 5
 
 **Accomplissements Epic 3** :
 - `pocketbase_progress.py` : fonctions centralisees `init_audit_result()`, `save_audit_progress()`, `get_audit_result()`
 - 11 workflows refactores pour utiliser les fonctions partagees
 - Suppression du stockage JSON (`latest_session.json`) - PocketBase est maintenant la seule source de verite
 - Total : **-586 LOC** dans les workflows
+
+**Accomplissements Epic 2** :
+- Split de `GMCFlowKPI.tsx` (330 LOC) en 4 fichiers modulaires (tous < 200 LOC)
+- Analyse des fichiers "redondants" : confirmation qu'ils ont des responsabilites distinctes
+- Tous les fichiers `components/audit/` respectent maintenant la limite de 300 LOC
 
 **Accomplissements Epic 4** :
 - Suppression de 6 methodes run_* obsoletes (remplacees par workflows Inngest)
