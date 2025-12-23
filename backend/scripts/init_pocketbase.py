@@ -20,6 +20,27 @@ ADMIN_PASSWORD = os.getenv("PB_ADMIN_PASSWORD", "localdevpass123")
 REQUEST_TIMEOUT = 10
 HTTP_OK = 200
 
+# Collection schema for orchestrator_sessions (stores planned audits list)
+ORCHESTRATOR_SESSIONS_SCHEMA = {
+    "name": "orchestrator_sessions",
+    "type": "base",
+    "fields": [
+        {"name": "session_id", "type": "text", "required": True},
+        {"name": "planned_audits", "type": "json", "required": True},
+        {"name": "status", "type": "select", "required": True, "values": ["running", "completed"]},
+        {"name": "started_at", "type": "date", "required": True},
+        {"name": "completed_at", "type": "date", "required": False},
+    ],
+    "indexes": [
+        "CREATE UNIQUE INDEX idx_orch_session_id ON orchestrator_sessions (session_id)",
+    ],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+}
+
 # Collection schema for audit_runs (PocketBase 0.23+ format)
 AUDIT_RUNS_SCHEMA = {
     "name": "audit_runs",
@@ -127,10 +148,15 @@ def main() -> int:
         return 1
 
     # Create collections
-    if collection_exists(token, "audit_runs"):
-        print("Collection 'audit_runs' already exists")
-    elif not create_collection(token, AUDIT_RUNS_SCHEMA):
-        return 1
+    collections = [
+        ("orchestrator_sessions", ORCHESTRATOR_SESSIONS_SCHEMA),
+        ("audit_runs", AUDIT_RUNS_SCHEMA),
+    ]
+    for name, schema in collections:
+        if collection_exists(token, name):
+            print(f"Collection '{name}' already exists")
+        elif not create_collection(token, schema):
+            return 1
 
     print("=" * 50)
     print("PocketBase initialization complete!")

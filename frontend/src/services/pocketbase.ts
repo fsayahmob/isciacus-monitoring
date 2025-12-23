@@ -17,6 +17,17 @@ const POCKETBASE_URL: string =
 
 // Audit run status types
 export type AuditRunStatus = 'pending' | 'running' | 'completed' | 'failed'
+export type OrchestratorStatus = 'running' | 'completed'
+
+// Orchestrator session record (stores planned audits for recovery after refresh)
+export interface OrchestratorSession {
+  id: string
+  session_id: string
+  planned_audits: string[]
+  status: OrchestratorStatus
+  started_at: string
+  completed_at: string | null
+}
 
 // PocketBase audit run record
 export interface AuditRun {
@@ -146,4 +157,55 @@ export async function updateAuditRunStatus(
  */
 export async function cancelAuditRun(recordId: string): Promise<AuditRun> {
   return updateAuditRunStatus(recordId, 'failed', 'Cancelled by user')
+}
+
+// ============================================================================
+// Orchestrator Session Operations (for state recovery after refresh)
+// ============================================================================
+
+/**
+ * Create an orchestrator session to track planned audits.
+ * Called when "Lancer tous les audits" is clicked.
+ */
+export async function createOrchestratorSession(
+  sessionId: string,
+  plannedAudits: string[]
+): Promise<OrchestratorSession> {
+  const pb = getPocketBase()
+  return pb.collection('orchestrator_sessions').create<OrchestratorSession>({
+    session_id: sessionId,
+    planned_audits: plannedAudits,
+    status: 'running',
+    started_at: new Date().toISOString(),
+    completed_at: null,
+  })
+}
+
+/**
+ * Get the orchestrator session for a given session ID.
+ * Returns null if no session exists.
+ */
+export async function getOrchestratorSession(
+  sessionId: string
+): Promise<OrchestratorSession | null> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb
+      .collection('orchestrator_sessions')
+      .getList<OrchestratorSession>(1, 1, { filter: `session_id="${sessionId}"` })
+    return records.items[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Mark an orchestrator session as completed.
+ */
+export async function completeOrchestratorSession(recordId: string): Promise<OrchestratorSession> {
+  const pb = getPocketBase()
+  return pb.collection('orchestrator_sessions').update<OrchestratorSession>(recordId, {
+    status: 'completed',
+    completed_at: new Date().toISOString(),
+  })
 }

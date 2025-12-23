@@ -56,6 +56,7 @@ export function AuditPipeline(): React.ReactElement {
   const { audits } = session.availableAudits
 
   const runner = useSequentialAuditRunner({
+    sessionId: session.sessionId,
     pbAuditRuns: session.pbAuditRuns,
     availableAudits: audits,
   })

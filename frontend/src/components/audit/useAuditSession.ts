@@ -73,6 +73,7 @@ function buildCompletedResult(rawResult: Record<string, unknown>): AuditResult {
 
 interface UseAuditSessionReturn {
   session: AuditSession | null
+  sessionId: string | null
   availableAudits: { audits: AvailableAudit[] }
   currentResult: AuditResult | null
   selectedAudit: string | null
@@ -268,6 +269,7 @@ export function useAuditSession(): UseAuditSessionReturn {
 
   return {
     session,
+    sessionId,
     availableAudits: auditsData ?? { audits: [] },
     currentResult,
     selectedAudit,

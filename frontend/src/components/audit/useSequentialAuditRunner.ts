@@ -1,16 +1,22 @@
 /**
- * useSequentialAuditRunner - Sequential audit execution using PocketBase as source of truth
+ * useSequentialAuditRunner - Sequential audit execution with PocketBase state persistence
  *
- * Simplified architecture:
- * - PocketBase = single source of truth for audit progress
- * - No local progress array - derive everything from pbAuditRuns
- * - Campaign score computed from PocketBase data
+ * Simple architecture:
+ * - PocketBase orchestrator_sessions stores planned audits (survives refresh)
+ * - PocketBase audit_runs stores individual audit progress
+ * - After refresh, we read both to restore exact state
  */
 
 import { useQueryClient } from '@tanstack/react-query'
 import React from 'react'
 
-import { type AuditRun } from '../../services/pocketbase'
+import {
+  type AuditRun,
+  type OrchestratorSession,
+  createOrchestratorSession,
+  getOrchestratorSession,
+  completeOrchestratorSession,
+} from '../../services/pocketbase'
 import { type AvailableAudit } from '../../services/api'
 import {
   calculateCampaignScore,
@@ -19,19 +25,8 @@ import {
   type CampaignReadiness,
   type CampaignScore,
 } from './campaignScoreUtils'
-import {
-  pbRunsToProgress,
-  buildAuditNameMap,
-  executeSequentialAudits,
-  shouldRecoverState,
-  recoverAuditOrder,
-  countCompleted,
-  getAvailableOrder,
-  hasRunningAuditInPb,
-  findRunningAuditIndex,
-} from './sequentialRunnerUtils'
+import { pbRunsToProgress, buildAuditNameMap, executeSequentialAudits, countCompleted } from './sequentialRunnerUtils'
 
-// Re-export types for consumers
 export type { AuditProgress, CampaignReadiness, CampaignScore }
 
 export interface SequentialRunnerState {
@@ -52,159 +47,163 @@ export interface UseSequentialAuditRunnerReturn extends SequentialRunnerState {
 }
 
 export interface UseSequentialAuditRunnerOptions {
+  sessionId?: string | null
   pbAuditRuns?: Map<string, AuditRun>
   availableAudits?: AvailableAudit[]
 }
 
-/**
- * Compute campaign score and readiness when all audits are done.
- */
-function computeScoreAndReadiness(
-  allDone: boolean,
-  progress: AuditProgress[]
-): { score: CampaignScore | null; readiness: CampaignReadiness | null } {
+function findCurrentIndex(pbRuns: Map<string, AuditRun>, auditOrder: string[]): number {
+  for (let i = 0; i < auditOrder.length; i++) {
+    if (pbRuns.get(auditOrder[i])?.status === 'running') {
+      return i
+    }
+  }
+  return -1
+}
+
+function computeResults(allDone: boolean, progress: AuditProgress[]): {
+  score: CampaignScore | null
+  readiness: CampaignReadiness | null
+} {
   if (!allDone || progress.length === 0) {
     return { score: null, readiness: null }
   }
-  return {
-    score: calculateCampaignScore(progress),
-    readiness: determineCampaignReadiness(calculateCampaignScore(progress), progress),
-  }
+  const score = calculateCampaignScore(progress)
+  return { score, readiness: determineCampaignReadiness(score, progress) }
+}
+
+interface RecoveryConfig {
+  sessionId: string | null
+  hasLocalState: boolean
+  hasAuditsLoaded: boolean
+  setOrchSession: (s: OrchestratorSession | null) => void
+  setPlannedAudits: (a: string[]) => void
+  setIsRunning: (r: boolean) => void
+}
+
+function useOrchestratorRecovery(config: RecoveryConfig): void {
+  const { sessionId, hasLocalState, hasAuditsLoaded, setOrchSession, setPlannedAudits, setIsRunning } = config
+  React.useEffect(() => {
+    if (sessionId === null || hasLocalState || !hasAuditsLoaded) {
+      return
+    }
+    void (async () => {
+      const session = await getOrchestratorSession(sessionId)
+      if (session !== null && session.status === 'running') {
+        setOrchSession(session)
+        setPlannedAudits(session.planned_audits)
+        setIsRunning(true)
+      }
+    })()
+  }, [sessionId, hasLocalState, hasAuditsLoaded, setOrchSession, setPlannedAudits, setIsRunning])
+}
+
+interface AutoCompleteConfig {
+  allDone: boolean
+  isRunning: boolean
+  wasStartedLocally: boolean
+  orchSession: OrchestratorSession | null
+  onComplete: () => void
+  queryClient: ReturnType<typeof useQueryClient>
+}
+
+function useAutoComplete(config: AutoCompleteConfig): void {
+  const { allDone, isRunning, wasStartedLocally, orchSession, onComplete, queryClient } = config
+  React.useEffect(() => {
+    if (!allDone || !isRunning || !wasStartedLocally) {
+      return
+    }
+    onComplete()
+    if (orchSession !== null) {
+      void completeOrchestratorSession(orchSession.id)
+    }
+    void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
+    void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
+  }, [allDone, isRunning, wasStartedLocally, orchSession, onComplete, queryClient])
 }
 
 interface RunnerState {
-  auditOrder: string[]
+  plannedAudits: string[]
   isRunning: boolean
   showSummary: boolean
-  hasRecovered: boolean
+  orchSession: OrchestratorSession | null
 }
 
-type RunnerAction =
-  | { type: 'START'; order: string[] }
-  | { type: 'FINISH' }
-  | { type: 'RECOVER'; order: string[] }
-  | { type: 'DISMISS_SUMMARY' }
-  | { type: 'RESET' }
-  | { type: 'MARK_RECOVERED' }
-
-function runnerReducer(state: RunnerState, action: RunnerAction): RunnerState {
-  switch (action.type) {
-    case 'START':
-      return { ...state, auditOrder: action.order, isRunning: true, showSummary: false }
-    case 'FINISH':
-      return { ...state, isRunning: false, showSummary: true }
-    case 'RECOVER':
-      return { ...state, auditOrder: action.order, isRunning: true, hasRecovered: true }
-    case 'DISMISS_SUMMARY':
-      return { ...state, showSummary: false }
-    case 'RESET':
-      return {
-        auditOrder: [],
-        isRunning: false,
-        showSummary: false,
-        hasRecovered: state.hasRecovered,
-      }
-    case 'MARK_RECOVERED':
-      return { ...state, hasRecovered: true }
-  }
+interface RunnerActions {
+  setPlannedAudits: React.Dispatch<React.SetStateAction<string[]>>
+  setIsRunning: React.Dispatch<React.SetStateAction<boolean>>
+  setShowSummary: React.Dispatch<React.SetStateAction<boolean>>
+  setOrchSession: React.Dispatch<React.SetStateAction<OrchestratorSession | null>>
 }
 
-const initialState: RunnerState = {
-  auditOrder: [],
-  isRunning: false,
-  showSummary: false,
-  hasRecovered: false,
+function useRunnerState(): RunnerState & RunnerActions {
+  const [plannedAudits, setPlannedAudits] = React.useState<string[]>([])
+  const [isRunning, setIsRunning] = React.useState(false)
+  const [showSummary, setShowSummary] = React.useState(false)
+  const [orchSession, setOrchSession] = React.useState<OrchestratorSession | null>(null)
+  return { plannedAudits, isRunning, showSummary, orchSession, setPlannedAudits, setIsRunning, setShowSummary, setOrchSession }
 }
 
-export function useSequentialAuditRunner(
-  options: UseSequentialAuditRunnerOptions = {}
-): UseSequentialAuditRunnerReturn {
-  const { pbAuditRuns = new Map<string, AuditRun>(), availableAudits = [] } = options
+export function useSequentialAuditRunner(options: UseSequentialAuditRunnerOptions = {}): UseSequentialAuditRunnerReturn {
+  const { sessionId = null, pbAuditRuns = new Map<string, AuditRun>(), availableAudits = [] } = options
   const queryClient = useQueryClient()
+  const state = useRunnerState()
+  const { plannedAudits, isRunning, showSummary, orchSession } = state
+  const { setPlannedAudits, setIsRunning, setShowSummary, setOrchSession } = state
 
-  const [state, dispatch] = React.useReducer(runnerReducer, initialState)
   const pbAuditRunsRef = React.useRef(pbAuditRuns)
   pbAuditRunsRef.current = pbAuditRuns
+  const wasStartedLocallyRef = React.useRef(false)
 
   const auditNameMap = React.useMemo(() => buildAuditNameMap(availableAudits), [availableAudits])
-  const availableOrder = React.useMemo(() => getAvailableOrder(availableAudits), [availableAudits])
 
-  const hasRunningAudit = React.useMemo(() => hasRunningAuditInPb(pbAuditRuns), [pbAuditRuns])
+  useOrchestratorRecovery({
+    sessionId,
+    hasLocalState: plannedAudits.length > 0,
+    hasAuditsLoaded: availableAudits.length > 0,
+    setOrchSession,
+    setPlannedAudits,
+    setIsRunning,
+  })
 
-  // Recover state from PocketBase after page refresh
-  React.useEffect(() => {
-    if (state.hasRecovered || pbAuditRuns.size === 0 || availableOrder.length === 0) {
-      return
-    }
-    if (!shouldRecoverState(pbAuditRuns, state.auditOrder, state.isRunning)) {
-      dispatch({ type: 'MARK_RECOVERED' })
-      return
-    }
-    const recovered = recoverAuditOrder(pbAuditRuns, availableOrder)
-    if (recovered.length > 0) {
-      dispatch({ type: 'RECOVER', order: recovered })
-    }
-  }, [pbAuditRuns, availableOrder, state.auditOrder, state.isRunning, state.hasRecovered])
-
-  const progress = React.useMemo(
-    () => pbRunsToProgress(pbAuditRuns, state.auditOrder, auditNameMap),
-    [pbAuditRuns, state.auditOrder, auditNameMap]
-  )
-
+  const progress = React.useMemo(() => pbRunsToProgress(pbAuditRuns, plannedAudits, auditNameMap), [pbAuditRuns, plannedAudits, auditNameMap])
   const completedCount = countCompleted(progress)
-  // Derive currentIndex from PocketBase - find which audit is currently running
-  const derivedCurrentIndex = React.useMemo(
-    () => findRunningAuditIndex(pbAuditRuns, state.auditOrder),
-    [pbAuditRuns, state.auditOrder]
+  const currentIndex = findCurrentIndex(pbAuditRuns, plannedAudits)
+  const allDone = plannedAudits.length > 0 && completedCount === plannedAudits.length
+  const { score, readiness } = computeResults(allDone, progress)
+
+  const handleComplete = React.useCallback((): void => {
+    setIsRunning(false)
+    setShowSummary(true)
+  }, [setIsRunning, setShowSummary])
+
+  useAutoComplete({ allDone, isRunning, wasStartedLocally: wasStartedLocallyRef.current, orchSession, onComplete: handleComplete, queryClient })
+
+  const startSequentialRun = React.useCallback(
+    (audits: AvailableAudit[]): void => {
+      const filtered = audits.filter((a) => a.available)
+      if (filtered.length === 0 || sessionId === null) {
+        return
+      }
+      wasStartedLocallyRef.current = true
+      setPlannedAudits(filtered.map((a) => a.type))
+      setIsRunning(true)
+      setShowSummary(false)
+      void (async () => {
+        const session = await createOrchestratorSession(sessionId, filtered.map((a) => a.type))
+        setOrchSession(session)
+        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current)
+      })()
+    },
+    [sessionId, setPlannedAudits, setIsRunning, setShowSummary, setOrchSession]
   )
-  // Only consider "all done" if no audits are running in PocketBase
-  const allDone =
-    state.auditOrder.length > 0 && completedCount === state.auditOrder.length && !hasRunningAudit
-  const { score, readiness } = React.useMemo(
-    () => computeScoreAndReadiness(allDone, progress),
-    [allDone, progress]
-  )
 
-  // Auto-show summary when all done (only for active runs, not recovered state)
-  // wasStartedLocally prevents showing summary after refresh when audits completed while away
-  const wasStartedLocallyRef = React.useRef(false)
-  React.useEffect(() => {
-    if (allDone && state.isRunning && wasStartedLocallyRef.current) {
-      dispatch({ type: 'FINISH' })
-      void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
-      void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
-    }
-  }, [allDone, state.isRunning, queryClient])
-
-  const startSequentialRun = React.useCallback((audits: AvailableAudit[]): void => {
-    const filtered = audits.filter((a) => a.available)
-    if (filtered.length === 0) {
-      return
-    }
-    wasStartedLocallyRef.current = true
-    dispatch({ type: 'START', order: filtered.map((a) => a.type) })
-    void executeSequentialAudits(filtered, () => pbAuditRunsRef.current)
-  }, [])
-
-  const dismissSummary = React.useCallback((): void => {
-    dispatch({ type: 'DISMISS_SUMMARY' })
-  }, [])
-
+  const dismissSummary = React.useCallback((): void => { setShowSummary(false) }, [setShowSummary])
   const reset = React.useCallback((): void => {
-    dispatch({ type: 'RESET' })
-  }, [])
+    setPlannedAudits([])
+    setIsRunning(false)
+    setShowSummary(false)
+  }, [setPlannedAudits, setIsRunning, setShowSummary])
 
-  return {
-    isRunning: state.isRunning,
-    progress,
-    currentIndex: derivedCurrentIndex,
-    totalAudits: state.auditOrder.length,
-    completedCount,
-    score,
-    readiness,
-    showSummary: state.showSummary,
-    startSequentialRun,
-    dismissSummary,
-    reset,
-  }
+  return { isRunning, progress, currentIndex, totalAudits: plannedAudits.length, completedCount, score, readiness, showSummary, startSequentialRun, dismissSummary, reset }
 }

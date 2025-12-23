@@ -71,10 +71,9 @@ async function waitForAuditCompletion(
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
     const pbRun = getPbRuns().get(auditType)
     if (pbRun !== undefined && pbRun.status !== 'running' && pbRun.status !== 'pending') {
-      return // Audit completed (success, warning, error, or failed)
+      return
     }
   }
-  // Timeout - continue to next audit anyway
 }
 
 /**
@@ -88,9 +87,7 @@ export async function executeSequentialAudits(
   for (const audit of audits) {
     try {
       await runAudit(audit.type)
-      // Wait a bit for PocketBase to receive the initial "running" status
       await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
-      // Wait for the audit to complete before starting the next one
       await waitForAuditCompletion(audit.type, getPbRuns)
     } catch {
       // Continue with next audit even if one fails
@@ -99,76 +96,8 @@ export async function executeSequentialAudits(
 }
 
 /**
- * Check if state should be recovered from PocketBase after refresh.
- */
-export function shouldRecoverState(
-  pbRuns: Map<string, AuditRun>,
-  localOrder: string[],
-  localIsRunning: boolean
-): boolean {
-  if (localIsRunning || localOrder.length > 0) {
-    return false // Already have local state
-  }
-  for (const run of pbRuns.values()) {
-    if (run.status === 'running') {
-      return true // PocketBase has running audits but we lost local state
-    }
-  }
-  return false
-}
-
-/**
- * Recover audit order from PocketBase runs.
- * Returns all available audits when recovering (not just started ones).
- * This shows completed, running, and pending audits in the progress section.
- */
-export function recoverAuditOrder(
-  pbRuns: Map<string, AuditRun>,
-  availableOrder: string[]
-): string[] {
-  // When recovering, return all available audits to show full progress
-  // The pbRunsToProgress function handles showing correct status for each
-  if (pbRuns.size > 0) {
-    return availableOrder
-  }
-  return []
-}
-
-/**
  * Count completed audits in progress array.
  */
 export function countCompleted(progress: AuditProgress[]): number {
   return progress.filter((p) => p.status === 'completed' || p.status === 'error').length
-}
-
-/**
- * Get available audit types in order.
- */
-export function getAvailableOrder(audits: AvailableAudit[]): string[] {
-  return audits.filter((a) => a.available).map((a) => a.type)
-}
-
-/**
- * Check if any audit is currently running in PocketBase.
- */
-export function hasRunningAuditInPb(pbRuns: Map<string, AuditRun>): boolean {
-  for (const run of pbRuns.values()) {
-    if (run.status === 'running') {
-      return true
-    }
-  }
-  return false
-}
-
-/**
- * Find the index of the currently running audit in the order array.
- */
-export function findRunningAuditIndex(pbRuns: Map<string, AuditRun>, auditOrder: string[]): number {
-  for (let i = 0; i < auditOrder.length; i++) {
-    const run = pbRuns.get(auditOrder[i])
-    if (run?.status === 'running') {
-      return i
-    }
-  }
-  return -1
 }

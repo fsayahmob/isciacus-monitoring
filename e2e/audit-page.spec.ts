@@ -12,7 +12,7 @@ import { test, expect, type Page } from '@playwright/test'
  */
 
 /**
- * Helper to check if PocketBase is available AND collection exists
+ * Helper to check if PocketBase is available AND collections exist
  */
 async function isPocketBaseAvailable(page: Page): Promise<boolean> {
   try {
@@ -22,12 +22,21 @@ async function isPocketBaseAvailable(page: Page): Promise<boolean> {
       return false
     }
 
-    // Check that audit_runs collection is accessible (not just health)
-    const collectionResponse = await page.request.get(
+    // Check that audit_runs collection is accessible
+    const auditRunsResponse = await page.request.get(
       'http://localhost:8090/api/collections/audit_runs/records?perPage=1'
     )
-    if (!collectionResponse.ok()) {
+    if (!auditRunsResponse.ok()) {
       console.error('PocketBase audit_runs collection not accessible - run init_pocketbase.py')
+      return false
+    }
+
+    // Check that orchestrator_sessions collection is accessible
+    const orchSessionsResponse = await page.request.get(
+      'http://localhost:8090/api/collections/orchestrator_sessions/records?perPage=1'
+    )
+    if (!orchSessionsResponse.ok()) {
+      console.error('PocketBase orchestrator_sessions collection not accessible - run init_pocketbase.py')
       return false
     }
 
