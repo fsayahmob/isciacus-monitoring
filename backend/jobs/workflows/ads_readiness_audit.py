@@ -30,9 +30,6 @@ from jobs.pocketbase_progress import (
 
 AUDIT_TYPE = "ads_readiness"
 
-# Session ID stored during workflow execution for cross-audit lookups
-_current_session_id: str | None = None
-
 STEPS = [
     {
         "id": "tracking_quality",
@@ -64,28 +61,22 @@ STEPS = [
 
 
 
-def _get_ga4_audit_results() -> dict[str, Any] | None:
+def _get_ga4_audit_results(session_id: str) -> dict[str, Any] | None:
     """Récupère les résultats de l'audit GA4 depuis PocketBase."""
-    if _current_session_id is None:
-        return None
-    return get_audit_result(_current_session_id, "ga4_tracking")
+    return get_audit_result(session_id, "ga4_tracking")
 
 
-def _get_capi_audit_results() -> dict[str, Any] | None:
+def _get_capi_audit_results(session_id: str) -> dict[str, Any] | None:
     """Récupère les résultats de l'audit CAPI depuis PocketBase."""
-    if _current_session_id is None:
-        return None
-    return get_audit_result(_current_session_id, "capi")
+    return get_audit_result(session_id, "capi")
 
 
-def _get_meta_audit_results() -> dict[str, Any] | None:
+def _get_meta_audit_results(session_id: str) -> dict[str, Any] | None:
     """Récupère les résultats de l'audit Meta Pixel depuis PocketBase."""
-    if _current_session_id is None:
-        return None
-    return get_audit_result(_current_session_id, "meta_pixel")
+    return get_audit_result(session_id, "meta_pixel")
 
 
-def _check_tracking_quality() -> dict[str, Any]:
+def _check_tracking_quality(session_id: str) -> dict[str, Any]:
     """
     Step 1: Vérifier la qualité du tracking GA4 et Meta.
 
@@ -130,9 +121,9 @@ def _check_tracking_quality() -> dict[str, Any]:
 
     try:
         # 1. Essayer de récupérer les résultats des audits précédents
-        ga4_audit = _get_ga4_audit_results()
-        meta_audit = _get_meta_audit_results()
-        capi_audit = _get_capi_audit_results()
+        ga4_audit = _get_ga4_audit_results(session_id)
+        meta_audit = _get_meta_audit_results(session_id)
+        capi_audit = _get_capi_audit_results(session_id)
 
         # GA4: Utiliser les résultats de l'audit GA4 si disponibles
         ga4_events_present: list[str] = []
@@ -758,13 +749,9 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
     )
     async def ads_readiness_audit(ctx: inngest.Context) -> dict[str, Any]:
         """Run Ads Readiness audit with step-by-step progress."""
-        global _current_session_id  # noqa: PLW0603
         run_id = ctx.event.data.get("run_id", ctx.run_id)
         session_id = ctx.event.data.get("session_id", run_id)
         pb_record_id = ctx.event.data.get("pocketbase_record_id")
-
-        # Set session ID for cross-audit lookups
-        _current_session_id = session_id
 
         result = init_audit_result(run_id, AUDIT_TYPE, "metrics")
         save_audit_progress(result, AUDIT_TYPE, session_id, pb_record_id)
@@ -772,8 +759,11 @@ def create_ads_readiness_audit_function() -> inngest.Function | None:
         total_score = 0
         max_total_score = 100
 
-        # Step 1: Tracking Quality
-        step1_result = await ctx.step.run("check-tracking-quality", _check_tracking_quality)
+        # Step 1: Tracking Quality (pass session_id via closure)
+        step1_result = await ctx.step.run(
+            "check-tracking-quality",
+            lambda: _check_tracking_quality(session_id),
+        )
         result["steps"].append(step1_result["step"])
         result["issues"].extend(step1_result["issues"])
         total_score += step1_result["score"]
