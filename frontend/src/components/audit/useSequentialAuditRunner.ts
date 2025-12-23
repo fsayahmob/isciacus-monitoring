@@ -168,6 +168,50 @@ function useRunnerState(): RunnerState & RunnerActions {
   }
 }
 
+interface StartRunConfig {
+  sessionId: string | null
+  setPlannedAudits: React.Dispatch<React.SetStateAction<string[]>>
+  setIsRunning: React.Dispatch<React.SetStateAction<boolean>>
+  setShowSummary: React.Dispatch<React.SetStateAction<boolean>>
+  setOrchSession: React.Dispatch<React.SetStateAction<OrchestratorSession | null>>
+  wasStartedLocallyRef: React.RefObject<boolean>
+  pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>
+}
+
+function useStartSequentialRun(config: StartRunConfig): (audits: AvailableAudit[]) => void {
+  const { sessionId, setPlannedAudits, setIsRunning, setShowSummary, setOrchSession } = config
+  const { wasStartedLocallyRef, pbAuditRunsRef } = config
+  return React.useCallback(
+    (audits: AvailableAudit[]): void => {
+      const filtered = audits.filter((a) => a.available)
+      if (filtered.length === 0 || sessionId === null) {
+        return
+      }
+      wasStartedLocallyRef.current = true
+      setPlannedAudits(filtered.map((a) => a.type))
+      setIsRunning(true)
+      setShowSummary(false)
+      void (async () => {
+        const session = await createOrchestratorSession(
+          sessionId,
+          filtered.map((a) => a.type)
+        )
+        setOrchSession(session)
+        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current)
+      })()
+    },
+    [
+      sessionId,
+      setPlannedAudits,
+      setIsRunning,
+      setShowSummary,
+      setOrchSession,
+      wasStartedLocallyRef,
+      pbAuditRunsRef,
+    ]
+  )
+}
+
 export function useSequentialAuditRunner(
   options: UseSequentialAuditRunnerOptions = {}
 ): UseSequentialAuditRunnerReturn {
@@ -219,27 +263,15 @@ export function useSequentialAuditRunner(
     queryClient,
   })
 
-  const startSequentialRun = React.useCallback(
-    (audits: AvailableAudit[]): void => {
-      const filtered = audits.filter((a) => a.available)
-      if (filtered.length === 0 || sessionId === null) {
-        return
-      }
-      wasStartedLocallyRef.current = true
-      setPlannedAudits(filtered.map((a) => a.type))
-      setIsRunning(true)
-      setShowSummary(false)
-      void (async () => {
-        const session = await createOrchestratorSession(
-          sessionId,
-          filtered.map((a) => a.type)
-        )
-        setOrchSession(session)
-        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current)
-      })()
-    },
-    [sessionId, setPlannedAudits, setIsRunning, setShowSummary, setOrchSession]
-  )
+  const startSequentialRun = useStartSequentialRun({
+    sessionId,
+    setPlannedAudits,
+    setIsRunning,
+    setShowSummary,
+    setOrchSession,
+    wasStartedLocallyRef,
+    pbAuditRunsRef,
+  })
 
   const dismissSummary = React.useCallback((): void => {
     setShowSummary(false)

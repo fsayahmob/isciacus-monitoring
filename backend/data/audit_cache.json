@@ -10,28 +10,26 @@
     {
       "name": "Couverture Collections",
       "status": "ok",
-      "message": "71/56 collections trackees (127%)",
+      "message": "68/56 collections trackees (121%)",
       "details": [
         "carte-cadeaux",
         "vetements-2",
         "nudie-jeans-1",
-        "kleman",
         "selection-de-la-semaine",
         "archives-30",
         "archives-60",
         "chaussettes",
         "tote-bag",
-        "gift"
+        "gift",
+        "de-50"
       ],
       "recommendation": "Ajouter le tracking GA4 sur les pages de collection manquantes"
     },
     {
       "name": "Couverture Produits",
-      "status": "warning",
-      "message": "592/665 produits tracks (89%)",
+      "status": "ok",
+      "message": "604/644 produits tracks (94%)",
       "details": [
-        "emeric-me",
-        "boxer-w",
         "short-de-bain-malibu-cousteau",
         "short-de-bain-malibu-moss-green",
         "pull-rocket-chick-yellow",
@@ -39,14 +37,16 @@
         "veste-otto-chick-yellow",
         "jeans-lean-dean-dry-black-eyes",
         "jeans-lean-dean-worn-indigofera",
-        "pantalon-tuff-tony-faded-green"
+        "pantalon-tuff-tony-faded-green",
+        "jeans-gritty-jackson-dark-space",
+        "porte-cles-cloche-lisse-bleu-fumee"
       ],
       "recommendation": "Verifier le tracking des fiches produit"
     },
     {
       "name": "Transactions GA4 vs Shopify",
       "status": "ok",
-      "message": "18 transactions GA4 / 18 commandes Shopify (100%)",
+      "message": "22 transactions GA4 / 22 commandes Shopify (100%)",
       "recommendation": null
     },
     {
@@ -65,19 +65,18 @@
   ],
   "summary": {
     "total_checks": 6,
-    "passed": 5,
-    "warnings": 1,
+    "passed": 6,
+    "warnings": 0,
     "errors": 0
   },
   "tracking_coverage": {
     "collections": {
       "total": 56,
-      "tracked": 71,
+      "tracked": 68,
       "missing": [
         "carte-cadeaux",
         "vetements-2",
         "nudie-jeans-1",
-        "kleman",
         "selection-de-la-semaine",
         "archives-30",
         "archives-60",
@@ -87,7 +86,7 @@
         "de-50",
         "idees-cadeaux"
       ],
-      "rate": 126.78571428571428,
+      "rate": 121.42857142857142,
       "status": "ok",
       "items": [
         {
@@ -307,7 +306,7 @@
         },
         {
           "name": "kleman",
-          "tracked": false,
+          "tracked": true,
           "type": "collection"
         },
         {
@@ -373,11 +372,9 @@
       ]
     },
     "products": {
-      "total": 665,
-      "tracked": 592,
+      "total": 644,
+      "tracked": 604,
       "missing": [
-        "emeric-me",
-        "boxer-w",
         "short-de-bain-malibu-cousteau",
         "short-de-bain-malibu-moss-green",
         "pull-rocket-chick-yellow",
@@ -387,18 +384,20 @@
         "jeans-lean-dean-worn-indigofera",
         "pantalon-tuff-tony-faded-green",
         "jeans-gritty-jackson-dark-space",
-        "bob-wax-marine-1",
         "porte-cles-cloche-lisse-bleu-fumee",
         "veste-sans-manches-kaki",
         "short-de-bain-malibu-navy",
-        "chemise-goerge-les-vacances-off-white",
         "short-d-pile-deep-lagoon",
         "jean-breezy-britt-friendly-blue",
         "jean-breezy-britt-black-word",
-        "sweat-fred-ivy-black"
+        "sweat-fred-ivy-black",
+        "pull-tintena-raye-pourpre",
+        "chaussures-rio-branco-poker-white",
+        "porte-monnaie-albers-light-blue",
+        "jeans-lean-dean-black-skies"
       ],
-      "rate": 89.02255639097744,
-      "status": "warning",
+      "rate": 93.7888198757764,
+      "status": "ok",
       "sample": [
         {
           "name": "gabriel-femme",
@@ -432,7 +431,7 @@
         },
         {
           "name": "emeric-me",
-          "tracked": false,
+          "tracked": true,
           "type": "product"
         },
         {
@@ -442,7 +441,7 @@
         },
         {
           "name": "boxer-w",
-          "tracked": false,
+          "tracked": true,
           "type": "product"
         },
         {
@@ -544,12 +543,11 @@
   },
   "collections_coverage": {
     "shopify_total": 56,
-    "ga4_tracked": 71,
+    "ga4_tracked": 68,
     "missing": [
       "carte-cadeaux",
       "vetements-2",
       "nudie-jeans-1",
-      "kleman",
       "selection-de-la-semaine",
       "archives-30",
       "archives-60",
@@ -561,9 +559,9 @@
     ]
   },
   "transactions_match": {
-    "shopify_orders": 18,
-    "ga4_transactions": 18,
+    "shopify_orders": 22,
+    "ga4_transactions": 22,
     "match_rate": 1.0
   },
-  "last_audit": "2025-12-21T10:15:59.396838+00:00"
+  "last_audit": "2025-12-23T14:34:55.026642+00:00"
 }
