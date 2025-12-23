@@ -1,9 +1,7 @@
 /**
  * Audit Pipeline - Modern Dark Theme Dashboard
- *
- * Simplified architecture using PocketBase as single source of truth.
+ * Uses unified useAudit hook with PocketBase as single source of truth.
  */
-
 import React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -13,8 +11,7 @@ import { AuditCampaignSummary } from './AuditCampaignSummary'
 import { PageHeader } from './AuditPageHeader'
 import { AuditProgressIndicator } from './AuditProgressIndicator'
 import { AuditResultSection } from './AuditResultSection'
-import { useAuditSession } from './useAuditSession'
-import { useSequentialAuditRunner } from './useSequentialAuditRunner'
+import { useAudit } from './useAudit'
 
 function useAuditMutations(): {
   executeAction: {
@@ -39,9 +36,6 @@ function useAuditMutations(): {
   return { executeAction, clearCache }
 }
 
-/**
- * Check if any audit is currently running in PocketBase.
- */
 function hasRunningAudits(pbAuditRuns: Map<string, { status: string }>): boolean {
   for (const run of pbAuditRuns.values()) {
     if (run.status === 'running') {
@@ -52,26 +46,18 @@ function hasRunningAudits(pbAuditRuns: Map<string, { status: string }>): boolean
 }
 
 export function AuditPipeline(): React.ReactElement {
-  const session = useAuditSession()
-  const { audits } = session.availableAudits
-
-  const runner = useSequentialAuditRunner({
-    sessionId: session.sessionId,
-    pbAuditRuns: session.pbAuditRuns,
-    availableAudits: audits,
-  })
+  const audit = useAudit()
   const { executeAction, clearCache } = useAuditMutations()
 
-  // PocketBase is the source of truth for running state
-  const anyRunning = hasRunningAudits(session.pbAuditRuns) || runner.isRunning
-  const count = runner.isRunning ? runner.completedCount : 0
+  const anyRunning = hasRunningAudits(audit.pbAuditRuns) || audit.sequentialRun.isRunning
+  const count = audit.sequentialRun.isRunning ? audit.sequentialRun.completedCount : 0
 
   return (
     <div className="min-h-screen bg-bg-primary p-6">
       <div className="mx-auto max-w-6xl">
         <PageHeader
           onRunAll={() => {
-            runner.startSequentialRun(audits)
+            audit.sequentialRun.start(audit.availableAudits)
           }}
           onClearCache={() => {
             clearCache.mutate()
@@ -79,26 +65,26 @@ export function AuditPipeline(): React.ReactElement {
           isRunning={anyRunning}
           isClearingCache={clearCache.isPending}
           runningCount={count}
-          totalCount={runner.isRunning ? runner.totalAudits : 0}
+          totalCount={audit.sequentialRun.isRunning ? audit.sequentialRun.totalAudits : 0}
         />
-        {runner.isRunning && (
+        {audit.sequentialRun.isRunning && (
           <div className="mb-6">
-            <AuditProgressIndicator {...runner} />
+            <AuditProgressIndicator {...audit.sequentialRun} />
           </div>
         )}
         <AuditCardsGrid
-          audits={audits}
-          selectedAudit={session.selectedAudit}
-          isAuditRunning={session.isAuditRunning}
-          onRun={session.runAudit}
-          onSelect={session.selectAudit}
-          onStop={session.stopAudit}
+          audits={audit.availableAudits}
+          selectedAudit={audit.selectedAudit}
+          isAuditRunning={audit.isAuditRunning}
+          onRun={audit.runAudit}
+          onSelect={audit.selectAudit}
+          onStop={audit.stopAudit}
           accordionContent={
             <AuditResultSection
-              currentResult={session.currentResult}
-              selectedAudit={session.selectedAudit}
-              session={session.session}
-              isRunning={session.isSelectedAuditRunning}
+              currentResult={audit.currentResult}
+              selectedAudit={audit.selectedAudit}
+              session={audit.session}
+              isRunning={audit.isSelectedAuditRunning}
               onExecuteAction={(t, a) => {
                 executeAction.mutate({ auditType: t, actionId: a })
               }}
@@ -106,14 +92,16 @@ export function AuditPipeline(): React.ReactElement {
             />
           }
         />
-        {runner.showSummary && runner.score !== null && runner.readiness !== null && (
-          <AuditCampaignSummary
-            score={runner.score}
-            readiness={runner.readiness}
-            progress={runner.progress}
-            onDismiss={runner.dismissSummary}
-          />
-        )}
+        {audit.sequentialRun.showSummary &&
+          audit.sequentialRun.score !== null &&
+          audit.sequentialRun.readiness !== null && (
+            <AuditCampaignSummary
+              score={audit.sequentialRun.score}
+              readiness={audit.sequentialRun.readiness}
+              progress={audit.sequentialRun.progress}
+              onDismiss={audit.sequentialRun.dismissSummary}
+            />
+          )}
       </div>
     </div>
   )

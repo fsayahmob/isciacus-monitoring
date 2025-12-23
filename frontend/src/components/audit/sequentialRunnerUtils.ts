@@ -9,12 +9,8 @@ import {
   type AvailableAudit,
 } from '../../services/api'
 import { type AuditRun } from '../../services/pocketbase'
+import { AUDIT_TIMING } from './auditConfig'
 import { type AuditProgress } from './campaignScoreUtils'
-
-// Constants
-export const POCKETBASE_SETTLE_DELAY_MS = 500
-const POLL_INTERVAL_MS = 1000
-const MAX_WAIT_TIME_MS = 120000 // 2 minutes max per audit
 
 /**
  * Convert PocketBase runs to progress array for display.
@@ -71,8 +67,8 @@ async function waitForAuditCompletion(
   getPbRuns: () => Map<string, AuditRun>
 ): Promise<void> {
   const startTime = Date.now()
-  while (Date.now() - startTime < MAX_WAIT_TIME_MS) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+  while (Date.now() - startTime < AUDIT_TIMING.maxWaitTimeMs) {
+    await new Promise((resolve) => setTimeout(resolve, AUDIT_TIMING.pollIntervalMs))
     const pbRun = getPbRuns().get(auditType)
     if (pbRun !== undefined && pbRun.status !== 'running' && pbRun.status !== 'pending') {
       return
@@ -102,7 +98,7 @@ export async function executeSequentialAudits(
           sessionId,
         })
       }
-      await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
+      await new Promise((resolve) => setTimeout(resolve, AUDIT_TIMING.pbSettleDelayMs))
       await waitForAuditCompletion(audit.type, getPbRuns)
     } catch {
       // Continue with next audit even if one fails
@@ -150,7 +146,7 @@ export async function resumeSequentialAudits(
         auditType: audit.type,
         sessionId,
       })
-      await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
+      await new Promise((resolve) => setTimeout(resolve, AUDIT_TIMING.pbSettleDelayMs))
       await waitForAuditCompletion(audit.type, getPbRuns)
     } catch {
       // Continue with next audit even if one fails
