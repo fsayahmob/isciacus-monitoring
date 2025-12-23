@@ -46,7 +46,12 @@ function resolveCurrentResult(
 
   const pbRun = pbAuditRuns.get(selectedAudit)
   if (pbRun?.status === 'completed' && pbRun.result !== null) {
-    return pbRun.result as unknown as AuditResult
+    const rawResult = pbRun.result
+    return {
+      ...rawResult,
+      steps: Array.isArray(rawResult.steps) ? rawResult.steps : [],
+      issues: Array.isArray(rawResult.issues) ? rawResult.issues : [],
+    } as unknown as AuditResult
   }
 
   if (session !== null && selectedAudit in session.audits) {
