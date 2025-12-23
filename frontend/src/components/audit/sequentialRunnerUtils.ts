@@ -3,7 +3,11 @@
  * Helper functions for useSequentialAuditRunner hook.
  */
 
-import { runAudit, type AuditResult, type AvailableAudit } from '../../services/api'
+import {
+  triggerAuditFromPocketBase,
+  type AuditResult,
+  type AvailableAudit,
+} from '../../services/api'
 import { type AuditRun } from '../../services/pocketbase'
 import { type AuditProgress } from './campaignScoreUtils'
 
@@ -79,14 +83,25 @@ async function waitForAuditCompletion(
 /**
  * Run audits sequentially by triggering them one at a time.
  * Waits for each audit to complete in PocketBase before starting the next.
+ * Uses the existing PocketBase record ID to ensure proper state updates.
  */
 export async function executeSequentialAudits(
   audits: AvailableAudit[],
-  getPbRuns: () => Map<string, AuditRun>
+  getPbRuns: () => Map<string, AuditRun>,
+  sessionId: string
 ): Promise<void> {
   for (const audit of audits) {
     try {
-      await runAudit(audit.type)
+      // Get the existing PocketBase record for this audit (created by usePocketBaseSync)
+      const pbRun = getPbRuns().get(audit.type)
+      if (pbRun !== undefined) {
+        // Use the existing record ID so backend updates the correct record
+        await triggerAuditFromPocketBase({
+          pocketbaseRecordId: pbRun.id,
+          auditType: audit.type,
+          sessionId,
+        })
+      }
       await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
       await waitForAuditCompletion(audit.type, getPbRuns)
     } catch {
@@ -98,11 +113,13 @@ export async function executeSequentialAudits(
 /**
  * Resume execution of remaining audits after page refresh.
  * Skips already completed/failed audits and continues from pending ones.
+ * Uses the existing PocketBase record ID to ensure proper state updates.
  */
 export async function resumeSequentialAudits(
   plannedAuditTypes: string[],
   availableAudits: AvailableAudit[],
-  getPbRuns: () => Map<string, AuditRun>
+  getPbRuns: () => Map<string, AuditRun>,
+  sessionId: string
 ): Promise<void> {
   const auditMap = new Map(availableAudits.map((a) => [a.type, a]))
 
@@ -120,14 +137,19 @@ export async function resumeSequentialAudits(
       continue
     }
 
-    // Pending - start it
+    // Pending - start it using the existing PocketBase record
     const audit = auditMap.get(auditType)
-    if (audit === undefined) {
+    if (audit === undefined || pbRun === undefined) {
       continue
     }
 
     try {
-      await runAudit(audit.type)
+      // Use the existing record ID so backend updates the correct record
+      await triggerAuditFromPocketBase({
+        pocketbaseRecordId: pbRun.id,
+        auditType: audit.type,
+        sessionId,
+      })
       await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
       await waitForAuditCompletion(audit.type, getPbRuns)
     } catch {

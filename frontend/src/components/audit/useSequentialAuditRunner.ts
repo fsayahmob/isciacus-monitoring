@@ -120,7 +120,8 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
         await resumeSequentialAudits(
           session.planned_audits,
           availableAudits,
-          () => pbAuditRunsRef.current
+          () => pbAuditRunsRef.current,
+          sessionId
         )
       }
     })()
@@ -221,7 +222,7 @@ function useStartSequentialRun(config: StartRunConfig): (audits: AvailableAudit[
           filtered.map((a) => a.type)
         )
         setOrchSession(session)
-        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current)
+        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current, sessionId)
       })()
     },
     [
