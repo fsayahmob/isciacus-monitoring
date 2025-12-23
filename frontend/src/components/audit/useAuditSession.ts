@@ -19,6 +19,57 @@ import {
   type AvailableAudit,
 } from '../../services/api'
 import { type AuditRun } from '../../services/pocketbase'
+import type { AuditStep, AuditIssue } from '../../services/api'
+
+/**
+ * Extract steps array from PocketBase result with type safety.
+ */
+function extractSteps(result: Record<string, unknown> | null | undefined): AuditStep[] {
+  if (result === null || result === undefined) {
+    return []
+  }
+  const { steps } = result
+  return Array.isArray(steps) ? (steps as AuditStep[]) : []
+}
+
+/**
+ * Extract issues array from PocketBase result with type safety.
+ */
+function extractIssues(result: Record<string, unknown> | null | undefined): AuditIssue[] {
+  if (result === null || result === undefined) {
+    return []
+  }
+  const { issues } = result
+  return Array.isArray(issues) ? (issues as AuditIssue[]) : []
+}
+
+/**
+ * Build a running AuditResult from PocketBase data.
+ */
+function buildRunningResult(auditType: string, pbRun: AuditRun | undefined): AuditResult {
+  return {
+    id: `running-${auditType}`,
+    audit_type: auditType,
+    status: 'running',
+    started_at: pbRun?.started_at ?? new Date().toISOString(),
+    completed_at: null,
+    steps: extractSteps(pbRun?.result),
+    issues: extractIssues(pbRun?.result),
+    summary: {},
+    raw_data: null,
+  } as AuditResult
+}
+
+/**
+ * Build a completed AuditResult from PocketBase data.
+ */
+function buildCompletedResult(rawResult: Record<string, unknown>): AuditResult {
+  return {
+    ...rawResult,
+    steps: extractSteps(rawResult),
+    issues: extractIssues(rawResult),
+  } as unknown as AuditResult
+}
 
 interface UseAuditSessionReturn {
   session: AuditSession | null
@@ -45,33 +96,16 @@ function resolveCurrentResult(
   }
 
   const pbRun = pbAuditRuns.get(selectedAudit)
+  const isRunning = pbRun?.status === 'running' || optimisticRunning.has(selectedAudit)
 
-  // Priority 1: If audit is running, show running state (clear old results)
-  if (pbRun?.status === 'running' || optimisticRunning.has(selectedAudit)) {
-    return {
-      id: `running-${selectedAudit}`,
-      audit_type: selectedAudit,
-      status: 'running',
-      started_at: pbRun?.started_at ?? new Date().toISOString(),
-      completed_at: null,
-      steps: [],
-      issues: [],
-      summary: {},
-      raw_data: null,
-    } as AuditResult
+  if (isRunning) {
+    return buildRunningResult(selectedAudit, pbRun)
   }
 
-  // Priority 2: If PocketBase has completed result, use it
   if (pbRun?.status === 'completed' && pbRun.result !== null) {
-    const rawResult = pbRun.result
-    return {
-      ...rawResult,
-      steps: Array.isArray(rawResult.steps) ? rawResult.steps : [],
-      issues: Array.isArray(rawResult.issues) ? rawResult.issues : [],
-    } as unknown as AuditResult
+    return buildCompletedResult(pbRun.result)
   }
 
-  // Priority 3: Fall back to session data
   if (session !== null && selectedAudit in session.audits) {
     return session.audits[selectedAudit]
   }
