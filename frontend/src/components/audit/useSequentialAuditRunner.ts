@@ -105,6 +105,13 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
     setPlannedAudits,
     setIsRunning,
   } = config
+
+  // Store callbacks in ref to avoid dependency array issues
+  const callbacksRef = React.useRef({ setOrchSession, setPlannedAudits, setIsRunning })
+  React.useEffect(() => {
+    callbacksRef.current = { setOrchSession, setPlannedAudits, setIsRunning }
+  })
+
   React.useEffect(() => {
     if (sessionId === null || hasLocalState || !hasAuditsLoaded) {
       return
@@ -112,9 +119,9 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
     void (async () => {
       const session = await getOrchestratorSession(sessionId)
       if (session !== null && session.status === 'running') {
-        setOrchSession(session)
-        setPlannedAudits(session.planned_audits)
-        setIsRunning(true)
+        callbacksRef.current.setOrchSession(session)
+        callbacksRef.current.setPlannedAudits(session.planned_audits)
+        callbacksRef.current.setIsRunning(true)
         wasStartedLocallyRef.current = true
         // Resume execution of remaining audits
         await resumeSequentialAudits(
@@ -132,9 +139,6 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
     availableAudits,
     pbAuditRunsRef,
     wasStartedLocallyRef,
-    setOrchSession,
-    setPlannedAudits,
-    setIsRunning,
   ])
 }
 
