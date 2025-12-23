@@ -98,7 +98,15 @@ function useAuditData(): AuditDataReturn {
     sessionIdRef.current = sessionId
   }, [sessionId])
 
-  return { session, sessionId, availableAudits, pbAuditRuns, pbConnected, pbAuditRunsRef, sessionIdRef }
+  return {
+    session,
+    sessionId,
+    availableAudits,
+    pbAuditRuns,
+    pbConnected,
+    pbAuditRunsRef,
+    sessionIdRef,
+  }
 }
 
 interface AuditActionsReturn {
@@ -121,7 +129,11 @@ function useAuditActions(
       const pbRun = pbAuditRuns.get(auditType)
       const sid = sessionIdRef.current
       if (pbRun !== undefined && sid !== null) {
-        return triggerAuditFromPocketBase({ pocketbaseRecordId: pbRun.id, auditType, sessionId: sid })
+        return triggerAuditFromPocketBase({
+          pocketbaseRecordId: pbRun.id,
+          auditType,
+          sessionId: sid,
+        })
       }
       throw new Error('No PocketBase record or session ID')
     },
@@ -140,9 +152,12 @@ function useAuditActions(
   const selectAudit = React.useCallback((auditType: string): void => {
     setSelectedAudit((prev) => (prev === auditType ? null : auditType))
   }, [])
-  const runAudit = React.useCallback((t: string): void => {
-    runMutation.mutate(t)
-  }, [runMutation])
+  const runAudit = React.useCallback(
+    (t: string): void => {
+      runMutation.mutate(t)
+    },
+    [runMutation]
+  )
   const stopAudit = React.useCallback(
     (auditType: string): void => {
       const pbRun = pbAuditRuns.get(auditType)
@@ -252,7 +267,8 @@ export function useAudit(): UseAuditReturn {
     pbConnected: data.pbConnected,
     selectedAudit: actions.selectedAudit,
     currentResult,
-    isSelectedAuditRunning: actions.selectedAudit !== null && actions.isAuditRunning(actions.selectedAudit),
+    isSelectedAuditRunning:
+      actions.selectedAudit !== null && actions.isAuditRunning(actions.selectedAudit),
     selectAudit: actions.selectAudit,
     runAudit: actions.runAudit,
     stopAudit: actions.stopAudit,
