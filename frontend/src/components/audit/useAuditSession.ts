@@ -45,19 +45,8 @@ function resolveCurrentResult(
   }
 
   const pbRun = pbAuditRuns.get(selectedAudit)
-  if (pbRun?.status === 'completed' && pbRun.result !== null) {
-    const rawResult = pbRun.result
-    return {
-      ...rawResult,
-      steps: Array.isArray(rawResult.steps) ? rawResult.steps : [],
-      issues: Array.isArray(rawResult.issues) ? rawResult.issues : [],
-    } as unknown as AuditResult
-  }
 
-  if (session !== null && selectedAudit in session.audits) {
-    return session.audits[selectedAudit]
-  }
-
+  // Priority 1: If audit is running, show running state (clear old results)
   if (pbRun?.status === 'running' || optimisticRunning.has(selectedAudit)) {
     return {
       id: `running-${selectedAudit}`,
@@ -70,6 +59,21 @@ function resolveCurrentResult(
       summary: {},
       raw_data: null,
     } as AuditResult
+  }
+
+  // Priority 2: If PocketBase has completed result, use it
+  if (pbRun?.status === 'completed' && pbRun.result !== null) {
+    const rawResult = pbRun.result
+    return {
+      ...rawResult,
+      steps: Array.isArray(rawResult.steps) ? rawResult.steps : [],
+      issues: Array.isArray(rawResult.issues) ? rawResult.issues : [],
+    } as unknown as AuditResult
+  }
+
+  // Priority 3: Fall back to session data
+  if (session !== null && selectedAudit in session.audits) {
+    return session.audits[selectedAudit]
   }
 
   return null
