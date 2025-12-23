@@ -83,17 +83,15 @@ async function waitForAuditCompletion(
  */
 export async function executeSequentialAudits(
   audits: AvailableAudit[],
-  onProgress: (index: number) => void,
   getPbRuns: () => Map<string, AuditRun>
 ): Promise<void> {
-  for (let i = 0; i < audits.length; i++) {
-    onProgress(i)
+  for (const audit of audits) {
     try {
-      await runAudit(audits[i].type)
+      await runAudit(audit.type)
       // Wait a bit for PocketBase to receive the initial "running" status
       await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
       // Wait for the audit to complete before starting the next one
-      await waitForAuditCompletion(audits[i].type, getPbRuns)
+      await waitForAuditCompletion(audit.type, getPbRuns)
     } catch {
       // Continue with next audit even if one fails
     }
@@ -144,4 +142,29 @@ export function countCompleted(progress: AuditProgress[]): number {
  */
 export function getAvailableOrder(audits: AvailableAudit[]): string[] {
   return audits.filter((a) => a.available).map((a) => a.type)
+}
+
+/**
+ * Check if any audit is currently running in PocketBase.
+ */
+export function hasRunningAuditInPb(pbRuns: Map<string, AuditRun>): boolean {
+  for (const run of pbRuns.values()) {
+    if (run.status === 'running') {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Find the index of the currently running audit in the order array.
+ */
+export function findRunningAuditIndex(pbRuns: Map<string, AuditRun>, auditOrder: string[]): number {
+  for (let i = 0; i < auditOrder.length; i++) {
+    const run = pbRuns.get(auditOrder[i])
+    if (run?.status === 'running') {
+      return i
+    }
+  }
+  return -1
 }

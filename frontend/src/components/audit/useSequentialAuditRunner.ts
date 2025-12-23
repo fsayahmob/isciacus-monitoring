@@ -27,6 +27,8 @@ import {
   recoverAuditOrder,
   countCompleted,
   getAvailableOrder,
+  hasRunningAuditInPb,
+  findRunningAuditIndex,
 } from './sequentialRunnerUtils'
 
 // Re-export types for consumers
@@ -73,14 +75,12 @@ function computeScoreAndReadiness(
 interface RunnerState {
   auditOrder: string[]
   isRunning: boolean
-  currentIndex: number
   showSummary: boolean
   hasRecovered: boolean
 }
 
 type RunnerAction =
   | { type: 'START'; order: string[] }
-  | { type: 'SET_INDEX'; index: number }
   | { type: 'FINISH' }
   | { type: 'RECOVER'; order: string[] }
   | { type: 'DISMISS_SUMMARY' }
@@ -90,17 +90,9 @@ type RunnerAction =
 function runnerReducer(state: RunnerState, action: RunnerAction): RunnerState {
   switch (action.type) {
     case 'START':
-      return {
-        ...state,
-        auditOrder: action.order,
-        isRunning: true,
-        currentIndex: 0,
-        showSummary: false,
-      }
-    case 'SET_INDEX':
-      return { ...state, currentIndex: action.index }
+      return { ...state, auditOrder: action.order, isRunning: true, showSummary: false }
     case 'FINISH':
-      return { ...state, isRunning: false, currentIndex: -1, showSummary: true }
+      return { ...state, isRunning: false, showSummary: true }
     case 'RECOVER':
       return { ...state, auditOrder: action.order, isRunning: true, hasRecovered: true }
     case 'DISMISS_SUMMARY':
@@ -109,7 +101,6 @@ function runnerReducer(state: RunnerState, action: RunnerAction): RunnerState {
       return {
         auditOrder: [],
         isRunning: false,
-        currentIndex: -1,
         showSummary: false,
         hasRecovered: state.hasRecovered,
       }
@@ -121,7 +112,6 @@ function runnerReducer(state: RunnerState, action: RunnerAction): RunnerState {
 const initialState: RunnerState = {
   auditOrder: [],
   isRunning: false,
-  currentIndex: -1,
   showSummary: false,
   hasRecovered: false,
 }
@@ -138,6 +128,8 @@ export function useSequentialAuditRunner(
 
   const auditNameMap = React.useMemo(() => buildAuditNameMap(availableAudits), [availableAudits])
   const availableOrder = React.useMemo(() => getAvailableOrder(availableAudits), [availableAudits])
+
+  const hasRunningAudit = React.useMemo(() => hasRunningAuditInPb(pbAuditRuns), [pbAuditRuns])
 
   // Recover state from PocketBase after page refresh
   React.useEffect(() => {
@@ -160,15 +152,24 @@ export function useSequentialAuditRunner(
   )
 
   const completedCount = countCompleted(progress)
-  const allDone = state.auditOrder.length > 0 && completedCount === state.auditOrder.length
+  // Derive currentIndex from PocketBase - find which audit is currently running
+  const derivedCurrentIndex = React.useMemo(
+    () => findRunningAuditIndex(pbAuditRuns, state.auditOrder),
+    [pbAuditRuns, state.auditOrder]
+  )
+  // Only consider "all done" if no audits are running in PocketBase
+  const allDone =
+    state.auditOrder.length > 0 && completedCount === state.auditOrder.length && !hasRunningAudit
   const { score, readiness } = React.useMemo(
     () => computeScoreAndReadiness(allDone, progress),
     [allDone, progress]
   )
 
-  // Auto-show summary when all done
+  // Auto-show summary when all done (only for active runs, not recovered state)
+  // wasStartedLocally prevents showing summary after refresh when audits completed while away
+  const wasStartedLocallyRef = React.useRef(false)
   React.useEffect(() => {
-    if (allDone && state.isRunning) {
+    if (allDone && state.isRunning && wasStartedLocallyRef.current) {
       dispatch({ type: 'FINISH' })
       void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
       void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
@@ -180,14 +181,9 @@ export function useSequentialAuditRunner(
     if (filtered.length === 0) {
       return
     }
+    wasStartedLocallyRef.current = true
     dispatch({ type: 'START', order: filtered.map((a) => a.type) })
-    void executeSequentialAudits(
-      filtered,
-      (index) => {
-        dispatch({ type: 'SET_INDEX', index })
-      },
-      () => pbAuditRunsRef.current
-    )
+    void executeSequentialAudits(filtered, () => pbAuditRunsRef.current)
   }, [])
 
   const dismissSummary = React.useCallback((): void => {
@@ -201,7 +197,7 @@ export function useSequentialAuditRunner(
   return {
     isRunning: state.isRunning,
     progress,
-    currentIndex: state.currentIndex,
+    currentIndex: derivedCurrentIndex,
     totalAudits: state.auditOrder.length,
     completedCount,
     score,
