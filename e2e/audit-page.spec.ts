@@ -16,7 +16,7 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
  */
 
 const POCKETBASE_URL = 'http://localhost:8090'
-const BACKEND_URL = 'http://localhost:8080'
+const BACKEND_URL = 'http://localhost:8000'
 
 // ============================================================================
 // HELPER TYPES & INTERFACES

@@ -486,6 +486,10 @@ jobs:
         image: inngest/inngest:latest
         ports:
           - 8288:8288
+      pocketbase:
+        image: ghcr.io/muchobien/pocketbase:latest
+        ports:
+          - 8090:8090
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -520,7 +524,32 @@ jobs:
           cat > backend/.env << EOF
           TEST_MODE=true
           INNGEST_DEV=true
+          POCKETBASE_URL=http://localhost:8090
           EOF
+
+      - name: Wait for PocketBase to be ready
+        run: |
+          echo "Waiting for PocketBase..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8090/api/health > /dev/null 2>&1; then
+              echo "PocketBase is ready!"
+              break
+            fi
+            echo "Attempt $i/30..."
+            sleep 1
+          done
+
+      - name: Initialize PocketBase collections
+        run: |
+          # Create audit_runs collection
+          curl -s -X POST http://localhost:8090/api/collections \
+            -H "Content-Type: application/json" \
+            -d '{"name":"audit_runs","type":"base","fields":[{"name":"session_id","type":"text","required":true},{"name":"audit_type","type":"text","required":true},{"name":"status","type":"select","required":true,"values":["pending","running","completed","failed"]},{"name":"started_at","type":"date","required":true},{"name":"completed_at","type":"date","required":false},{"name":"result","type":"json","required":false},{"name":"error","type":"text","required":false},{"name":"run_id","type":"text","required":false}],"listRule":"","viewRule":"","createRule":"","updateRule":"","deleteRule":""}' || true
+          # Create orchestrator_sessions collection
+          curl -s -X POST http://localhost:8090/api/collections \
+            -H "Content-Type: application/json" \
+            -d '{"name":"orchestrator_sessions","type":"base","fields":[{"name":"session_id","type":"text","required":true},{"name":"planned_audits","type":"json","required":true},{"name":"status","type":"select","required":true,"values":["running","completed"]},{"name":"started_at","type":"date","required":true},{"name":"completed_at","type":"date","required":false}],"listRule":"","viewRule":"","createRule":"","updateRule":"","deleteRule":""}' || true
+          echo "PocketBase collections initialized"
 
       - name: Initialize database with ISCIACUS credentials
         run: cd backend && python init_test_db.py
