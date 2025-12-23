@@ -1,4 +1,4 @@
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
 
 /**
  * TESTS VISUELS EXHAUSTIFS - Validation avec Screenshots
@@ -9,7 +9,14 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
  *
  * IMPORTANT: Ces tests DOIVENT s'exécuter en série (pas en parallèle)
  * car ils partagent tous le même session_id du backend.
+ *
+ * NOTE: Ces tests requièrent PocketBase (port 8090) et le backend (port 8080).
+ * Ils sont automatiquement skippés en CI où ces services ne sont pas disponibles.
  */
+
+// Skip all tests in CI - these require local Docker services (PocketBase + Backend)
+const isCI = process.env.CI === 'true'
+test.skip(() => isCI, 'Visual tests require local Docker services (PocketBase + Backend)')
 
 // Force serial execution at file level - tests share session_id state
 test.describe.configure({ mode: 'serial' })
