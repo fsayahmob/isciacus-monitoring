@@ -12,64 +12,14 @@ import { usePocketBaseAudit } from '../../hooks/usePocketBaseAudit'
 import {
   fetchLatestAuditSession,
   fetchAvailableAudits,
-  runAudit,
+  triggerAuditFromPocketBase,
   stopAudit as stopAuditApi,
   type AuditResult,
   type AuditSession,
   type AvailableAudit,
 } from '../../services/api'
 import { type AuditRun } from '../../services/pocketbase'
-import type { AuditStep, AuditIssue } from '../../services/api'
-
-/**
- * Extract steps array from PocketBase result with type safety.
- */
-function extractSteps(result: Record<string, unknown> | null | undefined): AuditStep[] {
-  if (result === null || result === undefined) {
-    return []
-  }
-  const { steps } = result
-  return Array.isArray(steps) ? (steps as AuditStep[]) : []
-}
-
-/**
- * Extract issues array from PocketBase result with type safety.
- */
-function extractIssues(result: Record<string, unknown> | null | undefined): AuditIssue[] {
-  if (result === null || result === undefined) {
-    return []
-  }
-  const { issues } = result
-  return Array.isArray(issues) ? (issues as AuditIssue[]) : []
-}
-
-/**
- * Build a running AuditResult from PocketBase data.
- */
-function buildRunningResult(auditType: string, pbRun: AuditRun | undefined): AuditResult {
-  return {
-    id: `running-${auditType}`,
-    audit_type: auditType,
-    status: 'running',
-    started_at: pbRun?.started_at ?? new Date().toISOString(),
-    completed_at: null,
-    steps: extractSteps(pbRun?.result),
-    issues: extractIssues(pbRun?.result),
-    summary: {},
-    raw_data: null,
-  } as AuditResult
-}
-
-/**
- * Build a completed AuditResult from PocketBase data.
- */
-function buildCompletedResult(rawResult: Record<string, unknown>): AuditResult {
-  return {
-    ...rawResult,
-    steps: extractSteps(rawResult),
-    issues: extractIssues(rawResult),
-  } as unknown as AuditResult
-}
+import { buildRunningResult, buildCompletedResult } from './auditResultBuilders'
 
 interface UseAuditSessionReturn {
   session: AuditSession | null
@@ -163,15 +113,39 @@ interface AuditActionsReturn {
   selectAudit: (auditType: string) => void
 }
 
-function useAuditActions(
-  pbAuditRuns: Map<string, AuditRun>,
-  optimisticRunning: Set<string>,
-  setOptimisticRunning: React.Dispatch<React.SetStateAction<Set<string>>>,
-  setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>,
+interface AuditActionsConfig {
+  pbAuditRuns: Map<string, AuditRun>
+  optimisticRunning: Set<string>
+  setOptimisticRunning: React.Dispatch<React.SetStateAction<Set<string>>>
+  setSelectedAudit: React.Dispatch<React.SetStateAction<string | null>>
   queryClient: ReturnType<typeof useQueryClient>
-): AuditActionsReturn {
+  sessionId: string | null
+}
+
+function useAuditActions(config: AuditActionsConfig): AuditActionsReturn {
+  const { pbAuditRuns, optimisticRunning, setOptimisticRunning } = config
+  const { setSelectedAudit, queryClient, sessionId } = config
+
+  // Store sessionId in ref for mutation callback
+  const sessionIdRef = React.useRef(sessionId)
+  React.useEffect(() => {
+    sessionIdRef.current = sessionId
+  })
+
   const runAuditMutation = useMutation({
-    mutationFn: (auditType: string) => runAudit(auditType),
+    mutationFn: async (auditType: string) => {
+      const pbRun = pbAuditRuns.get(auditType)
+      const currentSessionId = sessionIdRef.current
+      if (pbRun !== undefined && currentSessionId !== null) {
+        return triggerAuditFromPocketBase({
+          pocketbaseRecordId: pbRun.id,
+          auditType,
+          sessionId: currentSessionId,
+        })
+      }
+      // Fallback: should not happen if PocketBase sync is working
+      throw new Error('No PocketBase record or session ID available')
+    },
     onMutate: (auditType: string) => {
       setSelectedAudit(auditType)
       setOptimisticRunning((prev) => new Set(prev).add(auditType))
@@ -254,13 +228,14 @@ export function useAuditSession(): UseAuditSessionReturn {
 
   usePbCompletionSync(pbAuditRuns, pbConnected, queryClient, setOptimisticRunning)
 
-  const actions = useAuditActions(
+  const actions = useAuditActions({
     pbAuditRuns,
     optimisticRunning,
     setOptimisticRunning,
     setSelectedAudit,
-    queryClient
-  )
+    queryClient,
+    sessionId,
+  })
 
   const currentResult = React.useMemo(
     () => resolveCurrentResult(selectedAudit, session, pbAuditRuns, optimisticRunning),
