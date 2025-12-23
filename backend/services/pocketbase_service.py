@@ -65,10 +65,27 @@ class PocketBaseService:
         result: dict[str, Any] | None = None,
         error: str | None = None,
         run_id: str | None = None,
+        reset_started: bool = False,
     ) -> dict[str, Any]:
-        """Update audit run status."""
+        """Update audit run status.
+
+        Args:
+            record_id: The PocketBase record ID
+            status: New status (running, completed, failed)
+            result: Audit result data (for completed status)
+            error: Error message (for failed status)
+            run_id: Inngest run ID for correlation
+            reset_started: If True, reset started_at to now and clear completed_at/result/error.
+                          Used when re-running an audit.
+        """
         data: dict[str, Any] = {"status": status}
-        if status in ("completed", "failed"):
+        if reset_started:
+            # Re-running audit: reset timestamps and clear previous results
+            data["started_at"] = datetime.now(tz=UTC).isoformat()
+            data["completed_at"] = None
+            data["result"] = None
+            data["error"] = None
+        elif status in ("completed", "failed"):
             data["completed_at"] = datetime.now(tz=UTC).isoformat()
         if result is not None:
             data["result"] = result

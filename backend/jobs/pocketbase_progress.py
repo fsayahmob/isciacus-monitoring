@@ -142,12 +142,14 @@ def update_audit_progress(
         existing = pb.get_audit_by_type(session_id, audit_type)
 
         if existing is not None:
-            # Update existing record
+            # If starting a new run (status=running), reset started_at for realtime updates
+            reset_started = pb_status == "running"
             record = pb.update_status(
                 record_id=existing["id"],
                 status=pb_status,
                 result=result,
                 error=error,
+                reset_started=reset_started,
             )
             logger.info("Updated audit %s/%s to %s", session_id, audit_type, pb_status)
             return record["id"]  # type: ignore[no-any-return]

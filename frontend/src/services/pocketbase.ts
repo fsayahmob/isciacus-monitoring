@@ -164,14 +164,26 @@ export async function cancelAuditRun(recordId: string): Promise<AuditRun> {
 // ============================================================================
 
 /**
- * Create an orchestrator session to track planned audits.
- * Called when "Lancer tous les audits" is clicked.
+ * Create or restart an orchestrator session to track planned audits.
+ * If a session already exists for this sessionId, it updates it to restart.
  */
 export async function createOrchestratorSession(
   sessionId: string,
   plannedAudits: string[]
 ): Promise<OrchestratorSession> {
   const pb = getPocketBase()
+  const existing = await getOrchestratorSession(sessionId)
+
+  if (existing !== null) {
+    // Restart existing session
+    return pb.collection('orchestrator_sessions').update<OrchestratorSession>(existing.id, {
+      planned_audits: plannedAudits,
+      status: 'running',
+      started_at: new Date().toISOString(),
+      completed_at: null,
+    })
+  }
+
   return pb.collection('orchestrator_sessions').create<OrchestratorSession>({
     session_id: sessionId,
     planned_audits: plannedAudits,
