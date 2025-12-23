@@ -12,7 +12,7 @@ import { type AuditRun } from '../../services/pocketbase'
 import { type AuditProgress } from './campaignScoreUtils'
 
 // Constants
-const POCKETBASE_SETTLE_DELAY_MS = 500
+export const POCKETBASE_SETTLE_DELAY_MS = 500
 const POLL_INTERVAL_MS = 1000
 const MAX_WAIT_TIME_MS = 120000 // 2 minutes max per audit
 

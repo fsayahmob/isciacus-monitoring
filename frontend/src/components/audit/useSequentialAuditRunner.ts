@@ -16,47 +16,36 @@ import {
   createOrchestratorSession,
   getOrchestratorSession,
   completeOrchestratorSession,
+  createBatchAuditRuns,
 } from '../../services/pocketbase'
 import { type AvailableAudit } from '../../services/api'
-import {
-  calculateCampaignScore,
-  determineCampaignReadiness,
-  type AuditProgress,
-  type CampaignReadiness,
-  type CampaignScore,
-} from './campaignScoreUtils'
+import { calculateCampaignScore, determineCampaignReadiness } from './campaignScoreUtils'
 import {
   pbRunsToProgress,
   buildAuditNameMap,
   executeSequentialAudits,
   resumeSequentialAudits,
   countCompleted,
+  POCKETBASE_SETTLE_DELAY_MS,
 } from './sequentialRunnerUtils'
+import type {
+  RecoveryConfig,
+  AutoCompleteConfig,
+  RunnerState,
+  RunnerActions,
+  StartRunConfig,
+  UseSequentialAuditRunnerOptions,
+  UseSequentialAuditRunnerReturn,
+} from './sequentialRunnerTypes'
 
-export type { AuditProgress, CampaignReadiness, CampaignScore }
-
-export interface SequentialRunnerState {
-  isRunning: boolean
-  progress: AuditProgress[]
-  currentIndex: number
-  totalAudits: number
-  completedCount: number
-  score: CampaignScore | null
-  readiness: CampaignReadiness | null
-  showSummary: boolean
-}
-
-export interface UseSequentialAuditRunnerReturn extends SequentialRunnerState {
-  startSequentialRun: (audits: AvailableAudit[]) => void
-  dismissSummary: () => void
-  reset: () => void
-}
-
-export interface UseSequentialAuditRunnerOptions {
-  sessionId?: string | null
-  pbAuditRuns?: Map<string, AuditRun>
-  availableAudits?: AvailableAudit[]
-}
+export type {
+  AuditProgress,
+  CampaignReadiness,
+  CampaignScore,
+  SequentialRunnerState,
+  UseSequentialAuditRunnerReturn,
+  UseSequentialAuditRunnerOptions,
+} from './sequentialRunnerTypes'
 
 function findCurrentIndex(pbRuns: Map<string, AuditRun>, auditOrder: string[]): number {
   for (let i = 0; i < auditOrder.length; i++) {
@@ -69,28 +58,17 @@ function findCurrentIndex(pbRuns: Map<string, AuditRun>, auditOrder: string[]): 
 
 function computeResults(
   allDone: boolean,
-  progress: AuditProgress[]
+  progress: { status: string }[]
 ): {
-  score: CampaignScore | null
-  readiness: CampaignReadiness | null
+  score: ReturnType<typeof calculateCampaignScore> | null
+  readiness: ReturnType<typeof determineCampaignReadiness> | null
 } {
   if (!allDone || progress.length === 0) {
     return { score: null, readiness: null }
   }
-  const score = calculateCampaignScore(progress)
-  return { score, readiness: determineCampaignReadiness(score, progress) }
-}
-
-interface RecoveryConfig {
-  sessionId: string | null
-  hasLocalState: boolean
-  hasAuditsLoaded: boolean
-  availableAudits: AvailableAudit[]
-  pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>
-  wasStartedLocallyRef: React.RefObject<boolean>
-  setOrchSession: (s: OrchestratorSession | null) => void
-  setPlannedAudits: (a: string[]) => void
-  setIsRunning: (r: boolean) => void
+  const score = calculateCampaignScore(progress as Parameters<typeof calculateCampaignScore>[0])
+  const typedProgress = progress as Parameters<typeof determineCampaignReadiness>[1]
+  return { score, readiness: determineCampaignReadiness(score, typedProgress) }
 }
 
 function useOrchestratorRecovery(config: RecoveryConfig): void {
@@ -101,15 +79,19 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
     availableAudits,
     pbAuditRunsRef,
     wasStartedLocallyRef,
-    setOrchSession,
-    setPlannedAudits,
-    setIsRunning,
   } = config
 
-  // Store callbacks in ref to avoid dependency array issues
-  const callbacksRef = React.useRef({ setOrchSession, setPlannedAudits, setIsRunning })
+  const callbacksRef = React.useRef({
+    setOrchSession: config.setOrchSession,
+    setPlannedAudits: config.setPlannedAudits,
+    setIsRunning: config.setIsRunning,
+  })
   React.useEffect(() => {
-    callbacksRef.current = { setOrchSession, setPlannedAudits, setIsRunning }
+    callbacksRef.current = {
+      setOrchSession: config.setOrchSession,
+      setPlannedAudits: config.setPlannedAudits,
+      setIsRunning: config.setIsRunning,
+    }
   })
 
   React.useEffect(() => {
@@ -123,7 +105,6 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
         callbacksRef.current.setPlannedAudits(session.planned_audits)
         callbacksRef.current.setIsRunning(true)
         wasStartedLocallyRef.current = true
-        // Resume execution of remaining audits
         await resumeSequentialAudits(
           session.planned_audits,
           availableAudits,
@@ -142,17 +123,9 @@ function useOrchestratorRecovery(config: RecoveryConfig): void {
   ])
 }
 
-interface AutoCompleteConfig {
-  allDone: boolean
-  isRunning: boolean
-  wasStartedLocally: boolean
-  orchSession: OrchestratorSession | null
-  onComplete: () => void
-  queryClient: ReturnType<typeof useQueryClient>
-}
-
 function useAutoComplete(config: AutoCompleteConfig): void {
-  const { allDone, isRunning, wasStartedLocally, orchSession, onComplete, queryClient } = config
+  const { allDone, isRunning, wasStartedLocally, orchSession, onComplete } = config
+  const queryClient = useQueryClient()
   React.useEffect(() => {
     if (!allDone || !isRunning || !wasStartedLocally) {
       return
@@ -164,20 +137,6 @@ function useAutoComplete(config: AutoCompleteConfig): void {
     void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
     void queryClient.invalidateQueries({ queryKey: ['available-audits'] })
   }, [allDone, isRunning, wasStartedLocally, orchSession, onComplete, queryClient])
-}
-
-interface RunnerState {
-  plannedAudits: string[]
-  isRunning: boolean
-  showSummary: boolean
-  orchSession: OrchestratorSession | null
-}
-
-interface RunnerActions {
-  setPlannedAudits: React.Dispatch<React.SetStateAction<string[]>>
-  setIsRunning: React.Dispatch<React.SetStateAction<boolean>>
-  setShowSummary: React.Dispatch<React.SetStateAction<boolean>>
-  setOrchSession: React.Dispatch<React.SetStateAction<OrchestratorSession | null>>
 }
 
 function useRunnerState(): RunnerState & RunnerActions {
@@ -197,16 +156,6 @@ function useRunnerState(): RunnerState & RunnerActions {
   }
 }
 
-interface StartRunConfig {
-  sessionId: string | null
-  setPlannedAudits: React.Dispatch<React.SetStateAction<string[]>>
-  setIsRunning: React.Dispatch<React.SetStateAction<boolean>>
-  setShowSummary: React.Dispatch<React.SetStateAction<boolean>>
-  setOrchSession: React.Dispatch<React.SetStateAction<OrchestratorSession | null>>
-  wasStartedLocallyRef: React.RefObject<boolean>
-  pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>
-}
-
 function useStartSequentialRun(config: StartRunConfig): (audits: AvailableAudit[]) => void {
   const { sessionId, setPlannedAudits, setIsRunning, setShowSummary, setOrchSession } = config
   const { wasStartedLocallyRef, pbAuditRunsRef } = config
@@ -217,15 +166,15 @@ function useStartSequentialRun(config: StartRunConfig): (audits: AvailableAudit[
         return
       }
       wasStartedLocallyRef.current = true
-      setPlannedAudits(filtered.map((a) => a.type))
+      const auditTypes = filtered.map((a) => a.type)
+      setPlannedAudits(auditTypes)
       setIsRunning(true)
       setShowSummary(false)
       void (async () => {
-        const session = await createOrchestratorSession(
-          sessionId,
-          filtered.map((a) => a.type)
-        )
+        const session = await createOrchestratorSession(sessionId, auditTypes)
         setOrchSession(session)
+        await createBatchAuditRuns(sessionId, auditTypes)
+        await new Promise((resolve) => setTimeout(resolve, POCKETBASE_SETTLE_DELAY_MS))
         await executeSequentialAudits(filtered, () => pbAuditRunsRef.current, sessionId)
       })()
     },
@@ -249,7 +198,6 @@ export function useSequentialAuditRunner(
     pbAuditRuns = new Map<string, AuditRun>(),
     availableAudits = [],
   } = options
-  const queryClient = useQueryClient()
   const state = useRunnerState()
   const { plannedAudits, isRunning, showSummary, orchSession } = state
   const { setPlannedAudits, setIsRunning, setShowSummary, setOrchSession } = state
@@ -292,7 +240,6 @@ export function useSequentialAuditRunner(
     wasStartedLocally: wasStartedLocallyRef.current,
     orchSession,
     onComplete: handleComplete,
-    queryClient,
   })
 
   const startSequentialRun = useStartSequentialRun({

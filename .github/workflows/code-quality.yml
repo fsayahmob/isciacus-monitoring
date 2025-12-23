@@ -90,21 +90,22 @@ jobs:
 
           echo "✅ All frontend rules are error severity"
 
-      - name: 🔍 [FRONTEND] Guard 2 - Max 3 disabled rules
+      - name: 🔍 [FRONTEND] Guard 2 - Zero disabled rules allowed
         run: |
-          echo "=== FRONTEND GUARD 2: Maximum 3 disabled ESLint rules ==="
+          echo "=== FRONTEND GUARD 2: Maximum 0 disabled ESLint rules ==="
 
           OFF_COUNT=$(grep -cE "'off'|\"off\"" frontend/eslint.config.js 2>/dev/null || echo "0")
           echo "Found $OFF_COUNT disabled rules"
 
-          if [ "$OFF_COUNT" -gt 3 ]; then
-            echo "❌ BLOCKED: Too many disabled rules ($OFF_COUNT > 3)"
+          if [ "$OFF_COUNT" -gt 0 ]; then
+            echo "❌ BLOCKED: Disabled rules not allowed ($OFF_COUNT found)"
             echo ""
-            echo "🚨 VIOLATION TYPE: Excessive Rule Disabling"
+            echo "🚨 VIOLATION TYPE: Rule Disabling Not Permitted"
+            echo "All rules must be 'error' severity. No exceptions."
             exit 1
           fi
 
-          echo "✅ Disabled rules count acceptable ($OFF_COUNT ≤ 3)"
+          echo "✅ No disabled rules found (0 allowed)"
 
       - name: 🔍 [FRONTEND] Guard 3 - No eslint-disable in code
         run: |
@@ -147,6 +148,21 @@ jobs:
           fi
 
           echo "✅ TypeScript strict mode enabled"
+
+      - name: 🔍 [FRONTEND] Guard 6 - No regex modifications in ESLint
+        run: |
+          echo "=== FRONTEND GUARD 6: No regex pattern modifications ==="
+
+          # Check for regex patterns that might weaken rules (ignorePattern, ignoreDeclarationWithComments, etc)
+          if git diff origin/main...HEAD -- frontend/eslint.config.js 2>/dev/null | grep -E "ignorePattern|ignoreDeclaration|ignoreReadBeforeAssign|varsIgnorePattern|argsIgnorePattern|caughtErrorsIgnorePattern|destructuredArrayIgnorePattern"; then
+            echo "❌ BLOCKED: Regex/ignore pattern modification detected in ESLint config!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Rule Weakening via Ignore Patterns"
+            echo "Adding or modifying ignore patterns is not allowed."
+            exit 1
+          fi
+
+          echo "✅ No regex pattern modifications detected"
 
       # =====================================================
       # BACKEND GUARDS (Ruff/Python)
@@ -226,6 +242,32 @@ jobs:
 
           echo "✅ Print statements rule enabled"
 
+      - name: 🔍 [BACKEND] Guard 6 - No new ignored rules in Ruff
+        run: |
+          echo "=== BACKEND GUARD 6: No new ignored rules allowed ==="
+
+          # Check for additions to ignore list or per-file-ignores
+          if git diff origin/main...HEAD -- backend/pyproject.toml 2>/dev/null | grep -E "^\+.*\"[A-Z][0-9]+" | grep -v "^+++"; then
+            echo "❌ BLOCKED: New rule added to ignore list!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Rule Weakening via Ignore List"
+            echo "Adding new rules to ignore list is not allowed."
+            echo ""
+            echo "Detected additions:"
+            git diff origin/main...HEAD -- backend/pyproject.toml | grep -E "^\+.*\"[A-Z][0-9]+" | grep -v "^+++" || true
+            exit 1
+          fi
+
+          # Check for per-file-ignores additions
+          if git diff origin/main...HEAD -- backend/pyproject.toml 2>/dev/null | grep -E "per-file-ignores|extend-per-file-ignores|extend-ignore"; then
+            echo "❌ BLOCKED: Per-file-ignores modification detected!"
+            echo ""
+            echo "🚨 VIOLATION TYPE: Rule Weakening via File Exclusions"
+            exit 1
+          fi
+
+          echo "✅ No new ignored rules detected"
+
       - name: ✅ All guards passed
         run: |
           echo ""
@@ -235,10 +277,11 @@ jobs:
           echo ""
           echo "Frontend guards:"
           echo "  ✅ No warning severity rules"
-          echo "  ✅ Max 3 disabled rules"
+          echo "  ✅ Zero disabled rules (0 off allowed)"
           echo "  ✅ No eslint-disable abuse"
           echo "  ✅ Minimum 30 active rules"
           echo "  ✅ TypeScript strict mode"
+          echo "  ✅ No regex/ignore pattern modifications"
           echo ""
           echo "Backend guards:"
           echo "  ✅ Max 5 ignored Ruff rules"
@@ -246,6 +289,7 @@ jobs:
           echo "  ✅ No noqa abuse"
           echo "  ✅ Security rules enabled"
           echo "  ✅ Print statements banned"
+          echo "  ✅ No new ignored rules allowed"
           echo ""
 
   # =====================================================
