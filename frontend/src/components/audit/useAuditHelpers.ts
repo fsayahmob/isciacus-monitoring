@@ -208,15 +208,17 @@ export function useSequentialProgress(
 /**
  * Restore localSessionId from PocketBase if there's a running orchestrator session.
  * Called on mount to recover state after page refresh.
+ *
+ * Always checks PocketBase for a running session, even if backend has a session.
+ * This handles the case where frontend generated a sessionId that differs from backend.
  */
 export function useRestoreRunningSession(
-  backendSessionId: string | null,
   setLocalSessionId: (id: string | null) => void
 ): void {
   const hasRestoredRef = React.useRef(false)
 
   React.useEffect(() => {
-    if (hasRestoredRef.current || backendSessionId !== null) {
+    if (hasRestoredRef.current) {
       return
     }
     hasRestoredRef.current = true
@@ -226,5 +228,5 @@ export function useRestoreRunningSession(
         setLocalSessionId(runningSession.session_id)
       }
     })()
-  }, [backendSessionId, setLocalSessionId])
+  }, [setLocalSessionId])
 }

@@ -260,7 +260,7 @@ export function useAudit(): UseAuditReturn {
   const backendSessionId = session?.id ?? null
 
   // Restore localSessionId from PocketBase if there's a running session (after refresh)
-  useRestoreRunningSession(backendSessionId, setLocalSessionId)
+  useRestoreRunningSession(setLocalSessionId)
 
   // Effective session ID: local takes precedence (for newly generated sessions)
   const effectiveSessionId = localSessionId ?? backendSessionId
