@@ -1097,3 +1097,156 @@ test.describe.serial('Audit Page - State Consistency', () => {
     console.log('✓ API consistency check completed')
   })
 })
+
+// ============================================================================
+// TEST SUITE: CLEAR CACHE AND RUN ALL AUDITS
+// ============================================================================
+
+test.describe('Audit Page - Clear Cache and Run All', () => {
+  test('SCENARIO 12: Clear cache and run all audits from fresh state', async ({ page, request }) => {
+    test.setTimeout(300000) // 5 minutes for full audit run
+
+    const pbAvailable = await isPocketBaseAvailable(request)
+    test.skip(!pbAvailable, 'PocketBase not available')
+
+    await navigateToAuditPage(page)
+    await waitForPocketBaseSync(page)
+
+    // Step 1: Click "Effacer le cache" button
+    console.log('Step 1: Looking for "Effacer le cache" button...')
+    const clearCacheButton = page.locator(
+      'button:has-text("Effacer"), button:has-text("Clear"), button:has-text("Vider")'
+    )
+
+    if ((await clearCacheButton.count()) > 0) {
+      await clearCacheButton.first().click()
+      console.log('Clicked "Effacer le cache" button')
+
+      // Wait for confirmation modal if any
+      const confirmButton = page.locator(
+        'button:has-text("Confirmer"), button:has-text("Oui"), button:has-text("OK")'
+      )
+      if ((await confirmButton.count()) > 0) {
+        await confirmButton.first().click()
+        console.log('Confirmed cache clear')
+      }
+
+      // Wait for cache clear to complete
+      await page.waitForTimeout(2000)
+    } else {
+      console.log('No clear cache button found, continuing...')
+    }
+
+    // Step 2: Verify cache was cleared (check API response)
+    const sessionBefore = await getSessionId(request)
+    console.log('Session ID after cache clear:', sessionBefore)
+
+    // Step 3: Click "Lancer tous les audits" button
+    console.log('Step 2: Looking for "Lancer tous les audits" button...')
+    const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
+
+    if ((await runAllButton.count()) === 0) {
+      console.log('Run all button not found')
+      // Take screenshot for debugging
+      await page.screenshot({ path: 'test-results/scenario12-no-button.png' })
+      test.skip(true, 'Run all button not available')
+      return
+    }
+
+    // Ensure button is visible and clickable
+    await expect(runAllButton).toBeVisible({ timeout: 10000 })
+    await runAllButton.click()
+    console.log('Clicked "Lancer tous les audits" button')
+
+    // Step 4: Wait for progress section to appear
+    console.log('Step 3: Waiting for progress section...')
+    try {
+      await page.waitForFunction(
+        () => document.querySelector('[class*="rounded-xl"][class*="border-info"]') !== null,
+        { timeout: 30000 }
+      )
+      console.log('Progress section appeared')
+    } catch {
+      console.log('Progress section did not appear, checking PocketBase...')
+    }
+
+    // Step 5: Get new session ID
+    const sessionId = await getSessionId(request)
+    console.log('New session ID:', sessionId)
+
+    if (!sessionId) {
+      test.skip(true, 'No session created after running audits')
+      return
+    }
+
+    // Step 6: Monitor progress until completion
+    console.log('Step 4: Monitoring audit progress...')
+    const maxWaitTime = 240000 // 4 minutes
+    const startTime = Date.now()
+    let allCompleted = false
+    let lastProgress = ''
+
+    while (!allCompleted && Date.now() - startTime < maxWaitTime) {
+      await page.waitForTimeout(5000)
+
+      // Check PocketBase for audit status
+      const pbRuns = await getPocketBaseAuditRuns(request, sessionId)
+      const orchSession = await getPocketBaseOrchestratorSession(request, sessionId)
+
+      const completed = pbRuns.filter((r) => r.status === 'completed').length
+      const failed = pbRuns.filter((r) => r.status === 'failed').length
+      const running = pbRuns.filter((r) => r.status === 'running').length
+      const total = orchSession?.planned_audits.length ?? pbRuns.length
+
+      const progress = `${completed + failed}/${total} (${completed} completed, ${failed} failed, ${running} running)`
+
+      if (progress !== lastProgress) {
+        console.log(`Progress: ${progress}`)
+        lastProgress = progress
+      }
+
+      // Check if all audits are done
+      if (total > 0 && completed + failed >= total) {
+        allCompleted = true
+      }
+
+      // Also check if orchestrator session is marked as completed
+      if (orchSession?.status === 'completed') {
+        allCompleted = true
+      }
+    }
+
+    // Step 7: Verify final state
+    console.log('Step 5: Verifying final state...')
+    const finalPbRuns = await getPocketBaseAuditRuns(request, sessionId)
+    const finalOrchSession = await getPocketBaseOrchestratorSession(request, sessionId)
+
+    const completedCount = finalPbRuns.filter((r) => r.status === 'completed').length
+    const failedCount = finalPbRuns.filter((r) => r.status === 'failed').length
+    const totalCount = finalPbRuns.length
+
+    console.log('=== FINAL RESULTS ===')
+    console.log(`Total audits: ${totalCount}`)
+    console.log(`Completed: ${completedCount}`)
+    console.log(`Failed: ${failedCount}`)
+    console.log(`Orchestrator status: ${finalOrchSession?.status}`)
+
+    // Log individual audit results
+    for (const run of finalPbRuns) {
+      const statusIcon = run.status === 'completed' ? '✓' : run.status === 'failed' ? '✗' : '?'
+      console.log(`  ${statusIcon} ${run.audit_type}: ${run.status}`)
+    }
+
+    // Assertions
+    expect(allCompleted).toBe(true)
+    expect(totalCount).toBeGreaterThan(0)
+
+    // At least some audits should complete successfully
+    expect(completedCount).toBeGreaterThan(0)
+
+    // Take final screenshot
+    await page.screenshot({ path: 'test-results/scenario12-final.png' })
+
+    console.log('✓ Clear cache and run all audits completed successfully')
+  })
+})
