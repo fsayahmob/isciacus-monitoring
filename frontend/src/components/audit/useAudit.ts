@@ -1,16 +1,16 @@
-/**
- * useAudit - Unified audit hook with PocketBase as single source of truth
- *
- * Replaces: useAuditSession + useSequentialAuditRunner
- * Architecture: PocketBase = seule source de verite, pas d'etat optimiste
- */
+/** useAudit - Unified audit hook with PocketBase as single source of truth */
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import React from 'react'
 
 import { usePocketBaseAudit } from '../../hooks/usePocketBaseAudit'
 import {
-  fetchLatestAuditSession, fetchAvailableAudits, triggerAuditFromPocketBase,
-  stopAudit as stopAuditApi, type AuditResult, type AuditSession, type AvailableAudit,
+  fetchLatestAuditSession,
+  fetchAvailableAudits,
+  triggerAuditFromPocketBase,
+  stopAudit as stopAuditApi,
+  type AuditResult,
+  type AuditSession,
+  type AvailableAudit,
 } from '../../services/api'
 import {
   type AuditRun,
