@@ -1,4 +1,9 @@
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
+import {
+  test,
+  expect,
+  type Page,
+  type APIRequestContext,
+} from "@playwright/test";
 
 /**
  * E2E Tests - Audit Page - EXHAUSTIVE TEST SUITE
@@ -15,134 +20,141 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
  * 6. Edge Cases & Error Scenarios
  */
 
-const POCKETBASE_URL = 'http://localhost:8090'
-const BACKEND_URL = 'http://localhost:8000'
+const POCKETBASE_URL = "http://localhost:8090";
+const BACKEND_URL = "http://localhost:8000";
 
 // ============================================================================
 // HELPER TYPES & INTERFACES
 // ============================================================================
 
 interface PocketBaseRecord {
-  id: string
-  session_id: string
-  audit_type: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  started_at: string
-  completed_at: string | null
-  result: Record<string, unknown> | null
-  error: string | null
+  id: string;
+  session_id: string;
+  audit_type: string;
+  status: "pending" | "running" | "completed" | "failed";
+  started_at: string;
+  completed_at: string | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
 }
 
 interface OrchestratorSession {
-  id: string
-  session_id: string
-  planned_audits: string[]
-  status: 'running' | 'completed'
-  started_at: string
-  completed_at: string | null
+  id: string;
+  session_id: string;
+  planned_audits: string[];
+  status: "running" | "completed";
+  started_at: string;
+  completed_at: string | null;
 }
 
 interface OrchestratorUIState {
-  isVisible: boolean
-  totalAudits: number
-  completedCount: number
-  progressPercentage: number
-  currentAuditName: string | null
-  chips: Array<{ name: string; status: 'completed' | 'running' | 'pending' | 'error' }>
+  isVisible: boolean;
+  totalAudits: number;
+  completedCount: number;
+  progressPercentage: number;
+  currentAuditName: string | null;
+  chips: Array<{
+    name: string;
+    status: "completed" | "running" | "pending" | "error";
+  }>;
 }
 
 interface AuditCardUIState {
-  auditType: string
-  name: string
-  isRunning: boolean
-  hasSpinner: boolean
-  hasCheckmark: boolean
-  hasError: boolean
-  isExpanded: boolean
+  auditType: string;
+  name: string;
+  isRunning: boolean;
+  hasSpinner: boolean;
+  hasCheckmark: boolean;
+  hasError: boolean;
+  isExpanded: boolean;
 }
 
 // ============================================================================
 // POCKETBASE HELPER FUNCTIONS
 // ============================================================================
 
-async function isPocketBaseAvailable(request: APIRequestContext): Promise<boolean> {
+async function isPocketBaseAvailable(
+  request: APIRequestContext,
+): Promise<boolean> {
   try {
-    const health = await request.get(`${POCKETBASE_URL}/api/health`)
-    if (!health.ok()) return false
+    const health = await request.get(`${POCKETBASE_URL}/api/health`);
+    if (!health.ok()) return false;
 
     const auditRuns = await request.get(
-      `${POCKETBASE_URL}/api/collections/audit_runs/records?perPage=1`
-    )
+      `${POCKETBASE_URL}/api/collections/audit_runs/records?perPage=1`,
+    );
     if (!auditRuns.ok()) {
-      console.error('audit_runs collection not accessible')
-      return false
+      console.error("audit_runs collection not accessible");
+      return false;
     }
 
     const orchSessions = await request.get(
-      `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records?perPage=1`
-    )
+      `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records?perPage=1`,
+    );
     if (!orchSessions.ok()) {
-      console.error('orchestrator_sessions collection not accessible')
-      return false
+      console.error("orchestrator_sessions collection not accessible");
+      return false;
     }
 
-    return true
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
-async function getSessionId(request: APIRequestContext): Promise<string | null> {
+async function getSessionId(
+  request: APIRequestContext,
+): Promise<string | null> {
   try {
-    const response = await request.get(`${BACKEND_URL}/api/audits/session`)
-    if (!response.ok()) return null
-    const data = await response.json()
-    return data.session?.id ?? null
+    const response = await request.get(`${BACKEND_URL}/api/audits/session`);
+    if (!response.ok()) return null;
+    const data = await response.json();
+    return data.session?.id ?? null;
   } catch {
-    return null
+    return null;
   }
 }
 
 async function getPocketBaseAuditRuns(
   request: APIRequestContext,
-  sessionId: string
+  sessionId: string,
 ): Promise<PocketBaseRecord[]> {
   const response = await request.get(
-    `${POCKETBASE_URL}/api/collections/audit_runs/records?filter=session_id="${sessionId}"&sort=-started_at`
-  )
-  if (!response.ok()) return []
-  const data = await response.json()
-  return data.items ?? []
+    `${POCKETBASE_URL}/api/collections/audit_runs/records?filter=session_id="${sessionId}"&sort=-started_at`,
+  );
+  if (!response.ok()) return [];
+  const data = await response.json();
+  return data.items ?? [];
 }
 
 async function getPocketBaseOrchestratorSession(
   request: APIRequestContext,
-  sessionId: string
+  sessionId: string,
 ): Promise<OrchestratorSession | null> {
   const response = await request.get(
-    `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records?filter=session_id="${sessionId}"`
-  )
-  if (!response.ok()) return null
-  const data = await response.json()
-  return data.items?.[0] ?? null
+    `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records?filter=session_id="${sessionId}"`,
+  );
+  if (!response.ok()) return null;
+  const data = await response.json();
+  return data.items?.[0] ?? null;
 }
 
 async function getLatestPocketBaseSession(
-  request: APIRequestContext
+  request: APIRequestContext,
 ): Promise<OrchestratorSession | null> {
   const response = await request.get(
-    `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records?sort=-started_at&perPage=1`
-  )
-  if (!response.ok()) return null
-  const data = await response.json()
-  return data.items?.[0] ?? null
+    `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records?sort=-started_at&perPage=1`,
+  );
+  if (!response.ok()) return null;
+  const data = await response.json();
+  return data.items?.[0] ?? null;
 }
 
 async function createPocketBaseAuditRun(
   request: APIRequestContext,
   sessionId: string,
   auditType: string,
-  status: 'pending' | 'running' | 'completed' | 'failed' = 'running'
+  status: "pending" | "running" | "completed" | "failed" = "running",
 ): Promise<PocketBaseRecord> {
   const response = await request.post(
     `${POCKETBASE_URL}/api/collections/audit_runs/records`,
@@ -156,61 +168,74 @@ async function createPocketBaseAuditRun(
         result: null,
         error: null,
       },
-    }
-  )
-  return response.json()
+    },
+  );
+  return response.json();
 }
 
 async function updatePocketBaseAuditRun(
   request: APIRequestContext,
   recordId: string,
-  updates: Partial<PocketBaseRecord>
+  updates: Partial<PocketBaseRecord>,
 ): Promise<PocketBaseRecord> {
   const response = await request.patch(
     `${POCKETBASE_URL}/api/collections/audit_runs/records/${recordId}`,
-    { data: updates }
-  )
-  return response.json()
+    { data: updates },
+  );
+  return response.json();
 }
 
 async function deletePocketBaseRecord(
   request: APIRequestContext,
   collection: string,
-  recordId: string
+  recordId: string,
 ): Promise<void> {
-  await request.delete(`${POCKETBASE_URL}/api/collections/${collection}/records/${recordId}`)
+  await request.delete(
+    `${POCKETBASE_URL}/api/collections/${collection}/records/${recordId}`,
+  );
 }
 
 async function cleanupSessionRecords(
   request: APIRequestContext,
-  sessionId: string
+  sessionId: string,
 ): Promise<number> {
-  let cleaned = 0
+  let cleaned = 0;
 
   // Clean audit_runs
-  const auditRuns = await getPocketBaseAuditRuns(request, sessionId)
+  const auditRuns = await getPocketBaseAuditRuns(request, sessionId);
   for (const record of auditRuns) {
-    await deletePocketBaseRecord(request, 'audit_runs', record.id)
-    cleaned++
+    await deletePocketBaseRecord(request, "audit_runs", record.id);
+    cleaned++;
   }
 
   // Clean orchestrator_sessions
-  const orchSession = await getPocketBaseOrchestratorSession(request, sessionId)
+  const orchSession = await getPocketBaseOrchestratorSession(
+    request,
+    sessionId,
+  );
   if (orchSession) {
-    await deletePocketBaseRecord(request, 'orchestrator_sessions', orchSession.id)
-    cleaned++
+    await deletePocketBaseRecord(
+      request,
+      "orchestrator_sessions",
+      orchSession.id,
+    );
+    cleaned++;
   }
 
-  return cleaned
+  return cleaned;
 }
 
 // ============================================================================
 // UI STATE CAPTURE FUNCTIONS
 // ============================================================================
 
-async function captureOrchestratorUIState(page: Page): Promise<OrchestratorUIState> {
+async function captureOrchestratorUIState(
+  page: Page,
+): Promise<OrchestratorUIState> {
   return page.evaluate(() => {
-    const section = document.querySelector('[class*="rounded-xl"][class*="border-info"]')
+    const section = document.querySelector(
+      '[class*="rounded-xl"][class*="border-info"]',
+    );
     if (!section) {
       return {
         isVisible: false,
@@ -219,35 +244,42 @@ async function captureOrchestratorUIState(page: Page): Promise<OrchestratorUISta
         progressPercentage: 0,
         currentAuditName: null,
         chips: [],
-      }
+      };
     }
 
     // Extract counter "X/Y"
-    const counterText = section.querySelector('[class*="text-text-secondary"]')?.textContent || ''
-    const match = counterText.match(/(\d+)\/(\d+)/)
-    const completedCount = match ? parseInt(match[1], 10) : 0
-    const totalAudits = match ? parseInt(match[2], 10) : 0
-    const progressPercentage = totalAudits > 0 ? Math.round((completedCount / totalAudits) * 100) : 0
+    const counterText =
+      section.querySelector('[class*="text-text-secondary"]')?.textContent ||
+      "";
+    const match = counterText.match(/(\d+)\/(\d+)/);
+    const completedCount = match ? parseInt(match[1], 10) : 0;
+    const totalAudits = match ? parseInt(match[2], 10) : 0;
+    const progressPercentage =
+      totalAudits > 0 ? Math.round((completedCount / totalAudits) * 100) : 0;
 
     // Extract current audit name
-    const currentAuditEl = section.querySelector('p[class*="text-text-secondary"] span')
-    const currentAuditName = currentAuditEl?.textContent?.trim() || null
+    const currentAuditEl = section.querySelector(
+      'p[class*="text-text-secondary"] span',
+    );
+    const currentAuditName = currentAuditEl?.textContent?.trim() || null;
 
     // Extract chips
-    const chipEls = section.querySelectorAll('[class*="rounded-full"][class*="px-2"]')
+    const chipEls = section.querySelectorAll(
+      '[class*="rounded-full"][class*="px-2"]',
+    );
     const chips = Array.from(chipEls).map((chip) => {
-      const name = chip.textContent?.trim() || ''
-      const hasCheck = chip.querySelector('path[d*="M5 13l4 4L19 7"]') !== null
-      const hasSpinner = chip.querySelector('.animate-spin') !== null
-      const hasX = chip.querySelector('path[d*="M6 18L18 6"]') !== null
+      const name = chip.textContent?.trim() || "";
+      const hasCheck = chip.querySelector('path[d*="M5 13l4 4L19 7"]') !== null;
+      const hasSpinner = chip.querySelector(".animate-spin") !== null;
+      const hasX = chip.querySelector('path[d*="M6 18L18 6"]') !== null;
 
-      let status: 'completed' | 'running' | 'pending' | 'error' = 'pending'
-      if (hasCheck) status = 'completed'
-      else if (hasSpinner) status = 'running'
-      else if (hasX) status = 'error'
+      let status: "completed" | "running" | "pending" | "error" = "pending";
+      if (hasCheck) status = "completed";
+      else if (hasSpinner) status = "running";
+      else if (hasX) status = "error";
 
-      return { name, status }
-    })
+      return { name, status };
+    });
 
     return {
       isVisible: true,
@@ -256,22 +288,30 @@ async function captureOrchestratorUIState(page: Page): Promise<OrchestratorUISta
       progressPercentage,
       currentAuditName,
       chips,
-    }
-  })
+    };
+  });
 }
 
-async function captureAuditCardState(page: Page, auditType: string): Promise<AuditCardUIState | null> {
+async function captureAuditCardState(
+  page: Page,
+  auditType: string,
+): Promise<AuditCardUIState | null> {
   return page.evaluate((type) => {
-    const card = document.querySelector(`[data-audit-type="${type}"]`)
-    if (!card) return null
+    const card = document.querySelector(`[data-audit-type="${type}"]`);
+    if (!card) return null;
 
-    const name = card.querySelector('h3, [class*="font-semibold"]')?.textContent?.trim() || type
-    const hasSpinner = card.querySelector('.animate-spin') !== null
-    const hasCheckmark = card.querySelector('path[d*="M5 13l4 4L19 7"]') !== null
-    const hasError = card.querySelector('path[d*="M6 18L18 6"]') !== null
-    const isExpanded = card.querySelector('[class*="accordion-content"], [class*="overflow-hidden"]')
+    const name =
+      card.querySelector('h3, [class*="font-semibold"]')?.textContent?.trim() ||
+      type;
+    const hasSpinner = card.querySelector(".animate-spin") !== null;
+    const hasCheckmark =
+      card.querySelector('path[d*="M5 13l4 4L19 7"]') !== null;
+    const hasError = card.querySelector('path[d*="M6 18L18 6"]') !== null;
+    const isExpanded = card.querySelector(
+      '[class*="accordion-content"], [class*="overflow-hidden"]',
+    )
       ? true
-      : false
+      : false;
 
     return {
       auditType: type,
@@ -281,20 +321,26 @@ async function captureAuditCardState(page: Page, auditType: string): Promise<Aud
       hasCheckmark,
       hasError,
       isExpanded,
-    }
-  }, auditType)
+    };
+  }, auditType);
 }
 
-async function captureAllAuditCardsState(page: Page): Promise<AuditCardUIState[]> {
+async function captureAllAuditCardsState(
+  page: Page,
+): Promise<AuditCardUIState[]> {
   return page.evaluate(() => {
-    const cards = document.querySelectorAll('[data-audit-type]')
+    const cards = document.querySelectorAll("[data-audit-type]");
     return Array.from(cards).map((card) => {
-      const auditType = card.getAttribute('data-audit-type') || ''
-      const name = card.querySelector('h3, [class*="font-semibold"]')?.textContent?.trim() || auditType
-      const hasSpinner = card.querySelector('.animate-spin') !== null
-      const hasCheckmark = card.querySelector('path[d*="M5 13l4 4L19 7"]') !== null
-      const hasError = card.querySelector('path[d*="M6 18L18 6"]') !== null
-      const isExpanded = card.getAttribute('data-expanded') === 'true'
+      const auditType = card.getAttribute("data-audit-type") || "";
+      const name =
+        card
+          .querySelector('h3, [class*="font-semibold"]')
+          ?.textContent?.trim() || auditType;
+      const hasSpinner = card.querySelector(".animate-spin") !== null;
+      const hasCheckmark =
+        card.querySelector('path[d*="M5 13l4 4L19 7"]') !== null;
+      const hasError = card.querySelector('path[d*="M6 18L18 6"]') !== null;
+      const isExpanded = card.getAttribute("data-expanded") === "true";
 
       return {
         auditType,
@@ -304,9 +350,9 @@ async function captureAllAuditCardsState(page: Page): Promise<AuditCardUIState[]
         hasCheckmark,
         hasError,
         isExpanded,
-      }
-    })
-  })
+      };
+    });
+  });
 }
 
 // ============================================================================
@@ -314,14 +360,17 @@ async function captureAllAuditCardsState(page: Page): Promise<AuditCardUIState[]
 // ============================================================================
 
 async function navigateToAuditPage(page: Page): Promise<void> {
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await page.locator('nav button:has-text("Audit")').first().click()
-  await page.waitForTimeout(1000)
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.locator('nav button:has-text("Audit")').first().click();
+  await page.waitForTimeout(1000);
 }
 
-async function waitForPocketBaseSync(page: Page, timeoutMs = 3000): Promise<void> {
-  await page.waitForTimeout(timeoutMs)
+async function waitForPocketBaseSync(
+  page: Page,
+  timeoutMs = 3000,
+): Promise<void> {
+  await page.waitForTimeout(timeoutMs);
 }
 
 // ============================================================================
@@ -329,50 +378,62 @@ async function waitForPocketBaseSync(page: Page, timeoutMs = 3000): Promise<void
 // ============================================================================
 
 interface StateComparison {
-  matches: boolean
-  uiState: OrchestratorUIState
-  pbAuditRuns: PocketBaseRecord[]
-  pbOrchestratorSession: OrchestratorSession | null
-  discrepancies: string[]
+  matches: boolean;
+  uiState: OrchestratorUIState;
+  pbAuditRuns: PocketBaseRecord[];
+  pbOrchestratorSession: OrchestratorSession | null;
+  discrepancies: string[];
 }
 
 async function crossValidateOrchestratorState(
   page: Page,
   request: APIRequestContext,
-  sessionId: string
+  sessionId: string,
 ): Promise<StateComparison> {
-  const uiState = await captureOrchestratorUIState(page)
-  const pbAuditRuns = await getPocketBaseAuditRuns(request, sessionId)
-  const pbOrchestratorSession = await getPocketBaseOrchestratorSession(request, sessionId)
+  const uiState = await captureOrchestratorUIState(page);
+  const pbAuditRuns = await getPocketBaseAuditRuns(request, sessionId);
+  const pbOrchestratorSession = await getPocketBaseOrchestratorSession(
+    request,
+    sessionId,
+  );
 
-  const discrepancies: string[] = []
+  const discrepancies: string[] = [];
 
   // Check if orchestrator should be visible
-  if (pbOrchestratorSession?.status === 'running' && !uiState.isVisible) {
-    discrepancies.push('PocketBase shows orchestrator running but UI has no progress section')
+  if (pbOrchestratorSession?.status === "running" && !uiState.isVisible) {
+    discrepancies.push(
+      "PocketBase shows orchestrator running but UI has no progress section",
+    );
   }
 
   // Check audit count matches
   if (uiState.isVisible && pbOrchestratorSession) {
     if (uiState.totalAudits !== pbOrchestratorSession.planned_audits.length) {
       discrepancies.push(
-        `Total audits mismatch: UI=${uiState.totalAudits}, PB=${pbOrchestratorSession.planned_audits.length}`
-      )
+        `Total audits mismatch: UI=${uiState.totalAudits}, PB=${pbOrchestratorSession.planned_audits.length}`,
+      );
     }
   }
 
   // Check chip statuses match PocketBase records
   for (const chip of uiState.chips) {
-    const pbRun = pbAuditRuns.find((r) => chip.name.toLowerCase().includes(r.audit_type.replace('_', ' ')))
+    const pbRun = pbAuditRuns.find((r) =>
+      chip.name.toLowerCase().includes(r.audit_type.replace("_", " ")),
+    );
     if (pbRun) {
-      const expectedStatus = pbRun.status === 'completed' ? 'completed' :
-        pbRun.status === 'running' ? 'running' :
-        pbRun.status === 'failed' ? 'error' : 'pending'
+      const expectedStatus =
+        pbRun.status === "completed"
+          ? "completed"
+          : pbRun.status === "running"
+            ? "running"
+            : pbRun.status === "failed"
+              ? "error"
+              : "pending";
 
-      if (chip.status !== expectedStatus && chip.status !== 'pending') {
+      if (chip.status !== expectedStatus && chip.status !== "pending") {
         discrepancies.push(
-          `Chip "${chip.name}" status mismatch: UI=${chip.status}, PB=${pbRun.status}`
-        )
+          `Chip "${chip.name}" status mismatch: UI=${chip.status}, PB=${pbRun.status}`,
+        );
       }
     }
   }
@@ -383,886 +444,1121 @@ async function crossValidateOrchestratorState(
     pbAuditRuns,
     pbOrchestratorSession,
     discrepancies,
-  }
+  };
 }
 
 // ============================================================================
 // TEST SUITE: UI RENDERING
 // ============================================================================
 
-test.describe('Audit Page - UI Rendering', () => {
+test.describe("Audit Page - UI Rendering", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/audit')
-    await page.waitForLoadState('networkidle')
-  })
+    await page.goto("/audit");
+    await page.waitForLoadState("networkidle");
+  });
 
-  test('should render page with heading', async ({ page }) => {
-    const heading = page.locator('h1')
-    await expect(heading).toBeVisible({ timeout: 10000 })
-  })
+  test("should render page with heading", async ({ page }) => {
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible({ timeout: 10000 });
+  });
 
-  test('should display audit cards or welcome state', async ({ page }) => {
-    const auditCards = page.locator('[data-audit-type]')
-    const welcomeCard = page.locator('text=/Bienvenue|Welcome|Diagnostic|Audit/i')
-    const cardsCount = await auditCards.count()
-    const hasWelcome = await welcomeCard.count()
-    expect(cardsCount + hasWelcome).toBeGreaterThan(0)
-  })
+  test("should display audit cards or welcome state", async ({ page }) => {
+    const auditCards = page.locator("[data-audit-type]");
+    const welcomeCard = page.locator(
+      "text=/Bienvenue|Welcome|Diagnostic|Audit/i",
+    );
+    const cardsCount = await auditCards.count();
+    const hasWelcome = await welcomeCard.count();
+    expect(cardsCount + hasWelcome).toBeGreaterThan(0);
+  });
 
-  test('should have proper page structure', async ({ page }) => {
-    const main = page.locator('main, [role="main"], .container, .mx-auto').first()
-    await expect(main).toBeVisible({ timeout: 10000 })
-  })
+  test("should have proper page structure", async ({ page }) => {
+    const main = page
+      .locator('main, [role="main"], .container, .mx-auto')
+      .first();
+    await expect(main).toBeVisible({ timeout: 10000 });
+  });
 
-  test('should have dark theme styling', async ({ page }) => {
+  test("should have dark theme styling", async ({ page }) => {
     const bgColor = await page.evaluate(() => {
-      return window.getComputedStyle(document.body).backgroundColor
-    })
-    expect(bgColor).toBeTruthy()
-  })
+      return window.getComputedStyle(document.body).backgroundColor;
+    });
+    expect(bgColor).toBeTruthy();
+  });
 
-  test('should work on desktop viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 720 })
-    await page.goto('/audit')
-    await page.waitForLoadState('networkidle')
-    const heading = page.locator('h1')
-    await expect(heading).toBeVisible({ timeout: 10000 })
-  })
+  test("should work on desktop viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/audit");
+    await page.waitForLoadState("networkidle");
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible({ timeout: 10000 });
+  });
 
-  test('should work on mobile viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto('/audit')
-    await page.waitForLoadState('networkidle')
-    const heading = page.locator('h1')
-    await expect(heading).toBeVisible({ timeout: 10000 })
-  })
-})
+  test("should work on mobile viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/audit");
+    await page.waitForLoadState("networkidle");
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible({ timeout: 10000 });
+  });
+});
 
 // ============================================================================
 // TEST SUITE: POCKETBASE INTEGRATION
 // ============================================================================
 
-test.describe('Audit Page - PocketBase Integration', () => {
+test.describe("Audit Page - PocketBase Integration", () => {
   test.beforeEach(async ({ request }) => {
-    const pbAvailable = await isPocketBaseAvailable(request)
-    test.skip(!pbAvailable, 'PocketBase not available')
-  })
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
+  });
 
-  test('should connect to PocketBase without errors', async ({ page }) => {
-    const consoleErrors: string[] = []
-    page.on('console', (msg) => {
-      if (msg.type() === 'error' && msg.text().includes('PocketBase')) {
-        consoleErrors.push(msg.text())
+  test("should connect to PocketBase without errors", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error" && msg.text().includes("PocketBase")) {
+        consoleErrors.push(msg.text());
       }
-    })
+    });
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
-    expect(consoleErrors).toHaveLength(0)
-  })
+    expect(consoleErrors).toHaveLength(0);
+  });
 
-  test('should receive realtime updates from PocketBase', async ({ page, request }) => {
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+  test("should receive realtime updates from PocketBase", async ({
+    page,
+    request,
+  }) => {
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
     // Create a record in PocketBase
-    const record = await createPocketBaseAuditRun(request, sessionId!, 'ga4_tracking', 'running')
-    console.log(`Created test record: ${record.id}`)
+    const record = await createPocketBaseAuditRun(
+      request,
+      sessionId!,
+      "ga4_tracking",
+      "running",
+    );
+    console.log(`Created test record: ${record.id}`);
 
     try {
       // Wait for realtime update
-      await page.waitForTimeout(3000)
+      await page.waitForTimeout(3000);
 
       // UI should show running state
-      const cardState = await captureAuditCardState(page, 'ga4_tracking')
-      console.log('Card state after create:', cardState)
+      const cardState = await captureAuditCardState(page, "ga4_tracking");
+      console.log("Card state after create:", cardState);
 
       // Update to completed
       await updatePocketBaseAuditRun(request, record.id, {
-        status: 'completed',
+        status: "completed",
         result: { test: true },
         completed_at: new Date().toISOString(),
-      })
+      });
 
-      await page.waitForTimeout(3000)
+      await page.waitForTimeout(3000);
 
       // UI should update
-      const cardStateAfter = await captureAuditCardState(page, 'ga4_tracking')
-      console.log('Card state after update:', cardStateAfter)
+      const cardStateAfter = await captureAuditCardState(page, "ga4_tracking");
+      console.log("Card state after update:", cardStateAfter);
 
       // The spinner should be gone after completion
-      expect(cardStateAfter?.hasSpinner).toBe(false)
+      expect(cardStateAfter?.hasSpinner).toBe(false);
     } finally {
-      await deletePocketBaseRecord(request, 'audit_runs', record.id)
+      await deletePocketBaseRecord(request, "audit_runs", record.id);
     }
-  })
-})
+  });
+});
 
 // ============================================================================
 // TEST SUITE: ORCHESTRATOR SCENARIOS
 // ============================================================================
 
-test.describe.serial('Audit Page - Orchestrator Scenarios', () => {
+test.describe.serial("Audit Page - Orchestrator Scenarios", () => {
   test.beforeEach(async ({ request }) => {
-    const pbAvailable = await isPocketBaseAvailable(request)
-    test.skip(!pbAvailable, 'PocketBase not available')
-  })
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
+  });
 
-  test('SCENARIO 1: Start orchestrator and verify initial state', async ({ page, request }) => {
-    test.setTimeout(120000)
-
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
-
-    // Cleanup any existing state
-    await cleanupSessionRecords(request, sessionId!)
-
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
-
-    // Click "Lancer tous les audits"
-    const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
-    if ((await runAllButton.count()) === 0) {
-      test.skip(true, 'Run all button not available')
-      return
-    }
-
-    await runAllButton.click()
-    console.log('Clicked "Lancer tous les audits"')
-
-    // Wait for progress section to appear
-    await page.waitForFunction(
-      () => document.querySelector('[class*="rounded-xl"][class*="border-info"]') !== null,
-      { timeout: 30000 }
-    )
-
-    // Capture and validate state
-    const comparison = await crossValidateOrchestratorState(page, request, sessionId!)
-    console.log('Initial state comparison:', JSON.stringify(comparison, null, 2))
-
-    expect(comparison.uiState.isVisible).toBe(true)
-    expect(comparison.uiState.totalAudits).toBeGreaterThan(0)
-    expect(comparison.pbOrchestratorSession).not.toBeNull()
-    expect(comparison.pbOrchestratorSession?.status).toBe('running')
-
-    if (comparison.discrepancies.length > 0) {
-      console.warn('Discrepancies found:', comparison.discrepancies)
-    }
-  })
-
-  test('SCENARIO 2: Refresh during orchestrator execution and verify state recovery', async ({
+  test("SCENARIO 1: Start orchestrator and verify initial state", async ({
     page,
     request,
   }) => {
-    test.setTimeout(120000)
+    test.setTimeout(120000);
 
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
+
+    // Cleanup any existing state
+    await cleanupSessionRecords(request, sessionId!);
+
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
+
+    // Click "Lancer tous les audits"
+    const runAllButton = page.locator(
+      'button:has-text("Lancer tous les audits")',
+    );
+    if ((await runAllButton.count()) === 0) {
+      test.skip(true, "Run all button not available");
+      return;
+    }
+
+    await runAllButton.click();
+    console.log('Clicked "Lancer tous les audits"');
+
+    // Wait for progress section to appear
+    await page.waitForFunction(
+      () =>
+        document.querySelector(
+          '[class*="rounded-xl"][class*="border-info"]',
+        ) !== null,
+      { timeout: 30000 },
+    );
+
+    // Capture and validate state
+    const comparison = await crossValidateOrchestratorState(
+      page,
+      request,
+      sessionId!,
+    );
+    console.log(
+      "Initial state comparison:",
+      JSON.stringify(comparison, null, 2),
+    );
+
+    expect(comparison.uiState.isVisible).toBe(true);
+    expect(comparison.uiState.totalAudits).toBeGreaterThan(0);
+    expect(comparison.pbOrchestratorSession).not.toBeNull();
+    expect(comparison.pbOrchestratorSession?.status).toBe("running");
+
+    if (comparison.discrepancies.length > 0) {
+      console.warn("Discrepancies found:", comparison.discrepancies);
+    }
+  });
+
+  test("SCENARIO 2: Refresh during orchestrator execution and verify state recovery", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120000);
+
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
     // Clean up previous state to ensure fresh start
-    await cleanupSessionRecords(request, sessionId!)
+    await cleanupSessionRecords(request, sessionId!);
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
     // Close any modal that might be blocking
-    const modalOverlay = page.locator('[class*="fixed inset-0"][class*="bg-black"]')
+    const modalOverlay = page.locator(
+      '[class*="fixed inset-0"][class*="bg-black"]',
+    );
     if ((await modalOverlay.count()) > 0) {
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(500)
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(500);
     }
 
     // Start orchestrator fresh
-    const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
+    const runAllButton = page.locator(
+      'button:has-text("Lancer tous les audits")',
+    );
     if ((await runAllButton.count()) > 0) {
       try {
-        await runAllButton.click({ timeout: 5000 })
-        await page.waitForTimeout(2000)
+        await runAllButton.click({ timeout: 5000 });
+        await page.waitForTimeout(2000);
       } catch {
-        console.log('Could not click run all button')
+        console.log("Could not click run all button");
       }
     }
 
     // Check if orchestrator is running in PocketBase
-    const orchSession = await getPocketBaseOrchestratorSession(request, sessionId!)
+    const orchSession = await getPocketBaseOrchestratorSession(
+      request,
+      sessionId!,
+    );
 
     // If no running orchestrator, skip this test
-    if (!orchSession || orchSession.status !== 'running') {
-      console.log('Could not start orchestrator')
-      const heading = page.locator('h1')
-      await expect(heading).toBeVisible()
-      console.log('✓ Skipped refresh test - orchestrator not running')
-      return
+    if (!orchSession || orchSession.status !== "running") {
+      console.log("Could not start orchestrator");
+      const heading = page.locator("h1");
+      await expect(heading).toBeVisible();
+      console.log("✓ Skipped refresh test - orchestrator not running");
+      return;
     }
 
     // Wait for progress section
     try {
       await page.waitForFunction(
-        () => document.querySelector('[class*="rounded-xl"][class*="border-info"]') !== null,
-        { timeout: 10000 }
-      )
+        () =>
+          document.querySelector(
+            '[class*="rounded-xl"][class*="border-info"]',
+          ) !== null,
+        { timeout: 10000 },
+      );
     } catch {
-      console.log('Progress section not visible - orchestrator may have completed')
-      return
+      console.log(
+        "Progress section not visible - orchestrator may have completed",
+      );
+      return;
     }
 
     // Capture state BEFORE refresh
-    const stateBefore = await crossValidateOrchestratorState(page, request, sessionId!)
-    console.log('STATE BEFORE REFRESH:', JSON.stringify(stateBefore.uiState, null, 2))
+    const stateBefore = await crossValidateOrchestratorState(
+      page,
+      request,
+      sessionId!,
+    );
+    console.log(
+      "STATE BEFORE REFRESH:",
+      JSON.stringify(stateBefore.uiState, null, 2),
+    );
 
     // REFRESH
-    await page.reload({ timeout: 15000 })
-    await page.waitForLoadState('domcontentloaded')
+    await page.reload({ timeout: 15000 });
+    await page.waitForLoadState("domcontentloaded");
 
     // Navigate back to audit page
-    await page.locator('nav button:has-text("Audit")').first().click()
-    await page.waitForTimeout(5000) // Wait for PocketBase recovery
+    await page.locator('nav button:has-text("Audit")').first().click();
+    await page.waitForTimeout(5000); // Wait for PocketBase recovery
 
     // Capture state AFTER refresh
-    const stateAfter = await crossValidateOrchestratorState(page, request, sessionId!)
-    console.log('STATE AFTER REFRESH:', JSON.stringify(stateAfter.uiState, null, 2))
+    const stateAfter = await crossValidateOrchestratorState(
+      page,
+      request,
+      sessionId!,
+    );
+    console.log(
+      "STATE AFTER REFRESH:",
+      JSON.stringify(stateAfter.uiState, null, 2),
+    );
 
     // VALIDATIONS - if orchestrator was running, it should still show progress
     if (stateBefore.uiState.isVisible) {
       // If it was visible before, check consistency
-      expect(stateAfter.uiState.totalAudits).toBe(stateBefore.uiState.totalAudits)
-      expect(stateAfter.uiState.chips.length).toBe(stateBefore.uiState.chips.length)
+      expect(stateAfter.uiState.totalAudits).toBe(
+        stateBefore.uiState.totalAudits,
+      );
+      expect(stateAfter.uiState.chips.length).toBe(
+        stateBefore.uiState.chips.length,
+      );
 
       // Same audit names should be present
-      const namesBefore = stateBefore.uiState.chips.map((c) => c.name).sort()
-      const namesAfter = stateAfter.uiState.chips.map((c) => c.name).sort()
-      expect(namesAfter).toEqual(namesBefore)
+      const namesBefore = stateBefore.uiState.chips.map((c) => c.name).sort();
+      const namesAfter = stateAfter.uiState.chips.map((c) => c.name).sort();
+      expect(namesAfter).toEqual(namesBefore);
     }
 
-    console.log('✓ State restored after refresh')
-  })
+    console.log("✓ State restored after refresh");
+  });
 
-  test('SCENARIO 3: Wait for orchestrator completion', async ({ page, request }) => {
-    test.setTimeout(300000) // 5 minutes for all audits
+  test("SCENARIO 3: Wait for orchestrator completion", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(300000); // 5 minutes for all audits
 
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
-    await navigateToAuditPage(page)
+    await navigateToAuditPage(page);
 
     // Check if orchestrator is running
-    let orchSession = await getPocketBaseOrchestratorSession(request, sessionId!)
+    let orchSession = await getPocketBaseOrchestratorSession(
+      request,
+      sessionId!,
+    );
 
-    if (!orchSession || orchSession.status !== 'running') {
+    if (!orchSession || orchSession.status !== "running") {
       // Start it
-      const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
-      if ((await runAllButton.count()) > 0 && (await runAllButton.isEnabled())) {
-        await runAllButton.click()
-        await page.waitForTimeout(2000)
-        orchSession = await getPocketBaseOrchestratorSession(request, sessionId!)
+      const runAllButton = page.locator(
+        'button:has-text("Lancer tous les audits")',
+      );
+      if (
+        (await runAllButton.count()) > 0 &&
+        (await runAllButton.isEnabled())
+      ) {
+        await runAllButton.click();
+        await page.waitForTimeout(2000);
+        orchSession = await getPocketBaseOrchestratorSession(
+          request,
+          sessionId!,
+        );
       }
     }
 
-    if (!orchSession || orchSession.status !== 'running') {
-      test.skip(true, 'Could not start orchestrator')
-      return
+    if (!orchSession || orchSession.status !== "running") {
+      test.skip(true, "Could not start orchestrator");
+      return;
     }
 
     // Wait for completion (poll PocketBase)
-    let completed = false
-    const maxWait = 240000 // 4 minutes
-    const startTime = Date.now()
+    let completed = false;
+    const maxWait = 240000; // 4 minutes
+    const startTime = Date.now();
 
     while (!completed && Date.now() - startTime < maxWait) {
-      await page.waitForTimeout(5000)
+      await page.waitForTimeout(5000);
 
-      const currentSession = await getPocketBaseOrchestratorSession(request, sessionId!)
-      const auditRuns = await getPocketBaseAuditRuns(request, sessionId!)
+      const currentSession = await getPocketBaseOrchestratorSession(
+        request,
+        sessionId!,
+      );
+      const auditRuns = await getPocketBaseAuditRuns(request, sessionId!);
 
       const allDone = auditRuns.every(
-        (r) => r.status === 'completed' || r.status === 'failed'
-      )
+        (r) => r.status === "completed" || r.status === "failed",
+      );
 
       console.log(
-        `Progress: ${auditRuns.filter((r) => r.status === 'completed' || r.status === 'failed').length}/${auditRuns.length}`
-      )
+        `Progress: ${auditRuns.filter((r) => r.status === "completed" || r.status === "failed").length}/${auditRuns.length}`,
+      );
 
       if (allDone && auditRuns.length === orchSession.planned_audits.length) {
-        completed = true
+        completed = true;
       }
 
-      if (currentSession?.status === 'completed') {
-        completed = true
+      if (currentSession?.status === "completed") {
+        completed = true;
       }
     }
 
-    expect(completed).toBe(true)
-    console.log('✓ Orchestrator completed all audits')
+    expect(completed).toBe(true);
+    console.log("✓ Orchestrator completed all audits");
 
     // Verify final state
-    const finalComparison = await crossValidateOrchestratorState(page, request, sessionId!)
-    console.log('Final state:', JSON.stringify(finalComparison.uiState, null, 2))
-  })
+    const finalComparison = await crossValidateOrchestratorState(
+      page,
+      request,
+      sessionId!,
+    );
+    console.log(
+      "Final state:",
+      JSON.stringify(finalComparison.uiState, null, 2),
+    );
+  });
 
-  test('SCENARIO 4: Relaunch orchestrator after completion', async ({ page, request }) => {
-    test.setTimeout(120000)
+  test("SCENARIO 4: Relaunch orchestrator after completion", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120000);
 
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
     // Check current orchestrator state
-    let orchSession = await getPocketBaseOrchestratorSession(request, sessionId!)
+    let orchSession = await getPocketBaseOrchestratorSession(
+      request,
+      sessionId!,
+    );
 
     // If running, wait a bit
-    if (orchSession?.status === 'running') {
-      console.log('Orchestrator is running, waiting for it to complete...')
-      await page.waitForTimeout(10000)
-      orchSession = await getPocketBaseOrchestratorSession(request, sessionId!)
+    if (orchSession?.status === "running") {
+      console.log("Orchestrator is running, waiting for it to complete...");
+      await page.waitForTimeout(10000);
+      orchSession = await getPocketBaseOrchestratorSession(request, sessionId!);
     }
 
     // Close any modal that might be blocking (e.g., summary modal after completion)
-    const modalCloseButton = page.locator('button:has-text("Fermer"), button:has-text("OK"), [data-dismiss="modal"]')
+    const modalCloseButton = page.locator(
+      'button:has-text("Fermer"), button:has-text("OK"), [data-dismiss="modal"]',
+    );
     if ((await modalCloseButton.count()) > 0) {
-      await modalCloseButton.first().click()
-      console.log('Closed modal')
-      await page.waitForTimeout(500)
+      await modalCloseButton.first().click();
+      console.log("Closed modal");
+      await page.waitForTimeout(500);
     }
 
     // Also try clicking outside modal overlay if it exists
-    const modalOverlay = page.locator('[class*="fixed inset-0"][class*="bg-black"]')
+    const modalOverlay = page.locator(
+      '[class*="fixed inset-0"][class*="bg-black"]',
+    );
     if ((await modalOverlay.count()) > 0) {
       // Press Escape to close modal
-      await page.keyboard.press('Escape')
-      console.log('Pressed Escape to close modal')
-      await page.waitForTimeout(500)
+      await page.keyboard.press("Escape");
+      console.log("Pressed Escape to close modal");
+      await page.waitForTimeout(500);
     }
 
     // Try to click "Lancer tous les audits"
-    const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
+    const runAllButton = page.locator(
+      'button:has-text("Lancer tous les audits")',
+    );
 
     // Wait for button to be clickable (not blocked by modal)
     try {
-      await runAllButton.click({ timeout: 10000 })
-      console.log('Clicked "Lancer tous les audits" to relaunch')
+      await runAllButton.click({ timeout: 10000 });
+      console.log('Clicked "Lancer tous les audits" to relaunch');
     } catch {
-      console.log('Could not click button - may be blocked or disabled')
+      console.log("Could not click button - may be blocked or disabled");
       // Take a screenshot for debugging
-      await page.screenshot({ path: 'test-results/scenario4-debug.png' })
-      return
+      await page.screenshot({ path: "test-results/scenario4-debug.png" });
+      return;
     }
 
     // Wait for progress section
-    await page.waitForTimeout(3000)
+    await page.waitForTimeout(3000);
 
     // Verify orchestrator restarted in PocketBase
-    const newOrchSession = await getPocketBaseOrchestratorSession(request, sessionId!)
-    console.log('New orchestrator session status:', newOrchSession?.status)
+    const newOrchSession = await getPocketBaseOrchestratorSession(
+      request,
+      sessionId!,
+    );
+    console.log("New orchestrator session status:", newOrchSession?.status);
 
-    expect(newOrchSession).not.toBeNull()
-    expect(newOrchSession?.status).toBe('running')
+    expect(newOrchSession).not.toBeNull();
+    expect(newOrchSession?.status).toBe("running");
 
     // Verify UI shows progress (or verify PocketBase state if UI hasn't updated yet)
-    const uiState = await captureOrchestratorUIState(page)
+    const uiState = await captureOrchestratorUIState(page);
     if (!uiState.isVisible) {
       // UI might not have updated yet, but PocketBase should be correct
-      console.log('UI not showing progress yet, but PocketBase shows running')
+      console.log("UI not showing progress yet, but PocketBase shows running");
     } else {
-      console.log('UI shows progress:', uiState.totalAudits, 'audits')
+      console.log("UI shows progress:", uiState.totalAudits, "audits");
     }
 
-    console.log('✓ Orchestrator successfully relaunched')
-  })
-})
+    console.log("✓ Orchestrator successfully relaunched");
+  });
+});
 
 // ============================================================================
 // TEST SUITE: INDIVIDUAL AUDIT SCENARIOS
 // ============================================================================
 
-test.describe.serial('Audit Page - Individual Audit Scenarios', () => {
+test.describe.serial("Audit Page - Individual Audit Scenarios", () => {
   test.beforeEach(async ({ request }) => {
-    const pbAvailable = await isPocketBaseAvailable(request)
-    test.skip(!pbAvailable, 'PocketBase not available')
-  })
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
+  });
 
-  test('SCENARIO 5: Run individual audit and verify realtime state', async ({ page, request }) => {
-    test.setTimeout(90000)
+  test("SCENARIO 5: Run individual audit and verify realtime state", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90000);
 
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
-    const auditType = 'onboarding'
+    const auditType = "onboarding";
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
     // Find and click the audit card run button
-    const auditCard = page.locator(`[data-audit-type="${auditType}"]`)
+    const auditCard = page.locator(`[data-audit-type="${auditType}"]`);
     if ((await auditCard.count()) === 0) {
-      test.skip(true, `Audit card ${auditType} not found`)
-      return
+      test.skip(true, `Audit card ${auditType} not found`);
+      return;
     }
 
     // Click on the card to expand it
-    await auditCard.click()
-    await page.waitForTimeout(500)
+    await auditCard.click();
+    await page.waitForTimeout(500);
 
     // Find run button
-    const runButton = auditCard.locator('button:has-text("Lancer"), button:has-text("Relancer")')
+    const runButton = auditCard.locator(
+      'button:has-text("Lancer"), button:has-text("Relancer")',
+    );
     if ((await runButton.count()) === 0) {
-      test.skip(true, 'Run button not found')
-      return
+      test.skip(true, "Run button not found");
+      return;
     }
 
     // Capture state before
-    const stateBefore = await captureAuditCardState(page, auditType)
-    console.log('State BEFORE run:', stateBefore)
+    const stateBefore = await captureAuditCardState(page, auditType);
+    console.log("State BEFORE run:", stateBefore);
 
-    await runButton.click()
-    console.log('Clicked run button')
+    await runButton.click();
+    console.log("Clicked run button");
 
     // Wait for PocketBase to be updated
-    await page.waitForTimeout(3000)
+    await page.waitForTimeout(3000);
 
     // Verify PocketBase has running record
-    const pbRuns = await getPocketBaseAuditRuns(request, sessionId!)
-    const pbRun = pbRuns.find((r) => r.audit_type === auditType)
-    console.log('PocketBase record:', pbRun)
+    const pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
+    const pbRun = pbRuns.find((r) => r.audit_type === auditType);
+    console.log("PocketBase record:", pbRun);
 
-    expect(pbRun).toBeDefined()
-    expect(['running', 'pending', 'completed']).toContain(pbRun?.status)
+    expect(pbRun).toBeDefined();
+    expect(["running", "pending", "completed"]).toContain(pbRun?.status);
 
     // Verify UI shows running state
-    const stateAfter = await captureAuditCardState(page, auditType)
-    console.log('State AFTER run:', stateAfter)
+    const stateAfter = await captureAuditCardState(page, auditType);
+    console.log("State AFTER run:", stateAfter);
 
     // Should show spinner or checkmark depending on how fast the audit completed
-    const showsActivity = stateAfter?.hasSpinner || stateAfter?.hasCheckmark
-    expect(showsActivity).toBe(true)
+    const showsActivity = stateAfter?.hasSpinner || stateAfter?.hasCheckmark;
+    expect(showsActivity).toBe(true);
 
-    console.log('✓ Individual audit run verified')
-  })
+    console.log("✓ Individual audit run verified");
+  });
 
-  test('SCENARIO 6: Rerun individual audit and verify state reset', async ({ page, request }) => {
-    test.setTimeout(120000)
+  test("SCENARIO 6: Rerun individual audit and verify state reset", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120000);
 
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
-    const auditType = 'onboarding'
+    const auditType = "onboarding";
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
     // First, ensure we have a completed audit
-    let pbRuns = await getPocketBaseAuditRuns(request, sessionId!)
-    let existingRun = pbRuns.find((r) => r.audit_type === auditType)
+    let pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
+    let existingRun = pbRuns.find((r) => r.audit_type === auditType);
 
-    if (!existingRun || existingRun.status === 'running') {
-      console.log('No completed audit found, running one first...')
+    if (!existingRun || existingRun.status === "running") {
+      console.log("No completed audit found, running one first...");
 
-      const auditCard = page.locator(`[data-audit-type="${auditType}"]`)
-      await auditCard.click()
-      await page.waitForTimeout(500)
+      const auditCard = page.locator(`[data-audit-type="${auditType}"]`);
+      await auditCard.click();
+      await page.waitForTimeout(500);
 
-      const runButton = auditCard.locator('button:has-text("Lancer"), button:has-text("Relancer")')
+      const runButton = auditCard.locator(
+        'button:has-text("Lancer"), button:has-text("Relancer")',
+      );
       if ((await runButton.count()) > 0) {
-        await runButton.click()
+        await runButton.click();
         // Wait for completion
-        await page.waitForTimeout(30000)
+        await page.waitForTimeout(30000);
       }
 
-      pbRuns = await getPocketBaseAuditRuns(request, sessionId!)
-      existingRun = pbRuns.find((r) => r.audit_type === auditType)
+      pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
+      existingRun = pbRuns.find((r) => r.audit_type === auditType);
     }
 
-    console.log('Existing run before rerun:', existingRun)
+    console.log("Existing run before rerun:", existingRun);
 
     // Capture state before rerun
-    const pbStateBefore = existingRun
+    const pbStateBefore = existingRun;
 
-    console.log('PB state before rerun:', pbStateBefore)
+    console.log("PB state before rerun:", pbStateBefore);
 
     // Click rerun
-    const auditCard = page.locator(`[data-audit-type="${auditType}"]`)
-    await auditCard.click()
-    await page.waitForTimeout(500)
+    const auditCard = page.locator(`[data-audit-type="${auditType}"]`);
+    await auditCard.click();
+    await page.waitForTimeout(500);
 
-    const rerunButton = auditCard.locator('button:has-text("Relancer")')
+    const rerunButton = auditCard.locator('button:has-text("Relancer")');
     if ((await rerunButton.count()) > 0) {
-      await rerunButton.click()
-      console.log('Clicked rerun button')
+      await rerunButton.click();
+      console.log("Clicked rerun button");
     }
 
     // Wait for PocketBase update
-    await page.waitForTimeout(3000)
+    await page.waitForTimeout(3000);
 
     // Verify PocketBase record was updated with new started_at
-    pbRuns = await getPocketBaseAuditRuns(request, sessionId!)
-    const pbRunAfter = pbRuns.find((r) => r.audit_type === auditType)
+    pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
+    const pbRunAfter = pbRuns.find((r) => r.audit_type === auditType);
 
-    console.log('PB state after rerun:', pbRunAfter)
+    console.log("PB state after rerun:", pbRunAfter);
 
     // The key validation: PocketBase should have a record for this audit type
-    expect(pbRunAfter).toBeDefined()
+    expect(pbRunAfter).toBeDefined();
 
     if (pbStateBefore && pbRunAfter) {
       // If it's the same record, started_at should be updated or equal
       if (pbStateBefore.id === pbRunAfter.id) {
-        expect(new Date(pbRunAfter.started_at).getTime()).toBeGreaterThanOrEqual(
-          new Date(pbStateBefore.started_at).getTime()
-        )
+        expect(
+          new Date(pbRunAfter.started_at).getTime(),
+        ).toBeGreaterThanOrEqual(new Date(pbStateBefore.started_at).getTime());
       }
     }
 
     // Verify UI updates after rerun (check both current state and status in PB)
     // The audit may complete very quickly, so we check PocketBase state
-    const finalStatus = pbRunAfter?.status
-    console.log('Final PB status:', finalStatus)
+    const finalStatus = pbRunAfter?.status;
+    console.log("Final PB status:", finalStatus);
 
     // Status should be running or completed (not stuck in failed or pending)
-    expect(['running', 'completed']).toContain(finalStatus)
+    expect(["running", "completed"]).toContain(finalStatus);
 
-    console.log('✓ Rerun audit verified')
-  })
-})
+    console.log("✓ Rerun audit verified");
+  });
+});
 
 // ============================================================================
 // TEST SUITE: EDGE CASES & ERROR SCENARIOS
 // ============================================================================
 
-test.describe('Audit Page - Edge Cases', () => {
+test.describe("Audit Page - Edge Cases", () => {
   test.beforeEach(async ({ request }) => {
-    const pbAvailable = await isPocketBaseAvailable(request)
-    test.skip(!pbAvailable, 'PocketBase not available')
-  })
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
+  });
 
-  test('SCENARIO 7: Multiple rapid refreshes should not corrupt state', async ({ page, request }) => {
-    test.setTimeout(60000)
-
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
-
-    await navigateToAuditPage(page)
-
-    // Get initial state
-    const initialState = await crossValidateOrchestratorState(page, request, sessionId!)
-
-    // Rapid refreshes
-    for (let i = 0; i < 3; i++) {
-      await page.reload()
-      await page.waitForLoadState('domcontentloaded')
-      await page.locator('nav button:has-text("Audit")').first().click()
-      await page.waitForTimeout(1000)
-    }
-
-    await waitForPocketBaseSync(page, 5000)
-
-    // Verify state is still consistent
-    const finalState = await crossValidateOrchestratorState(page, request, sessionId!)
-
-    // PocketBase data may have more records if audits completed during refreshes
-    // The key assertion is that we don't LOSE data (count should be >= initial)
-    expect(finalState.pbAuditRuns.length).toBeGreaterThanOrEqual(initialState.pbAuditRuns.length)
-
-    // UI should still be functional (no crashes or blank screens)
-    const hasContent = await page.locator('h1').count()
-    expect(hasContent).toBeGreaterThan(0)
-
-    console.log('✓ Multiple refreshes did not corrupt state')
-  })
-
-  test('SCENARIO 8: Console errors should not occur during normal operation', async ({ page }) => {
-    const consoleErrors: string[] = []
-    const networkErrors: string[] = []
-
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        consoleErrors.push(msg.text())
-      }
-    })
-
-    page.on('response', (response) => {
-      const status = response.status()
-      if (status >= 500) {
-        networkErrors.push(`${status} ${response.url()}`)
-      }
-    })
-
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page, 5000)
-
-    // Filter out known acceptable errors
-    const criticalConsoleErrors = consoleErrors.filter(
-      (err) => !err.includes('favicon') && !err.includes('sourcemap')
-    )
-    const criticalNetworkErrors = networkErrors.filter((err) => err.includes('500'))
-
-    if (criticalConsoleErrors.length > 0) {
-      console.error('Console errors:', criticalConsoleErrors)
-    }
-    if (criticalNetworkErrors.length > 0) {
-      console.error('Network errors:', criticalNetworkErrors)
-    }
-
-    expect(criticalNetworkErrors).toHaveLength(0)
-  })
-
-  test('SCENARIO 9: Stale running state should be cleaned up after restart', async ({
+  test("SCENARIO 7: Multiple rapid refreshes should not corrupt state", async ({
     page,
     request,
   }) => {
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+    test.setTimeout(60000);
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
+
+    await navigateToAuditPage(page);
+
+    // Get initial state
+    const initialState = await crossValidateOrchestratorState(
+      page,
+      request,
+      sessionId!,
+    );
+
+    // Rapid refreshes
+    for (let i = 0; i < 3; i++) {
+      await page.reload();
+      await page.waitForLoadState("domcontentloaded");
+      await page.locator('nav button:has-text("Audit")').first().click();
+      await page.waitForTimeout(1000);
+    }
+
+    await waitForPocketBaseSync(page, 5000);
+
+    // Verify state is still consistent
+    const finalState = await crossValidateOrchestratorState(
+      page,
+      request,
+      sessionId!,
+    );
+
+    // PocketBase data may have more records if audits completed during refreshes
+    // The key assertion is that we don't LOSE data (count should be >= initial)
+    expect(finalState.pbAuditRuns.length).toBeGreaterThanOrEqual(
+      initialState.pbAuditRuns.length,
+    );
+
+    // UI should still be functional (no crashes or blank screens)
+    const hasContent = await page.locator("h1").count();
+    expect(hasContent).toBeGreaterThan(0);
+
+    console.log("✓ Multiple refreshes did not corrupt state");
+  });
+
+  test("SCENARIO 8: Console errors should not occur during normal operation", async ({
+    page,
+  }) => {
+    const consoleErrors: string[] = [];
+    const networkErrors: string[] = [];
+
+    page.on("console", (msg) => {
+      if (msg.type() === "error") {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    page.on("response", (response) => {
+      const status = response.status();
+      if (status >= 500) {
+        networkErrors.push(`${status} ${response.url()}`);
+      }
+    });
+
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page, 5000);
+
+    // Filter out known acceptable errors
+    const criticalConsoleErrors = consoleErrors.filter(
+      (err) => !err.includes("favicon") && !err.includes("sourcemap"),
+    );
+    const criticalNetworkErrors = networkErrors.filter((err) =>
+      err.includes("500"),
+    );
+
+    if (criticalConsoleErrors.length > 0) {
+      console.error("Console errors:", criticalConsoleErrors);
+    }
+    if (criticalNetworkErrors.length > 0) {
+      console.error("Network errors:", criticalNetworkErrors);
+    }
+
+    expect(criticalNetworkErrors).toHaveLength(0);
+  });
+
+  test("SCENARIO 9: Stale running state should be cleaned up after restart", async ({
+    page,
+    request,
+  }) => {
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
+
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
     // Check PocketBase for any stuck "running" audits
-    const pbRuns = await getPocketBaseAuditRuns(request, sessionId!)
-    const stuckRunning = pbRuns.filter((r) => r.status === 'running')
+    const pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
+    const stuckRunning = pbRuns.filter((r) => r.status === "running");
 
-    console.log(`Found ${stuckRunning.length} running audits in PocketBase`)
+    console.log(`Found ${stuckRunning.length} running audits in PocketBase`);
 
     // If there are running audits, verify they are actually running (spinner visible)
     if (stuckRunning.length > 0) {
       for (const run of stuckRunning) {
-        const cardState = await captureAuditCardState(page, run.audit_type)
-        console.log(`Audit ${run.audit_type}: UI shows running=${cardState?.isRunning}`)
+        const cardState = await captureAuditCardState(page, run.audit_type);
+        console.log(
+          `Audit ${run.audit_type}: UI shows running=${cardState?.isRunning}`,
+        );
       }
     }
 
-    console.log('✓ Stale running state check completed')
-  })
-})
+    console.log("✓ Stale running state check completed");
+  });
+});
 
 // ============================================================================
 // TEST SUITE: STATE CONSISTENCY VALIDATION
 // ============================================================================
 
-test.describe.serial('Audit Page - State Consistency', () => {
+test.describe.serial("Audit Page - State Consistency", () => {
   test.beforeEach(async ({ request }) => {
-    const pbAvailable = await isPocketBaseAvailable(request)
-    test.skip(!pbAvailable, 'PocketBase not available')
-  })
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
+  });
 
-  test('SCENARIO 10: UI state should match PocketBase state at all times', async ({
+  test("SCENARIO 10: UI state should match PocketBase state at all times", async ({
     page,
     request,
   }) => {
-    test.setTimeout(60000)
+    test.setTimeout(60000);
 
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page, 5000)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page, 5000);
 
     // Perform full cross-validation
-    const comparison = await crossValidateOrchestratorState(page, request, sessionId!)
+    const comparison = await crossValidateOrchestratorState(
+      page,
+      request,
+      sessionId!,
+    );
 
-    console.log('=== STATE CONSISTENCY REPORT ===')
-    console.log('UI State:', JSON.stringify(comparison.uiState, null, 2))
-    console.log('PocketBase Audit Runs:', comparison.pbAuditRuns.length)
-    console.log('PocketBase Orchestrator:', comparison.pbOrchestratorSession?.status)
-    console.log('Discrepancies:', comparison.discrepancies)
+    console.log("=== STATE CONSISTENCY REPORT ===");
+    console.log("UI State:", JSON.stringify(comparison.uiState, null, 2));
+    console.log("PocketBase Audit Runs:", comparison.pbAuditRuns.length);
+    console.log(
+      "PocketBase Orchestrator:",
+      comparison.pbOrchestratorSession?.status,
+    );
+    console.log("Discrepancies:", comparison.discrepancies);
 
     // Log each audit run for debugging
     for (const run of comparison.pbAuditRuns) {
-      console.log(`  - ${run.audit_type}: ${run.status}`)
+      console.log(`  - ${run.audit_type}: ${run.status}`);
     }
 
     // Report any discrepancies but don't fail (for informational purposes)
     if (comparison.discrepancies.length > 0) {
-      console.warn('WARNING: State discrepancies detected!')
+      console.warn("WARNING: State discrepancies detected!");
       for (const d of comparison.discrepancies) {
-        console.warn(`  - ${d}`)
+        console.warn(`  - ${d}`);
       }
     }
 
-    console.log('✓ State consistency check completed')
-  })
+    console.log("✓ State consistency check completed");
+  });
 
-  test('SCENARIO 11: Backend API should match PocketBase state', async ({ page, request }) => {
-    const sessionId = await getSessionId(request)
-    test.skip(!sessionId, 'No session available')
+  test("SCENARIO 11: Backend API should match PocketBase state", async ({
+    page,
+    request,
+  }) => {
+    const sessionId = await getSessionId(request);
+    test.skip(!sessionId, "No session available");
 
     // Get state from backend API
-    const apiResponse = await request.get(`${BACKEND_URL}/api/audits/session`)
-    expect(apiResponse.ok()).toBeTruthy()
-    const apiData = await apiResponse.json()
+    const apiResponse = await request.get(`${BACKEND_URL}/api/audits/session`);
+    expect(apiResponse.ok()).toBeTruthy();
+    const apiData = await apiResponse.json();
 
     // Get state from PocketBase
-    const pbRuns = await getPocketBaseAuditRuns(request, sessionId!)
+    const pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
 
-    console.log('=== API vs PocketBase COMPARISON ===')
-    console.log('API session ID:', apiData.session?.id)
-    console.log('PocketBase records for session:', pbRuns.length)
+    console.log("=== API vs PocketBase COMPARISON ===");
+    console.log("API session ID:", apiData.session?.id);
+    console.log("PocketBase records for session:", pbRuns.length);
 
     // Both should agree on the session
     if (apiData.session) {
-      expect(apiData.session.id).toBe(sessionId)
+      expect(apiData.session.id).toBe(sessionId);
     }
 
-    console.log('✓ API consistency check completed')
-  })
-})
+    console.log("✓ API consistency check completed");
+  });
+});
 
 // ============================================================================
 // TEST SUITE: CLEAR CACHE AND RUN ALL AUDITS
 // ============================================================================
 
-test.describe('Audit Page - Clear Cache and Run All', () => {
-  test('SCENARIO 12: Clear cache and run all audits from fresh state', async ({ page, request }) => {
-    test.setTimeout(300000) // 5 minutes for full audit run
+test.describe("Audit Page - Clear Cache and Run All", () => {
+  test("SCENARIO 12: Clear cache and run all audits from fresh state", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(300000); // 5 minutes for full audit run
 
-    const pbAvailable = await isPocketBaseAvailable(request)
-    test.skip(!pbAvailable, 'PocketBase not available')
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
 
-    await navigateToAuditPage(page)
-    await waitForPocketBaseSync(page)
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
 
     // Step 1: Click "Effacer le cache" button
-    console.log('Step 1: Looking for "Effacer le cache" button...')
+    console.log('Step 1: Looking for "Effacer le cache" button...');
     const clearCacheButton = page.locator(
-      'button:has-text("Effacer"), button:has-text("Clear"), button:has-text("Vider")'
-    )
+      'button:has-text("Effacer"), button:has-text("Clear"), button:has-text("Vider")',
+    );
 
     if ((await clearCacheButton.count()) > 0) {
-      await clearCacheButton.first().click()
-      console.log('Clicked "Effacer le cache" button')
+      await clearCacheButton.first().click();
+      console.log('Clicked "Effacer le cache" button');
 
       // Wait for confirmation modal if any
       const confirmButton = page.locator(
-        'button:has-text("Confirmer"), button:has-text("Oui"), button:has-text("OK")'
-      )
+        'button:has-text("Confirmer"), button:has-text("Oui"), button:has-text("OK")',
+      );
       if ((await confirmButton.count()) > 0) {
-        await confirmButton.first().click()
-        console.log('Confirmed cache clear')
+        await confirmButton.first().click();
+        console.log("Confirmed cache clear");
       }
 
       // Wait for cache clear to complete
-      await page.waitForTimeout(2000)
+      await page.waitForTimeout(2000);
     } else {
-      console.log('No clear cache button found, continuing...')
+      console.log("No clear cache button found, continuing...");
     }
 
     // Step 2: Verify cache was cleared (check API response)
-    const sessionBefore = await getSessionId(request)
-    console.log('Session ID after cache clear:', sessionBefore)
+    const sessionBefore = await getSessionId(request);
+    console.log("Session ID after cache clear:", sessionBefore);
 
     // Step 3: Click "Lancer tous les audits" button
-    console.log('Step 2: Looking for "Lancer tous les audits" button...')
-    const runAllButton = page.locator('button:has-text("Lancer tous les audits")')
+    console.log('Step 2: Looking for "Lancer tous les audits" button...');
+    const runAllButton = page.locator(
+      'button:has-text("Lancer tous les audits")',
+    );
 
     if ((await runAllButton.count()) === 0) {
-      console.log('Run all button not found')
+      console.log("Run all button not found");
       // Take screenshot for debugging
-      await page.screenshot({ path: 'test-results/scenario12-no-button.png' })
-      test.skip(true, 'Run all button not available')
-      return
+      await page.screenshot({ path: "test-results/scenario12-no-button.png" });
+      test.skip(true, "Run all button not available");
+      return;
     }
 
     // Ensure button is visible and clickable
-    await expect(runAllButton).toBeVisible({ timeout: 10000 })
-    await runAllButton.click()
-    console.log('Clicked "Lancer tous les audits" button')
+    await expect(runAllButton).toBeVisible({ timeout: 10000 });
+    await runAllButton.click();
+    console.log('Clicked "Lancer tous les audits" button');
 
     // Step 4: Wait for progress section to appear
-    console.log('Step 3: Waiting for progress section...')
+    console.log("Step 3: Waiting for progress section...");
     try {
       await page.waitForFunction(
-        () => document.querySelector('[class*="rounded-xl"][class*="border-info"]') !== null,
-        { timeout: 30000 }
-      )
-      console.log('Progress section appeared')
+        () =>
+          document.querySelector(
+            '[class*="rounded-xl"][class*="border-info"]',
+          ) !== null,
+        { timeout: 30000 },
+      );
+      console.log("Progress section appeared");
     } catch {
-      console.log('Progress section did not appear, checking PocketBase...')
+      console.log("Progress section did not appear, checking PocketBase...");
     }
 
     // Step 5: Get new session ID from PocketBase (frontend generates its own sessionId)
     // Wait a moment for PocketBase to receive the session
-    await page.waitForTimeout(2000)
-    const pbSession = await getLatestPocketBaseSession(request)
-    const sessionId = pbSession?.session_id ?? null
-    console.log('New session ID (from PocketBase):', sessionId)
+    await page.waitForTimeout(2000);
+    const pbSession = await getLatestPocketBaseSession(request);
+    const sessionId = pbSession?.session_id ?? null;
+    console.log("New session ID (from PocketBase):", sessionId);
 
     if (!sessionId) {
       // Take screenshot for debugging
-      await page.screenshot({ path: 'test-results/scenario12-no-session.png' })
-      test.skip(true, 'No session created in PocketBase after running audits')
-      return
+      await page.screenshot({ path: "test-results/scenario12-no-session.png" });
+      test.skip(true, "No session created in PocketBase after running audits");
+      return;
     }
 
     // Step 6: Monitor progress until completion
-    console.log('Step 4: Monitoring audit progress...')
-    const maxWaitTime = 240000 // 4 minutes
-    const startTime = Date.now()
-    let allCompleted = false
-    let lastProgress = ''
+    console.log("Step 4: Monitoring audit progress...");
+    const maxWaitTime = 240000; // 4 minutes
+    const startTime = Date.now();
+    let allCompleted = false;
+    let lastProgress = "";
 
     while (!allCompleted && Date.now() - startTime < maxWaitTime) {
-      await page.waitForTimeout(5000)
+      await page.waitForTimeout(5000);
 
       // Check PocketBase for audit status
-      const pbRuns = await getPocketBaseAuditRuns(request, sessionId)
-      const orchSession = await getPocketBaseOrchestratorSession(request, sessionId)
+      const pbRuns = await getPocketBaseAuditRuns(request, sessionId);
+      const orchSession = await getPocketBaseOrchestratorSession(
+        request,
+        sessionId,
+      );
 
-      const completed = pbRuns.filter((r) => r.status === 'completed').length
-      const failed = pbRuns.filter((r) => r.status === 'failed').length
-      const running = pbRuns.filter((r) => r.status === 'running').length
-      const total = orchSession?.planned_audits.length ?? pbRuns.length
+      const completed = pbRuns.filter((r) => r.status === "completed").length;
+      const failed = pbRuns.filter((r) => r.status === "failed").length;
+      const running = pbRuns.filter((r) => r.status === "running").length;
+      const total = orchSession?.planned_audits.length ?? pbRuns.length;
 
-      const progress = `${completed + failed}/${total} (${completed} completed, ${failed} failed, ${running} running)`
+      const progress = `${completed + failed}/${total} (${completed} completed, ${failed} failed, ${running} running)`;
 
       if (progress !== lastProgress) {
-        console.log(`Progress: ${progress}`)
-        lastProgress = progress
+        console.log(`Progress: ${progress}`);
+        lastProgress = progress;
       }
 
       // Check if all audits are done
       if (total > 0 && completed + failed >= total) {
-        allCompleted = true
+        allCompleted = true;
       }
 
       // Also check if orchestrator session is marked as completed
-      if (orchSession?.status === 'completed') {
-        allCompleted = true
+      if (orchSession?.status === "completed") {
+        allCompleted = true;
       }
     }
 
     // Step 7: Verify final state
-    console.log('Step 5: Verifying final state...')
-    const finalPbRuns = await getPocketBaseAuditRuns(request, sessionId)
-    const finalOrchSession = await getPocketBaseOrchestratorSession(request, sessionId)
+    console.log("Step 5: Verifying final state...");
+    const finalPbRuns = await getPocketBaseAuditRuns(request, sessionId);
+    const finalOrchSession = await getPocketBaseOrchestratorSession(
+      request,
+      sessionId,
+    );
 
-    const completedCount = finalPbRuns.filter((r) => r.status === 'completed').length
-    const failedCount = finalPbRuns.filter((r) => r.status === 'failed').length
-    const totalCount = finalPbRuns.length
+    const completedCount = finalPbRuns.filter(
+      (r) => r.status === "completed",
+    ).length;
+    const failedCount = finalPbRuns.filter((r) => r.status === "failed").length;
+    const totalCount = finalPbRuns.length;
 
-    console.log('=== FINAL RESULTS ===')
-    console.log(`Total audits: ${totalCount}`)
-    console.log(`Completed: ${completedCount}`)
-    console.log(`Failed: ${failedCount}`)
-    console.log(`Orchestrator status: ${finalOrchSession?.status}`)
+    console.log("=== FINAL RESULTS ===");
+    console.log(`Total audits: ${totalCount}`);
+    console.log(`Completed: ${completedCount}`);
+    console.log(`Failed: ${failedCount}`);
+    console.log(`Orchestrator status: ${finalOrchSession?.status}`);
 
     // Log individual audit results
     for (const run of finalPbRuns) {
-      const statusIcon = run.status === 'completed' ? '✓' : run.status === 'failed' ? '✗' : '?'
-      console.log(`  ${statusIcon} ${run.audit_type}: ${run.status}`)
+      const statusIcon =
+        run.status === "completed" ? "✓" : run.status === "failed" ? "✗" : "?";
+      console.log(`  ${statusIcon} ${run.audit_type}: ${run.status}`);
     }
 
     // Assertions
-    expect(allCompleted).toBe(true)
-    expect(totalCount).toBeGreaterThan(0)
+    expect(allCompleted).toBe(true);
+    expect(totalCount).toBeGreaterThan(0);
 
     // At least some audits should complete successfully
-    expect(completedCount).toBeGreaterThan(0)
+    expect(completedCount).toBeGreaterThan(0);
 
     // Take final screenshot
-    await page.screenshot({ path: 'test-results/scenario12-final.png' })
+    await page.screenshot({ path: "test-results/scenario12-final.png" });
 
-    console.log('✓ Clear cache and run all audits completed successfully')
-  })
-})
+    console.log("✓ Clear cache and run all audits completed successfully");
+  });
+
+  test("SCENARIO 13: Page refresh during audit execution resumes correctly", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(300000); // 5 minutes for full audit run
+
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
+
+    // Step 1: Check if there's already a running session in PocketBase
+    console.log("Step 1: Checking for running session in PocketBase...");
+    let pbSession = await getLatestPocketBaseSession(request);
+
+    if (pbSession?.status !== "running") {
+      // No running session - we need to start one
+      // This test should run after SCENARIO 12, but can also run standalone
+      test.skip(
+        true,
+        "No running session - run SCENARIO 12 first or start audits manually",
+      );
+      return;
+    }
+
+    const sessionId = pbSession.session_id;
+    console.log("Found running session:", sessionId);
+
+    // Step 2: Navigate to audit page and verify UI shows running state
+    await navigateToAuditPage(page);
+    await waitForPocketBaseSync(page);
+
+    // The session should be restored and UI should reflect running state
+    console.log("Step 2: Verifying session was restored from PocketBase...");
+
+    // Check if progress section is visible (indicates session was restored)
+    const progressSection = page.locator(
+      '[class*="rounded-xl"][class*="border-info"]',
+    );
+    const hasProgress = (await progressSection.count()) > 0;
+    console.log(`Progress section visible: ${hasProgress}`);
+
+    // Step 3: Refresh the page
+    console.log("Step 3: Refreshing page...");
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    await page.locator('nav button:has-text("Audit")').first().click();
+    await waitForPocketBaseSync(page);
+
+    // Step 4: Verify session is still restored after refresh
+    console.log("Step 4: Verifying session restoration after refresh...");
+    const progressAfterRefresh = page.locator(
+      '[class*="rounded-xl"][class*="border-info"]',
+    );
+
+    // Allow some time for the UI to update
+    await page.waitForTimeout(2000);
+    const hasProgressAfterRefresh = (await progressAfterRefresh.count()) > 0;
+    console.log(
+      `Progress section visible after refresh: ${hasProgressAfterRefresh}`,
+    );
+
+    // Step 5: Verify session restoration assertions
+    console.log("Step 5: Verifying session restoration...");
+
+    // Key assertion: Progress section should be visible after refresh
+    // This proves that useRestoreRunningSession() successfully restored the localSessionId
+    expect(hasProgressAfterRefresh).toBe(true);
+
+    // Get current state from PocketBase
+    const pbRuns = await getPocketBaseAuditRuns(request, sessionId);
+    const orchSession = await getPocketBaseOrchestratorSession(
+      request,
+      sessionId,
+    );
+
+    console.log(`Session ${sessionId}: ${pbRuns.length} audit runs`);
+    console.log(`Orchestrator status: ${orchSession?.status}`);
+
+    // The session should still exist in PocketBase
+    expect(orchSession).not.toBeNull();
+
+    console.log("✓ Page refresh recovery completed successfully");
+  });
+});
