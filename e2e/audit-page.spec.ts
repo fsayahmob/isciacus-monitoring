@@ -1499,6 +1499,38 @@ test.describe("Audit Page - Clear Cache and Run All", () => {
     // At least some audits should complete successfully
     expect(completedCount).toBeGreaterThan(0);
 
+    // Step 6: Verify SummaryCards display when clicking on a completed audit
+    console.log("Step 6: Verifying SummaryCards display...");
+
+    // Close the summary modal if it's visible (it appears after all audits complete)
+    const dismissBtn = page.locator('button:has-text("Fermer")');
+    if ((await dismissBtn.count()) > 0) {
+      await dismissBtn.click({ force: true });
+      await page.waitForTimeout(500);
+      console.log("Dismissed summary modal");
+    }
+
+    // Click on GA4 Tracking audit card to select it
+    const ga4Card = page.locator('[data-audit-type="ga4_tracking"]');
+    if ((await ga4Card.count()) > 0) {
+      await ga4Card.scrollIntoViewIfNeeded();
+      await ga4Card.click({ force: true });
+      await page.waitForTimeout(1000);
+
+      // Check for SummaryCards (the 4-column grid with Vérifications, OK, etc.)
+      const summaryCards = page.locator('.grid-cols-2.md\\:grid-cols-4');
+      const hasSummaryCards = (await summaryCards.count()) > 0;
+      console.log(`SummaryCards visible: ${hasSummaryCards}`);
+
+      // Also check for individual cards content
+      const verificationCard = page.locator('text=Vérifications');
+      const okCard = page.locator('text=/^OK$/');
+      console.log(`Vérifications label: ${(await verificationCard.count()) > 0}`);
+      console.log(`OK label: ${(await okCard.count()) > 0}`);
+
+      expect(hasSummaryCards).toBe(true);
+    }
+
     // Take final screenshot
     await page.screenshot({ path: "test-results/scenario12-final.png" });
 

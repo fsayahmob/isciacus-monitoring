@@ -5,6 +5,7 @@
 import React from 'react'
 
 import type { AuditResult, AuditSession } from '../../services/api'
+import { SummaryCards } from './AuditCards'
 import { GMCFlowKPI, type GMCFlowData } from './GMCFlowKPI'
 import { IssuesPanel } from './IssueCard'
 import { PipelineStepsPanel } from './PipelineStep'
@@ -36,6 +37,8 @@ function AuditResultPanel({
   }
 
   const filteredIssues = result.issues.filter((issue) => issue.id !== 'kpi_summary')
+  const hasSummary =
+    'total_checks' in result.summary && typeof result.summary.total_checks === 'number'
 
   return (
     <div className="animate-slide-up space-y-6">
@@ -44,6 +47,19 @@ function AuditResultPanel({
         isRunning={isRunning}
         executionMode={result.execution_mode}
       />
+
+      {hasSummary && !isRunning && (
+        <SummaryCards
+          summary={
+            result.summary as {
+              total_checks: number
+              passed: number
+              warnings: number
+              errors: number
+            }
+          }
+        />
+      )}
 
       {result.audit_type === 'merchant_center' && kpiData && !isRunning && (
         <GMCFlowKPI data={kpiData} onNavigateToIssue={handleNavigateToIssue} />
