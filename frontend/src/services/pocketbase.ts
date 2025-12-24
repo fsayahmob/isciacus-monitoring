@@ -230,3 +230,22 @@ export async function completeOrchestratorSession(
     return null
   }
 }
+
+/**
+ * Get the latest running orchestrator session.
+ * Used to restore state after page refresh.
+ */
+export async function getLatestRunningSession(): Promise<OrchestratorSession | null> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb
+      .collection('orchestrator_sessions')
+      .getList<OrchestratorSession>(1, 1, {
+        filter: 'status="running"',
+        sort: '-started_at',
+      })
+    return records.items[0] ?? null
+  } catch {
+    return null
+  }
+}

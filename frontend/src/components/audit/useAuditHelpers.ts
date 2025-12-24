@@ -10,6 +10,7 @@ import {
   type OrchestratorSession,
   getOrchestratorSession,
   completeOrchestratorSession,
+  getLatestRunningSession,
 } from '../../services/pocketbase'
 import type { AuditResult, AuditSession, AvailableAudit } from '../../services/api'
 import { buildRunningResult, buildCompletedResult } from './auditResultBuilders'
@@ -202,4 +203,28 @@ export function useSequentialProgress(
   const { score, readiness } = computeResults(allDone, progress)
 
   return { progress, completedCount, currentIndex, allDone, score, readiness }
+}
+
+/**
+ * Restore localSessionId from PocketBase if there's a running orchestrator session.
+ * Called on mount to recover state after page refresh.
+ */
+export function useRestoreRunningSession(
+  backendSessionId: string | null,
+  setLocalSessionId: (id: string | null) => void
+): void {
+  const hasRestoredRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (hasRestoredRef.current || backendSessionId !== null) {
+      return
+    }
+    hasRestoredRef.current = true
+    void (async () => {
+      const runningSession = await getLatestRunningSession()
+      if (runningSession !== null) {
+        setLocalSessionId(runningSession.session_id)
+      }
+    })()
+  }, [backendSessionId, setLocalSessionId])
 }
