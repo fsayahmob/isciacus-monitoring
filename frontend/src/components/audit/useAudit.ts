@@ -9,13 +9,8 @@ import React from 'react'
 
 import { usePocketBaseAudit } from '../../hooks/usePocketBaseAudit'
 import {
-  fetchLatestAuditSession,
-  fetchAvailableAudits,
-  triggerAuditFromPocketBase,
-  stopAudit as stopAuditApi,
-  type AuditResult,
-  type AuditSession,
-  type AvailableAudit,
+  fetchLatestAuditSession, fetchAvailableAudits, triggerAuditFromPocketBase,
+  stopAudit as stopAuditApi, type AuditResult, type AuditSession, type AvailableAudit,
 } from '../../services/api'
 import {
   type AuditRun,
@@ -65,7 +60,7 @@ export interface UseAuditReturn {
   sequentialRun: SequentialRunState
 }
 
-interface AuditDataReturn {
+function useAuditData(overrideSessionId: string | null = null): {
   session: AuditSession | null
   sessionId: string | null
   availableAudits: AvailableAudit[]
@@ -73,9 +68,7 @@ interface AuditDataReturn {
   pbConnected: boolean
   pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>
   sessionIdRef: React.RefObject<string | null>
-}
-
-function useAuditData(): AuditDataReturn {
+} {
   const { data: auditsData } = useQuery({
     queryKey: ['available-audits'],
     queryFn: fetchAvailableAudits,
@@ -86,7 +79,9 @@ function useAuditData(): AuditDataReturn {
   })
 
   const session = sessionData?.session ?? null
-  const sessionId = session?.id ?? null
+  const backendSessionId = session?.id ?? null
+  // Use override session ID if provided (for locally generated sessions)
+  const sessionId = overrideSessionId ?? backendSessionId
   const availableAudits = React.useMemo(() => auditsData?.audits ?? [], [auditsData])
   const { auditRuns: pbAuditRuns, isConnected: pbConnected } = usePocketBaseAudit(sessionId)
 
@@ -110,18 +105,16 @@ function useAuditData(): AuditDataReturn {
   }
 }
 
-interface AuditActionsReturn {
+function useAuditActions(
+  pbAuditRuns: Map<string, AuditRun>,
+  sessionIdRef: React.RefObject<string | null>
+): {
   selectAudit: (auditType: string) => void
   runAudit: (auditType: string) => void
   stopAudit: (auditType: string) => void
   isAuditRunning: (auditType: string) => boolean
   selectedAudit: string | null
-}
-
-function useAuditActions(
-  pbAuditRuns: Map<string, AuditRun>,
-  sessionIdRef: React.RefObject<string | null>
-): AuditActionsReturn {
+} {
   const queryClient = useQueryClient()
   const [selectedAudit, setSelectedAudit] = React.useState<string | null>(null)
 
@@ -172,16 +165,20 @@ function useAuditActions(
   return { selectAudit, runAudit, stopAudit, isAuditRunning, selectedAudit }
 }
 
-function useSequentialRun(
-  sessionId: string | null,
-  availableAudits: AvailableAudit[],
-  pbAuditRuns: Map<string, AuditRun>,
+function useSequentialRun(params: {
+  sessionId: string | null
+  availableAudits: AvailableAudit[]
+  pbAuditRuns: Map<string, AuditRun>
   pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>
-): SequentialRunState {
+  setLocalSessionId: (id: string | null) => void
+}): SequentialRunState & { effectiveSessionId: string | null } {
+  const { sessionId, availableAudits, pbAuditRuns, pbAuditRunsRef, setLocalSessionId } = params
   const [plannedAudits, setPlannedAudits] = React.useState<string[]>([])
   const [isRunning, setIsRunning] = React.useState(false)
   const [showSummary, setShowSummary] = React.useState(false)
   const [orchSession, setOrchSession] = React.useState<OrchestratorSession | null>(null)
+
+  const effectiveSessionId = sessionId
 
   useOrchestratorRecovery(sessionId, plannedAudits.length > 0, availableAudits, pbAuditRunsRef, {
     setOrchSession,
@@ -204,20 +201,24 @@ function useSequentialRun(
       if (filtered.length === 0) {
         return
       }
-      const effectiveSessionId = sessionId ?? generateSessionId()
+      // Generate new session ID if none exists and notify parent
+      const newSessionId = sessionId ?? generateSessionId()
+      if (sessionId === null) {
+        setLocalSessionId(newSessionId)
+      }
       const auditTypes = filtered.map((a) => a.type)
       setPlannedAudits(auditTypes)
       setIsRunning(true)
       setShowSummary(false)
       void (async () => {
-        const newSession = await createOrchestratorSession(effectiveSessionId, auditTypes)
+        const newSession = await createOrchestratorSession(newSessionId, auditTypes)
         setOrchSession(newSession)
-        await createBatchAuditRuns(effectiveSessionId, auditTypes)
+        await createBatchAuditRuns(newSessionId, auditTypes)
         await new Promise((resolve) => setTimeout(resolve, AUDIT_TIMING.pbSettleDelayMs))
-        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current, effectiveSessionId)
+        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current, newSessionId)
       })()
     },
-    [sessionId, pbAuditRunsRef]
+    [sessionId, pbAuditRunsRef, setLocalSessionId]
   )
   const dismissSummary = React.useCallback((): void => {
     setShowSummary(false)
@@ -226,7 +227,8 @@ function useSequentialRun(
     setPlannedAudits([])
     setIsRunning(false)
     setShowSummary(false)
-  }, [])
+    setLocalSessionId(null)
+  }, [setLocalSessionId])
 
   return {
     isRunning,
@@ -240,19 +242,34 @@ function useSequentialRun(
     start,
     dismissSummary,
     reset,
+    effectiveSessionId,
   }
 }
 
 export function useAudit(): UseAuditReturn {
   const queryClient = useQueryClient()
-  const data = useAuditData()
+  const [localSessionId, setLocalSessionId] = React.useState<string | null>(null)
+
+  // Get backend session data (for session object and available audits)
+  const { data: sessionData } = useQuery({
+    queryKey: ['audit-session'],
+    queryFn: fetchLatestAuditSession,
+  })
+  const session = sessionData?.session ?? null
+  const backendSessionId = session?.id ?? null
+
+  // Effective session ID: local takes precedence (for newly generated sessions)
+  const effectiveSessionId = localSessionId ?? backendSessionId
+
+  const data = useAuditData(effectiveSessionId)
   const actions = useAuditActions(data.pbAuditRuns, data.sessionIdRef)
-  const sequentialRun = useSequentialRun(
-    data.sessionId,
-    data.availableAudits,
-    data.pbAuditRuns,
-    data.pbAuditRunsRef
-  )
+  const sequentialRun = useSequentialRun({
+    sessionId: effectiveSessionId,
+    availableAudits: data.availableAudits,
+    pbAuditRuns: data.pbAuditRuns,
+    pbAuditRunsRef: data.pbAuditRunsRef,
+    setLocalSessionId,
+  })
 
   usePbCompletionSync(data.pbAuditRuns, data.pbConnected, queryClient)
 
@@ -263,7 +280,7 @@ export function useAudit(): UseAuditReturn {
 
   return {
     session: data.session,
-    sessionId: data.sessionId,
+    sessionId: effectiveSessionId,
     availableAudits: data.availableAudits,
     pbAuditRuns: data.pbAuditRuns,
     pbConnected: data.pbConnected,

@@ -127,6 +127,17 @@ async function getPocketBaseOrchestratorSession(
   return data.items?.[0] ?? null
 }
 
+async function getLatestPocketBaseSession(
+  request: APIRequestContext
+): Promise<OrchestratorSession | null> {
+  const response = await request.get(
+    `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records?sort=-started_at&perPage=1`
+  )
+  if (!response.ok()) return null
+  const data = await response.json()
+  return data.items?.[0] ?? null
+}
+
 async function createPocketBaseAuditRun(
   request: APIRequestContext,
   sessionId: string,
@@ -1170,12 +1181,17 @@ test.describe('Audit Page - Clear Cache and Run All', () => {
       console.log('Progress section did not appear, checking PocketBase...')
     }
 
-    // Step 5: Get new session ID
-    const sessionId = await getSessionId(request)
-    console.log('New session ID:', sessionId)
+    // Step 5: Get new session ID from PocketBase (frontend generates its own sessionId)
+    // Wait a moment for PocketBase to receive the session
+    await page.waitForTimeout(2000)
+    const pbSession = await getLatestPocketBaseSession(request)
+    const sessionId = pbSession?.session_id ?? null
+    console.log('New session ID (from PocketBase):', sessionId)
 
     if (!sessionId) {
-      test.skip(true, 'No session created after running audits')
+      // Take screenshot for debugging
+      await page.screenshot({ path: 'test-results/scenario12-no-session.png' })
+      test.skip(true, 'No session created in PocketBase after running audits')
       return
     }
 
