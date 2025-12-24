@@ -212,9 +212,7 @@ export function useSequentialProgress(
  * Always checks PocketBase for a running session, even if backend has a session.
  * This handles the case where frontend generated a sessionId that differs from backend.
  */
-export function useRestoreRunningSession(
-  setLocalSessionId: (id: string | null) => void
-): void {
+export function useRestoreRunningSession(setLocalSessionId: (id: string | null) => void): void {
   const hasRestoredRef = React.useRef(false)
 
   React.useEffect(() => {
