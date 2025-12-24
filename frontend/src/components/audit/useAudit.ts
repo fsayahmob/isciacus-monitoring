@@ -181,10 +181,13 @@ function useSequentialRun(params: {
 
   const effectiveSessionId = sessionId
 
-  useOrchestratorRecovery(sessionId, plannedAudits.length > 0, availableAudits, pbAuditRunsRef, {
-    setOrchSession,
-    setPlannedAudits,
-    setIsRunning,
+  useOrchestratorRecovery({
+    sessionId,
+    hasLocalState: plannedAudits.length > 0,
+    availableAudits,
+    pbAuditRuns,
+    pbAuditRunsRef,
+    callbacks: { setOrchSession, setPlannedAudits, setIsRunning },
   })
 
   const auditNameMap = React.useMemo(() => buildAuditNameMap(availableAudits), [availableAudits])

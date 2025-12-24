@@ -225,6 +225,32 @@ async function cleanupSessionRecords(
   return cleaned;
 }
 
+async function cleanupPocketBase(request: APIRequestContext): Promise<void> {
+  // Delete all audit_runs
+  const runsRes = await request.get(
+    `${POCKETBASE_URL}/api/collections/audit_runs/records`,
+  );
+  if (runsRes.ok()) {
+    const runsData = (await runsRes.json()) as { items: Array<{ id: string }> };
+    for (const run of runsData.items) {
+      await deletePocketBaseRecord(request, "audit_runs", run.id);
+    }
+  }
+
+  // Delete all orchestrator_sessions
+  const sessionsRes = await request.get(
+    `${POCKETBASE_URL}/api/collections/orchestrator_sessions/records`,
+  );
+  if (sessionsRes.ok()) {
+    const sessionsData = (await sessionsRes.json()) as {
+      items: Array<{ id: string }>;
+    };
+    for (const session of sessionsData.items) {
+      await deletePocketBaseRecord(request, "orchestrator_sessions", session.id);
+    }
+  }
+}
+
 // ============================================================================
 // UI STATE CAPTURE FUNCTIONS
 // ============================================================================
@@ -1488,76 +1514,114 @@ test.describe("Audit Page - Clear Cache and Run All", () => {
     const pbAvailable = await isPocketBaseAvailable(request);
     test.skip(!pbAvailable, "PocketBase not available");
 
-    // Step 1: Check if there's already a running session in PocketBase
-    console.log("Step 1: Checking for running session in PocketBase...");
-    let pbSession = await getLatestPocketBaseSession(request);
+    // Step 1: Clean up any existing sessions and start fresh
+    console.log("Step 1: Cleaning up and starting fresh session...");
+    await cleanupPocketBase(request);
 
-    if (pbSession?.status !== "running") {
-      // No running session - we need to start one
-      // This test should run after SCENARIO 12, but can also run standalone
-      test.skip(
-        true,
-        "No running session - run SCENARIO 12 first or start audits manually",
-      );
-      return;
-    }
-
-    const sessionId = pbSession.session_id;
-    console.log("Found running session:", sessionId);
-
-    // Step 2: Navigate to audit page and verify UI shows running state
+    // Step 2: Navigate and start audits
     await navigateToAuditPage(page);
     await waitForPocketBaseSync(page);
 
-    // The session should be restored and UI should reflect running state
-    console.log("Step 2: Verifying session was restored from PocketBase...");
+    // Click "Lancer tous les audits" button
+    const runAllBtn = page.locator('button:has-text("Lancer tous les audits")');
+    await expect(runAllBtn).toBeVisible();
+    await runAllBtn.click();
+    console.log("Clicked 'Lancer tous les audits' button");
+
+    // Step 3: Wait for audits to start running (at least 2-3 completed)
+    console.log("Step 3: Waiting for some audits to complete...");
+    let sessionId: string | null = null;
+    let completedBeforeRefresh = 0;
+
+    // Wait for session to appear in PocketBase
+    for (let i = 0; i < 30; i++) {
+      const pbSession = await getLatestPocketBaseSession(request);
+      if (pbSession !== null && pbSession.status === "running") {
+        sessionId = pbSession.session_id;
+        break;
+      }
+      await page.waitForTimeout(1000);
+    }
+
+    expect(sessionId).not.toBeNull();
+    console.log(`Session started: ${sessionId}`);
+
+    // Wait for at least 3 audits to complete before refreshing
+    for (let i = 0; i < 60; i++) {
+      const pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
+      completedBeforeRefresh = pbRuns.filter(
+        (r) => r.status === "completed",
+      ).length;
+      const runningCount = pbRuns.filter((r) => r.status === "running").length;
+      console.log(
+        `Before refresh: ${completedBeforeRefresh} completed, ${runningCount} running`,
+      );
+
+      if (completedBeforeRefresh >= 3 && runningCount > 0) {
+        // We have some completed and some still running - perfect time to refresh
+        break;
+      }
+      await page.waitForTimeout(2000);
+    }
+
+    console.log(`Completed before refresh: ${completedBeforeRefresh}`);
+    expect(completedBeforeRefresh).toBeGreaterThanOrEqual(3);
+
+    // Step 4: Refresh the page while audits are still running
+    console.log("Step 4: Refreshing page while audits are running...");
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+
+    // Navigate back to audit page
+    await page.locator('nav button:has-text("Audit")').first().click();
+    await waitForPocketBaseSync(page);
+
+    // Step 5: Verify session is restored after refresh
+    console.log("Step 5: Verifying session restoration after refresh...");
 
     // Check if progress section is visible (indicates session was restored)
     const progressSection = page.locator(
       '[class*="rounded-xl"][class*="border-info"]',
     );
-    const hasProgress = (await progressSection.count()) > 0;
-    console.log(`Progress section visible: ${hasProgress}`);
 
-    // Step 3: Refresh the page
-    console.log("Step 3: Refreshing page...");
-    await page.reload();
-    await page.waitForLoadState("domcontentloaded");
-    await page.locator('nav button:has-text("Audit")').first().click();
-    await waitForPocketBaseSync(page);
-
-    // Step 4: Verify session is still restored after refresh
-    console.log("Step 4: Verifying session restoration after refresh...");
-    const progressAfterRefresh = page.locator(
-      '[class*="rounded-xl"][class*="border-info"]',
-    );
-
-    // Allow some time for the UI to update
-    await page.waitForTimeout(2000);
-    const hasProgressAfterRefresh = (await progressAfterRefresh.count()) > 0;
-    console.log(
-      `Progress section visible after refresh: ${hasProgressAfterRefresh}`,
-    );
-
-    // Step 5: Verify session restoration assertions
-    console.log("Step 5: Verifying session restoration...");
+    // Wait for progress section to appear (session restoration)
+    await page.waitForTimeout(3000);
+    const hasProgressAfterRefresh = (await progressSection.count()) > 0;
+    console.log(`Progress section visible after refresh: ${hasProgressAfterRefresh}`);
 
     // Key assertion: Progress section should be visible after refresh
-    // This proves that useRestoreRunningSession() successfully restored the localSessionId
     expect(hasProgressAfterRefresh).toBe(true);
 
-    // Get current state from PocketBase
-    const pbRuns = await getPocketBaseAuditRuns(request, sessionId);
+    // Step 6: Wait for all audits to complete
+    console.log("Step 6: Waiting for all audits to complete...");
+    let finalCompleted = 0;
+    for (let i = 0; i < 120; i++) {
+      const pbRuns = await getPocketBaseAuditRuns(request, sessionId!);
+      finalCompleted = pbRuns.filter((r) => r.status === "completed").length;
+      const runningCount = pbRuns.filter((r) => r.status === "running").length;
+
+      if (runningCount === 0 && finalCompleted >= 11) {
+        break;
+      }
+      console.log(`Progress: ${finalCompleted}/11 completed, ${runningCount} running`);
+      await page.waitForTimeout(2000);
+    }
+
+    // Final verification
     const orchSession = await getPocketBaseOrchestratorSession(
       request,
-      sessionId,
+      sessionId!,
     );
 
-    console.log(`Session ${sessionId}: ${pbRuns.length} audit runs`);
+    console.log("=== FINAL RESULTS ===");
+    console.log(`Session: ${sessionId}`);
+    console.log(`Completed before refresh: ${completedBeforeRefresh}`);
+    console.log(`Final completed: ${finalCompleted}`);
     console.log(`Orchestrator status: ${orchSession?.status}`);
 
-    // The session should still exist in PocketBase
-    expect(orchSession).not.toBeNull();
+    // All audits should complete despite the refresh
+    expect(finalCompleted).toBe(11);
+    expect(orchSession?.status).toBe("completed");
 
     console.log("✓ Page refresh recovery completed successfully");
   });

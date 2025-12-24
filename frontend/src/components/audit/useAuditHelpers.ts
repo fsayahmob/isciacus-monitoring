@@ -110,13 +110,18 @@ interface RecoveryCallbacks {
   setIsRunning: (r: boolean) => void
 }
 
-export function useOrchestratorRecovery(
-  sessionId: string | null,
-  hasLocalState: boolean,
-  availableAudits: AvailableAudit[],
-  pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>,
+interface RecoveryParams {
+  sessionId: string | null
+  hasLocalState: boolean
+  availableAudits: AvailableAudit[]
+  pbAuditRuns: Map<string, AuditRun>
+  pbAuditRunsRef: React.RefObject<Map<string, AuditRun>>
   callbacks: RecoveryCallbacks
-): void {
+}
+
+export function useOrchestratorRecovery(params: RecoveryParams): void {
+  const { sessionId, hasLocalState, availableAudits, pbAuditRuns, pbAuditRunsRef, callbacks } =
+    params
   const callbacksRef = React.useRef(callbacks)
   React.useEffect(() => {
     callbacksRef.current = callbacks
@@ -124,10 +129,26 @@ export function useOrchestratorRecovery(
 
   const hasAuditsLoaded = availableAudits.length > 0
 
+  // Track if recovery has been attempted to avoid infinite loops
+  const hasRecoveredRef = React.useRef(false)
+
   React.useEffect(() => {
+    // Use pbAuditRuns.size (reactive) to trigger when data arrives
+    const pbRunsCount = pbAuditRuns.size
+
     if (sessionId === null || hasLocalState || !hasAuditsLoaded) {
       return
     }
+    // Wait for PocketBase data to sync (at least some runs should be present)
+    if (pbRunsCount === 0) {
+      return
+    }
+    // Prevent running twice
+    if (hasRecoveredRef.current) {
+      return
+    }
+    hasRecoveredRef.current = true
+
     void (async () => {
       const session = await getOrchestratorSession(sessionId)
       if (session !== null && session.status === 'running') {
@@ -142,7 +163,7 @@ export function useOrchestratorRecovery(
         )
       }
     })()
-  }, [sessionId, hasLocalState, hasAuditsLoaded, availableAudits, pbAuditRunsRef])
+  }, [sessionId, hasLocalState, hasAuditsLoaded, availableAudits, pbAuditRuns, pbAuditRunsRef])
 }
 
 export function useAutoComplete(
