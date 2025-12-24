@@ -22,6 +22,7 @@ import {
   type OrchestratorSession,
   createOrchestratorSession,
   createBatchAuditRuns,
+  generateSessionId,
 } from '../../services/pocketbase'
 import { buildAuditNameMap, executeSequentialAudits } from './sequentialRunnerUtils'
 import type { AuditProgress, CampaignScore, CampaignReadiness } from './campaignScoreUtils'
@@ -200,19 +201,20 @@ function useSequentialRun(
   const start = React.useCallback(
     (audits: AvailableAudit[]): void => {
       const filtered = audits.filter((a) => a.available)
-      if (filtered.length === 0 || sessionId === null) {
+      if (filtered.length === 0) {
         return
       }
+      const effectiveSessionId = sessionId ?? generateSessionId()
       const auditTypes = filtered.map((a) => a.type)
       setPlannedAudits(auditTypes)
       setIsRunning(true)
       setShowSummary(false)
       void (async () => {
-        const newSession = await createOrchestratorSession(sessionId, auditTypes)
+        const newSession = await createOrchestratorSession(effectiveSessionId, auditTypes)
         setOrchSession(newSession)
-        await createBatchAuditRuns(sessionId, auditTypes)
+        await createBatchAuditRuns(effectiveSessionId, auditTypes)
         await new Promise((resolve) => setTimeout(resolve, AUDIT_TIMING.pbSettleDelayMs))
-        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current, sessionId)
+        await executeSequentialAudits(filtered, () => pbAuditRunsRef.current, effectiveSessionId)
       })()
     },
     [sessionId, pbAuditRunsRef]
