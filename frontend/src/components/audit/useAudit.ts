@@ -29,6 +29,7 @@ import {
   useAutoComplete,
   useSequentialProgress,
   useRestoreRunningSession,
+  enrichAuditsWithPbData,
 } from './useAuditHelpers'
 
 export interface SequentialRunState {
@@ -285,10 +286,16 @@ export function useAudit(): UseAuditReturn {
     [actions.selectedAudit, data.session, data.pbAuditRuns]
   )
 
+  // Enrich availableAudits with PocketBase data for status badges
+  const enrichedAudits = React.useMemo(
+    () => enrichAuditsWithPbData(data.availableAudits, data.pbAuditRuns),
+    [data.availableAudits, data.pbAuditRuns]
+  )
+
   return {
     session: data.session,
     sessionId: effectiveSessionId,
-    availableAudits: data.availableAudits,
+    availableAudits: enrichedAudits,
     pbAuditRuns: data.pbAuditRuns,
     pbConnected: data.pbConnected,
     selectedAudit: actions.selectedAudit,

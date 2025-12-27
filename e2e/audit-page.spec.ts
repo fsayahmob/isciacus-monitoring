@@ -1499,8 +1499,8 @@ test.describe("Audit Page - Clear Cache and Run All", () => {
     // At least some audits should complete successfully
     expect(completedCount).toBeGreaterThan(0);
 
-    // Step 6: Verify SummaryCards display when clicking on a completed audit
-    console.log("Step 6: Verifying SummaryCards display...");
+    // Step 6: Verify status badges are displayed on completed audit cards
+    console.log("Step 6: Verifying status badges on audit cards...");
 
     // Close the summary modal if it's visible (it appears after all audits complete)
     const dismissBtn = page.locator('button:has-text("Fermer")');
@@ -1510,11 +1510,38 @@ test.describe("Audit Page - Clear Cache and Run All", () => {
       console.log("Dismissed summary modal");
     }
 
-    // Click on GA4 Tracking audit card to select it
-    const ga4Card = page.locator('[data-audit-type="ga4_tracking"]');
-    if ((await ga4Card.count()) > 0) {
-      await ga4Card.scrollIntoViewIfNeeded();
-      await ga4Card.click({ force: true });
+    // Check that completed audits have status badges (OK, X pb, etc.)
+    // StatusBadge component uses .badge class with badge-success, badge-warning, badge-error
+    const statusBadges = page.locator('.badge');
+    const badgeCount = await statusBadges.count();
+    console.log(`Status badges found: ${badgeCount}`);
+
+    // At least some audits should have badges (OK or X pb)
+    expect(badgeCount).toBeGreaterThan(0);
+
+    // Verify badge content - should contain "OK" or "pb" (problèmes)
+    let hasOkBadge = false;
+    let hasPbBadge = false;
+    for (let i = 0; i < badgeCount; i++) {
+      const badgeText = await statusBadges.nth(i).textContent();
+      if (badgeText?.includes("OK")) {
+        hasOkBadge = true;
+      }
+      if (badgeText?.includes("pb")) {
+        hasPbBadge = true;
+      }
+    }
+    console.log(`Has OK badge: ${hasOkBadge}, Has pb badge: ${hasPbBadge}`);
+    expect(hasOkBadge || hasPbBadge).toBe(true);
+
+    // Step 7: Verify SummaryCards display when clicking on a completed audit
+    console.log("Step 7: Verifying SummaryCards display...");
+
+    // Click on a completed audit card to select it and see details
+    const completedAuditCard = page.locator('[data-audit-type]').first();
+    if ((await completedAuditCard.count()) > 0) {
+      await completedAuditCard.scrollIntoViewIfNeeded();
+      await completedAuditCard.click({ force: true });
       await page.waitForTimeout(1000);
 
       // Check for SummaryCards (the 4-column grid with Vérifications, OK, etc.)
@@ -1524,9 +1551,9 @@ test.describe("Audit Page - Clear Cache and Run All", () => {
 
       // Also check for individual cards content
       const verificationCard = page.locator('text=Vérifications');
-      const okCard = page.locator('text=/^OK$/');
+      const okLabel = page.locator('text=/^OK$/');
       console.log(`Vérifications label: ${(await verificationCard.count()) > 0}`);
-      console.log(`OK label: ${(await okCard.count()) > 0}`);
+      console.log(`OK label: ${(await okLabel.count()) > 0}`);
 
       expect(hasSummaryCards).toBe(true);
     }

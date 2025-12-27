@@ -249,3 +249,71 @@ export function useRestoreRunningSession(setLocalSessionId: (id: string | null) 
     })()
   }, [setLocalSessionId])
 }
+
+// ============================================================================
+// Audit enrichment
+// ============================================================================
+
+interface IssueWithSeverity {
+  severity: string
+}
+
+function isIssueWithSeverity(obj: unknown): obj is IssueWithSeverity {
+  return typeof obj === 'object' && obj !== null && 'severity' in obj
+}
+
+/**
+ * Enrich availableAudits with PocketBase data for status badges.
+ * PocketBase is the source of truth for last_status and issues_count.
+ */
+export function enrichAuditsWithPbData(
+  audits: AvailableAudit[],
+  pbAuditRuns: Map<string, AuditRun>
+): AvailableAudit[] {
+  if (pbAuditRuns.size === 0) {
+    return audits
+  }
+
+  return audits.map((audit) => {
+    const pbRun = pbAuditRuns.get(audit.type)
+    if (pbRun === undefined || pbRun.status === 'pending') {
+      return audit
+    }
+
+    // Map PocketBase status to AuditStepStatus
+    type PbStatus = 'pending' | 'running' | 'completed' | 'failed'
+    const statusMap: Record<PbStatus, 'running' | 'success' | 'error'> = {
+      pending: 'running',
+      running: 'running',
+      completed: 'success',
+      failed: 'error',
+    }
+
+    // Count issues from PocketBase result
+    let issuesCount = 0
+    let lastStatus: 'running' | 'success' | 'warning' | 'error' =
+      statusMap[pbRun.status as PbStatus]
+
+    if (pbRun.result !== null && typeof pbRun.result === 'object') {
+      const { issues } = pbRun.result as { issues?: unknown }
+      if (Array.isArray(issues)) {
+        issuesCount = issues.length
+        // If completed with issues, mark as warning or error based on severity
+        if (pbRun.status === 'completed' && issuesCount > 0) {
+          const hasErrors = issues.some(
+            (i) =>
+              isIssueWithSeverity(i) &&
+              (i.severity === 'critical' || i.severity === 'high' || i.severity === 'medium')
+          )
+          lastStatus = hasErrors ? 'error' : 'warning'
+        }
+      }
+    }
+
+    return {
+      ...audit,
+      last_status: lastStatus,
+      issues_count: issuesCount,
+    }
+  })
+}
