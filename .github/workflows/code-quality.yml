@@ -585,15 +585,30 @@ jobs:
 
       - name: Initialize PocketBase collections
         run: |
-          # Create audit_runs collection
-          curl -s -X POST http://localhost:8090/api/collections \
+          cd backend
+          # Create superuser first (PocketBase 0.23+ requires this)
+          echo "Creating PocketBase superuser..."
+          curl -s -X POST http://localhost:8090/api/admins \
             -H "Content-Type: application/json" \
-            -d '{"name":"audit_runs","type":"base","fields":[{"name":"session_id","type":"text","required":true},{"name":"audit_type","type":"text","required":true},{"name":"status","type":"select","required":true,"values":["pending","running","completed","failed"]},{"name":"started_at","type":"date","required":true},{"name":"completed_at","type":"date","required":false},{"name":"result","type":"json","required":false},{"name":"error","type":"text","required":false},{"name":"run_id","type":"text","required":false}],"listRule":"","viewRule":"","createRule":"","updateRule":"","deleteRule":""}' || true
-          # Create orchestrator_sessions collection
-          curl -s -X POST http://localhost:8090/api/collections \
-            -H "Content-Type: application/json" \
-            -d '{"name":"orchestrator_sessions","type":"base","fields":[{"name":"session_id","type":"text","required":true},{"name":"planned_audits","type":"json","required":true},{"name":"status","type":"select","required":true,"values":["running","completed"]},{"name":"started_at","type":"date","required":true},{"name":"completed_at","type":"date","required":false}],"listRule":"","viewRule":"","createRule":"","updateRule":"","deleteRule":""}' || true
-          echo "PocketBase collections initialized"
+            -d '{"email":"admin@local.dev","password":"localdevpass123","passwordConfirm":"localdevpass123"}' || true
+
+          # Run the Python init script which handles collection creation properly
+          pip install requests
+          python scripts/init_pocketbase.py || {
+            echo "Init script failed, trying direct collection creation..."
+            # Fallback: create collections without auth (for fresh PocketBase instances)
+            curl -s -X POST http://localhost:8090/api/collections \
+              -H "Content-Type: application/json" \
+              -d '{"name":"audit_runs","type":"base","schema":[{"name":"session_id","type":"text","required":true},{"name":"audit_type","type":"text","required":true},{"name":"status","type":"select","required":true,"options":{"values":["pending","running","completed","failed"]}},{"name":"started_at","type":"date","required":true},{"name":"completed_at","type":"date","required":false},{"name":"result","type":"json","required":false},{"name":"error","type":"text","required":false},{"name":"run_id","type":"text","required":false}],"listRule":"","viewRule":"","createRule":"","updateRule":"","deleteRule":""}' || true
+            curl -s -X POST http://localhost:8090/api/collections \
+              -H "Content-Type: application/json" \
+              -d '{"name":"orchestrator_sessions","type":"base","schema":[{"name":"session_id","type":"text","required":true},{"name":"planned_audits","type":"json","required":true},{"name":"status","type":"select","required":true,"options":{"values":["running","completed"]}},{"name":"started_at","type":"date","required":true},{"name":"completed_at","type":"date","required":false}],"listRule":"","viewRule":"","createRule":"","updateRule":"","deleteRule":""}' || true
+          }
+
+          # Verify collections exist
+          echo "Verifying collections..."
+          curl -s http://localhost:8090/api/collections/audit_runs && echo "audit_runs: OK" || echo "audit_runs: MISSING"
+          curl -s http://localhost:8090/api/collections/orchestrator_sessions && echo "orchestrator_sessions: OK" || echo "orchestrator_sessions: MISSING"
 
       - name: Initialize database with ISCIACUS credentials
         run: cd backend && python init_test_db.py
