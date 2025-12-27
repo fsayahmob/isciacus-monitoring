@@ -4,13 +4,48 @@
 
 import React from 'react'
 
-import type { AuditResult, AuditSession } from '../../services/api'
+import type { AuditIssue, AuditResult, AuditSession } from '../../services/api'
 import { SummaryCards } from './AuditCards'
 import { GMCFlowKPI, type GMCFlowData } from './GMCFlowKPI'
 import { IssuesPanel } from './IssueCard'
 import { PipelineStepsPanel } from './PipelineStep'
 
 const HIGHLIGHT_DURATION_MS = 2000
+
+interface ComputedSummary {
+  total_checks: number
+  passed: number
+  warnings: number
+  errors: number
+}
+
+/**
+ * Compute summary KPIs from issues when backend doesn't provide them.
+ * Counts issues by severity to derive total_checks, passed, warnings, errors.
+ */
+function computeSummaryFromIssues(issues: AuditIssue[]): ComputedSummary {
+  let errors = 0
+  let warnings = 0
+
+  for (const issue of issues) {
+    if (issue.severity === 'critical' || issue.severity === 'high' || issue.severity === 'medium') {
+      errors++
+    } else if (issue.severity === 'warning' || issue.severity === 'low') {
+      warnings++
+    }
+    // 'info' severity issues are not counted as problems
+  }
+
+  const totalChecks = issues.length
+  const passed = Math.max(0, totalChecks - errors - warnings)
+
+  return {
+    total_checks: totalChecks,
+    passed,
+    warnings,
+    errors,
+  }
+}
 
 function AuditResultPanel({
   result,
@@ -37,8 +72,16 @@ function AuditResultPanel({
   }
 
   const filteredIssues = result.issues.filter((issue) => issue.id !== 'kpi_summary')
-  const hasSummary =
+
+  // Use backend summary if available, otherwise compute from issues
+  const hasBackendSummary =
     'total_checks' in result.summary && typeof result.summary.total_checks === 'number'
+  const summary: ComputedSummary = hasBackendSummary
+    ? (result.summary as ComputedSummary)
+    : computeSummaryFromIssues(filteredIssues)
+
+  // Show summary cards when audit is complete (not running)
+  const showSummary = !isRunning && result.status !== 'running'
 
   return (
     <div className="animate-slide-up space-y-6">
@@ -48,18 +91,7 @@ function AuditResultPanel({
         executionMode={result.execution_mode}
       />
 
-      {hasSummary && !isRunning && (
-        <SummaryCards
-          summary={
-            result.summary as {
-              total_checks: number
-              passed: number
-              warnings: number
-              errors: number
-            }
-          }
-        />
-      )}
+      {showSummary && <SummaryCards summary={summary} />}
 
       {result.audit_type === 'merchant_center' && kpiData && !isRunning && (
         <GMCFlowKPI data={kpiData} onNavigateToIssue={handleNavigateToIssue} />
