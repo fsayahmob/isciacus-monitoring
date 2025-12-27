@@ -285,10 +285,17 @@ class AuditOrchestrator:
 
         clear_shopify_cache()
 
+        # Clear PocketBase audit_runs records
+        from services.pocketbase_service import get_pocketbase_service
+
+        pb_service = get_pocketbase_service()
+        deleted_pb_records = pb_service.delete_all_audit_runs()
+
         return {
             "success": True,
             "deleted_sessions": deleted_count,
-            "message": f"Supprimé {deleted_count} session(s) et tous les caches",
+            "deleted_pocketbase_records": deleted_pb_records,
+            "message": f"Supprimé {deleted_count} session(s), {deleted_pb_records} audit(s) PocketBase et tous les caches",
         }
 
     def _get_meta_config(self) -> dict[str, str]:

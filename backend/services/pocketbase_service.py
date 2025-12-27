@@ -266,6 +266,43 @@ class PocketBaseService:
             logger.info("Cleaned up %d stale running audits", count)
         return count
 
+    def delete_all_audit_runs(self) -> int:
+        """Delete all audit_runs records from PocketBase.
+
+        Used when clearing the cache to reset all audit states.
+
+        Returns:
+            Number of records deleted.
+        """
+        # Get all audit runs (paginate to handle large datasets)
+        url = self._get_url(
+            f"/api/collections/{COLLECTION_NAME}/records?perPage=500"
+        )
+        try:
+            response = requests.get(url, timeout=REQUEST_TIMEOUT)
+            data = self._handle_response(response)
+            all_audits = data.get("items", [])
+        except PocketBaseError:
+            logger.warning("Failed to fetch audit runs for deletion")
+            return 0
+
+        # Delete each record
+        count = 0
+        for audit in all_audits:
+            try:
+                delete_url = self._get_url(
+                    f"/api/collections/{COLLECTION_NAME}/records/{audit['id']}"
+                )
+                response = requests.delete(delete_url, timeout=REQUEST_TIMEOUT)
+                if response.status_code < 400:
+                    count += 1
+            except Exception:
+                logger.warning("Failed to delete audit %s", audit["id"])
+
+        if count > 0:
+            logger.info("Deleted %d audit_runs records from PocketBase", count)
+        return count
+
 
 # Singleton instance
 _pocketbase_service: PocketBaseService | None = None
