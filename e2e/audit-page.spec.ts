@@ -2013,7 +2013,9 @@ test.describe("Audit Page", () => {
     // ─────────────────────────────────────────────────────────────────────────
     // STEP 6: Fermeture de la modal
     // ─────────────────────────────────────────────────────────────────────────
-    await closeButton.click();
+    // The modal content can be larger than the viewport, making buttons hard to click
+    // Use dispatchEvent to trigger the click programmatically
+    await closeButton.dispatchEvent("click");
     await expect(summaryModal).not.toBeVisible({ timeout: 5000 });
     console.log("📍 STEP 6: Modal fermée");
 

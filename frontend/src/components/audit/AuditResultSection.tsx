@@ -77,7 +77,7 @@ function AuditResultPanel({
   const hasBackendSummary =
     'total_checks' in result.summary && typeof result.summary.total_checks === 'number'
   const summary: ComputedSummary = hasBackendSummary
-    ? (result.summary as ComputedSummary)
+    ? (result.summary as unknown as ComputedSummary)
     : computeSummaryFromIssues(filteredIssues)
 
   // Show summary cards when audit is complete (not running)
