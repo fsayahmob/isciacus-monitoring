@@ -146,7 +146,11 @@ export function StatusBadge({
 
   const label = getStatusLabel(status, issuesCount)
 
-  return <span className={`badge ${colors[status]}`}>{label}</span>
+  return (
+    <span className={`badge ${colors[status]}`} data-testid="audit-status-badge">
+      {label}
+    </span>
+  )
 }
 
 function getIconBgColor(status: AuditStepStatus | null): string {

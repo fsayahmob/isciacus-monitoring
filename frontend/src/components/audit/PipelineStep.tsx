@@ -158,7 +158,7 @@ export function PipelineStepsPanel({
   const progressPercent = steps.length > 0 ? (completedSteps / steps.length) * 100 : 0
 
   return (
-    <div className="card-elevated overflow-hidden rounded-2xl">
+    <div className="card-elevated overflow-hidden rounded-2xl" data-testid="audit-pipeline-panel">
       {/* Header */}
       <div className="border-b border-border-subtle bg-bg-tertiary/50 px-6 py-4">
         <div className="flex items-center justify-between">

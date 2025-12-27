@@ -5,6 +5,7 @@
 import React from 'react'
 
 import type { AuditStepStatus, AvailableAudit } from '../../services/api'
+import { formatLastRunDate } from './dateUtils'
 import { LoadingSpinner, StatusBadge } from './StatusIcons'
 import { AuditTooltip } from './Tooltip'
 
@@ -80,11 +81,29 @@ function RowRunButton({
   lastStatus: string | null
   onRun: () => void
 }): React.ReactElement {
+  const [isPending, setIsPending] = React.useState(false)
+
+  // Reset pending state when audit starts running
+  React.useEffect(() => {
+    if (isRunning) {
+      setIsPending(false)
+    }
+  }, [isRunning])
+
   if (isRunning) {
     return (
-      <div className="flex items-center gap-2 text-info">
+      <div className="flex items-center gap-2 text-info" data-testid="audit-running-indicator">
         <LoadingSpinner size="sm" />
         <span className="text-xs">En cours...</span>
+      </div>
+    )
+  }
+
+  if (isPending) {
+    return (
+      <div className="flex items-center gap-2 text-text-muted" data-testid="audit-pending-indicator">
+        <LoadingSpinner size="sm" />
+        <span className="text-xs">Démarrage...</span>
       </div>
     )
   }
@@ -93,9 +112,11 @@ function RowRunButton({
 
   return (
     <button
-      className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light"
+      className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light active:scale-95"
+      data-testid="audit-launch-button"
       onClick={(e) => {
         e.stopPropagation()
+        setIsPending(true)
         onRun()
       }}
       type="button"
@@ -159,7 +180,14 @@ export function OnboardingCard({
               <StatusBadge status={audit.last_status} issuesCount={audit.issues_count} />
             )}
           </div>
-          <span className="text-xs text-text-tertiary">{audit.description}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-tertiary">{audit.description}</span>
+            {!isRunning && audit.last_run !== null && (
+              <span className="text-xs text-text-muted">
+                • {formatLastRunDate(audit.last_run)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-3">

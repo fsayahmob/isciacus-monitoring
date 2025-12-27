@@ -249,3 +249,19 @@ export async function getLatestRunningSession(): Promise<OrchestratorSession | n
     return null
   }
 }
+
+/**
+ * Get the latest session_id from audit_runs (running or completed).
+ * Used to restore state after page refresh when there's no orchestrator_session.
+ */
+export async function getLatestAuditRunSessionId(): Promise<string | null> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb.collection('audit_runs').getList<AuditRun>(1, 1, {
+      sort: '-started_at',
+    })
+    return records.items[0]?.session_id ?? null
+  } catch {
+    return null
+  }
+}

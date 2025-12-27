@@ -11,6 +11,7 @@ import {
   getOrchestratorSession,
   completeOrchestratorSession,
   getLatestRunningSession,
+  getLatestAuditRunSessionId,
 } from '../../services/pocketbase'
 import type { AuditResult, AuditSession, AvailableAudit } from '../../services/api'
 import { buildRunningResult, buildCompletedResult } from './auditResultBuilders'
@@ -227,11 +228,8 @@ export function useSequentialProgress(
 }
 
 /**
- * Restore localSessionId from PocketBase if there's a running orchestrator session.
- * Called on mount to recover state after page refresh.
- *
- * Always checks PocketBase for a running session, even if backend has a session.
- * This handles the case where frontend generated a sessionId that differs from backend.
+ * Restore localSessionId from PocketBase after page refresh.
+ * Checks both orchestrator_sessions (for batch runs) and audit_runs (for individual audits).
  */
 export function useRestoreRunningSession(setLocalSessionId: (id: string | null) => void): void {
   const hasRestoredRef = React.useRef(false)
@@ -242,9 +240,16 @@ export function useRestoreRunningSession(setLocalSessionId: (id: string | null) 
     }
     hasRestoredRef.current = true
     void (async () => {
+      // First check for running orchestrator session
       const runningSession = await getLatestRunningSession()
       if (runningSession !== null) {
         setLocalSessionId(runningSession.session_id)
+        return
+      }
+      // Fallback: get latest session_id from audit_runs (for individual audits)
+      const latestSessionId = await getLatestAuditRunSessionId()
+      if (latestSessionId !== null) {
+        setLocalSessionId(latestSessionId)
       }
     })()
   }, [setLocalSessionId])
@@ -310,10 +315,14 @@ export function enrichAuditsWithPbData(
       }
     }
 
+    // Use completed_at as the last run date (more accurate than started_at)
+    const lastRun = pbRun.completed_at ?? pbRun.started_at
+
     return {
       ...audit,
       last_status: lastStatus,
       issues_count: issuesCount,
+      last_run: lastRun,
     }
   })
 }

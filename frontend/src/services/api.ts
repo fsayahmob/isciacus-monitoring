@@ -53,7 +53,6 @@ export {
   executeAuditAction,
   fetchShopifyPermissions,
   clearAuditCache,
-  stopAudit,
   triggerAuditFromPocketBase,
 } from './auditApi'
 

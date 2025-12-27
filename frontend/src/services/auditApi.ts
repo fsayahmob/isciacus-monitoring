@@ -289,10 +289,3 @@ export async function runBatchAuditsViaPocketBase(
   return results
 }
 
-/**
- * Stop a running audit by calling the backend endpoint.
- * The backend updates PocketBase and the Inngest workflow checks for cancellation.
- */
-export async function stopAudit(recordId: string): Promise<void> {
-  await apiClient.post(`/api/audits/stop/${recordId}`)
-}

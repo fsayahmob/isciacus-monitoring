@@ -7,7 +7,6 @@ import {
   fetchLatestAuditSession,
   fetchAvailableAudits,
   triggerAuditFromPocketBase,
-  stopAudit as stopAuditApi,
   type AuditResult,
   type AuditSession,
   type AvailableAudit,
@@ -17,6 +16,7 @@ import {
   type OrchestratorSession,
   createOrchestratorSession,
   createBatchAuditRuns,
+  createAuditRun,
   generateSessionId,
 } from '../../services/pocketbase'
 import { buildAuditNameMap, executeSequentialAudits } from './sequentialRunnerUtils'
@@ -57,7 +57,6 @@ export interface UseAuditReturn {
   isSelectedAuditRunning: boolean
   selectAudit: (auditType: string) => void
   runAudit: (auditType: string) => void
-  stopAudit: (auditType: string) => void
   isAuditRunning: (auditType: string) => boolean
   sequentialRun: SequentialRunState
 }
@@ -109,11 +108,11 @@ function useAuditData(overrideSessionId: string | null = null): {
 
 function useAuditActions(
   pbAuditRuns: Map<string, AuditRun>,
-  sessionIdRef: React.RefObject<string | null>
+  sessionIdRef: React.RefObject<string | null>,
+  setLocalSessionId: (id: string | null) => void
 ): {
   selectAudit: (auditType: string) => void
   runAudit: (auditType: string) => void
-  stopAudit: (auditType: string) => void
   isAuditRunning: (auditType: string) => boolean
   selectedAudit: string | null
 } {
@@ -122,19 +121,27 @@ function useAuditActions(
 
   const runMutation = useMutation({
     mutationFn: async (auditType: string) => {
-      const pbRun = pbAuditRuns.get(auditType)
-      const sid = sessionIdRef.current
-      if (pbRun !== undefined && sid !== null) {
-        return triggerAuditFromPocketBase({
-          pocketbaseRecordId: pbRun.id,
-          auditType,
-          sessionId: sid,
-        })
+      let pbRun = pbAuditRuns.get(auditType)
+      let sid = sessionIdRef.current
+
+      // If no session exists, generate one
+      if (sid === null) {
+        sid = generateSessionId()
+        setLocalSessionId(sid)
       }
-      throw new Error('No PocketBase record or session ID')
-    },
-    onMutate: (auditType: string) => {
-      setSelectedAudit(auditType)
+
+      // If no PocketBase record exists, create one
+      if (pbRun === undefined) {
+        pbRun = await createAuditRun({ sessionId: sid, auditType })
+        // Wait for PocketBase to settle
+        await new Promise((resolve) => setTimeout(resolve, AUDIT_TIMING.pbSettleDelayMs))
+      }
+
+      return triggerAuditFromPocketBase({
+        pocketbaseRecordId: pbRun.id,
+        auditType,
+        sessionId: sid,
+      })
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['audit-session'] })
@@ -154,17 +161,8 @@ function useAuditActions(
     },
     [runMutation]
   )
-  const stopAudit = React.useCallback(
-    (auditType: string): void => {
-      const pbRun = pbAuditRuns.get(auditType)
-      if (pbRun !== undefined) {
-        void stopAuditApi(pbRun.id)
-      }
-    },
-    [pbAuditRuns]
-  )
 
-  return { selectAudit, runAudit, stopAudit, isAuditRunning, selectedAudit }
+  return { selectAudit, runAudit, isAuditRunning, selectedAudit }
 }
 
 function useSequentialRun(params: {
@@ -270,7 +268,7 @@ export function useAudit(): UseAuditReturn {
   const effectiveSessionId = localSessionId ?? backendSessionId
 
   const data = useAuditData(effectiveSessionId)
-  const actions = useAuditActions(data.pbAuditRuns, data.sessionIdRef)
+  const actions = useAuditActions(data.pbAuditRuns, data.sessionIdRef, setLocalSessionId)
   const sequentialRun = useSequentialRun({
     sessionId: effectiveSessionId,
     availableAudits: data.availableAudits,
@@ -304,7 +302,6 @@ export function useAudit(): UseAuditReturn {
       actions.selectedAudit !== null && actions.isAuditRunning(actions.selectedAudit),
     selectAudit: actions.selectAudit,
     runAudit: actions.runAudit,
-    stopAudit: actions.stopAudit,
     isAuditRunning: actions.isAuditRunning,
     sequentialRun,
   }

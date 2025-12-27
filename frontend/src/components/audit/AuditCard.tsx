@@ -5,6 +5,7 @@
 import React from 'react'
 
 import type { AuditStepStatus, AvailableAudit } from '../../services/api'
+import { formatLastRunDate } from './dateUtils'
 import { OnboardingCard } from './OnboardingCard'
 import { AuditIcon, LoadingSpinner, StatusBadge } from './StatusIcons'
 import { AuditTooltip } from './Tooltip'
@@ -39,33 +40,33 @@ function RowRunButton({
   available,
   isRunning,
   onRun,
-  onStop,
 }: {
   available: boolean
   isRunning: boolean
   onRun: () => void
-  onStop?: () => void
 }): React.ReactElement {
+  const [isPending, setIsPending] = React.useState(false)
+
+  // Reset pending state when audit starts running
+  React.useEffect(() => {
+    if (isRunning) {
+      setIsPending(false)
+    }
+  }, [isRunning])
+
   if (isRunning) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" data-testid="audit-running-indicator">
         <LoadingSpinner size="sm" />
         <span className="text-xs text-info">En cours...</span>
-        {onStop !== undefined && (
-          <button
-            className="flex items-center gap-1 rounded-lg bg-error/20 px-2 py-1 text-xs font-medium text-error transition-colors hover:bg-error/30"
-            onClick={(e) => {
-              e.stopPropagation()
-              onStop()
-            }}
-            type="button"
-          >
-            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-              <rect x="6" y="6" width="12" height="12" />
-            </svg>
-            Stop
-          </button>
-        )}
+      </div>
+    )
+  }
+  if (isPending) {
+    return (
+      <div className="flex items-center gap-2" data-testid="audit-pending-indicator">
+        <LoadingSpinner size="sm" />
+        <span className="text-xs text-text-muted">Démarrage...</span>
       </div>
     )
   }
@@ -74,9 +75,11 @@ function RowRunButton({
   }
   return (
     <button
-      className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light"
+      className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-light active:scale-95"
+      data-testid="audit-launch-button"
       onClick={(e) => {
         e.stopPropagation()
+        setIsPending(true)
         onRun()
       }}
       type="button"
@@ -108,14 +111,12 @@ function AuditRowItem({
   isSelected,
   onRun,
   onSelect,
-  onStop,
 }: {
   audit: AvailableAudit
   isRunning: boolean
   isSelected: boolean
   onRun: () => void
   onSelect: () => void
-  onStop?: () => void
 }): React.ReactElement {
   const borderColor = getRowBorderColor(isSelected, isRunning, audit.last_status)
   const iconStatus = isRunning ? 'running' : audit.last_status
@@ -143,16 +144,18 @@ function AuditRowItem({
               <StatusBadge status={audit.last_status} issuesCount={audit.issues_count} />
             )}
           </div>
-          <span className="text-xs text-text-tertiary">{audit.description}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-tertiary">{audit.description}</span>
+            {!isRunning && audit.last_run !== null && (
+              <span className="text-xs text-text-muted">
+                • {formatLastRunDate(audit.last_run)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <RowRunButton
-          available={audit.available}
-          isRunning={isRunning}
-          onRun={onRun}
-          onStop={onStop}
-        />
+        <RowRunButton available={audit.available} isRunning={isRunning} onRun={onRun} />
         <ChevronIcon isOpen={isSelected} />
       </div>
     </div>
@@ -185,7 +188,6 @@ export function AuditCardsGrid({
   isAuditRunning,
   onRun,
   onSelect,
-  onStop,
   accordionContent,
 }: {
   audits: ExtendedAudit[]
@@ -193,7 +195,6 @@ export function AuditCardsGrid({
   isAuditRunning: (auditType: string) => boolean
   onRun: (auditType: string) => void
   onSelect: (auditType: string) => void
-  onStop?: (auditType: string) => void
   accordionContent?: React.ReactNode
 }): React.ReactElement {
   const onboardingAudit = audits.find((a) => a.type === 'onboarding')
@@ -235,13 +236,6 @@ export function AuditCardsGrid({
                 onSelect={() => {
                   onSelect(audit.type)
                 }}
-                onStop={
-                  onStop !== undefined
-                    ? () => {
-                        onStop(audit.type)
-                      }
-                    : undefined
-                }
               />
               {selectedAudit === audit.type && accordionContent !== undefined && (
                 <AuditAccordionContent content={accordionContent} />
