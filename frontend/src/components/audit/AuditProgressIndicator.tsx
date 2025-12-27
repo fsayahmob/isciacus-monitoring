@@ -28,7 +28,11 @@ function ProgressChip({ p }: { p: AuditProgress }): React.ReactElement {
   }
 
   return (
-    <div className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs ${getChipClass()}`}>
+    <div
+      className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs ${getChipClass()}`}
+      data-testid={`progress-chip-${p.auditType}`}
+      data-status={p.status}
+    >
       {p.status === 'completed' && (
         <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -70,7 +74,10 @@ export function AuditProgressIndicator({
   const currentAudit = currentIndex >= 0 ? progress[currentIndex] : null
 
   return (
-    <div className="rounded-xl border border-info/30 bg-info/5 p-4">
+    <div
+      className="rounded-xl border border-info/30 bg-info/5 p-4"
+      data-testid="audit-progress-indicator"
+    >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <svg

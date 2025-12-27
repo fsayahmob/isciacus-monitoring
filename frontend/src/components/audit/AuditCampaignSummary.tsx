@@ -186,6 +186,92 @@ function RecommendationsList({
   )
 }
 
+function SummaryHeader({
+  completedCount,
+  erroredCount,
+  onDismiss,
+}: {
+  completedCount: number
+  erroredCount: number
+  onDismiss: () => void
+}): React.ReactElement {
+  return (
+    <div className="mb-6 flex items-start justify-between">
+      <div>
+        <h2 className="text-xl font-semibold text-text-primary">Résumé de campagne</h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          {completedCount} audits terminés
+          {erroredCount > 0 && `, ${String(erroredCount)} en erreur`}
+        </p>
+      </div>
+      <button
+        className="rounded-lg p-2 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        onClick={onDismiss}
+        type="button"
+      >
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+function ScoreAndReadiness({
+  score,
+  readiness,
+}: {
+  score: number
+  readiness: CampaignReadiness
+}): React.ReactElement {
+  return (
+    <div className="mb-6 flex items-center gap-6">
+      <div data-testid="campaign-score-circle">
+        <ScoreCircle score={score} />
+      </div>
+      <div className="flex-1">
+        <div
+          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${READINESS_COLORS[readiness.level]}`}
+          data-testid="campaign-readiness-badge"
+        >
+          <span className={`h-2 w-2 rounded-full ${READINESS_BG[readiness.level]}`} />
+          <span className="font-medium">{readiness.label}</span>
+        </div>
+        <p className="mt-2 text-sm text-text-secondary">{readiness.description}</p>
+      </div>
+    </div>
+  )
+}
+
+function AuditBreakdownSection({
+  breakdown,
+}: {
+  breakdown: CampaignScore['breakdown']
+}): React.ReactElement {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-bg-primary p-4">
+      <h3 className="mb-3 text-sm font-medium text-text-primary">Détail par audit</h3>
+      <div className="divide-y divide-border-subtle">
+        {breakdown.map((item) => (
+          <AuditBreakdownRow
+            key={item.auditType}
+            name={item.name}
+            status={item.status}
+            issuesCount={item.issuesCount}
+            weightedScore={item.weightedScore}
+            weight={item.weight}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -196,69 +282,30 @@ export function AuditCampaignSummary({
   progress,
   onDismiss,
 }: AuditCampaignSummaryProps): React.ReactElement {
-  const completedAudits = progress.filter((p) => p.status === 'completed')
-  const erroredAudits = progress.filter((p) => p.status === 'error')
+  const completedCount = progress.filter((p) => p.status === 'completed').length
+  const erroredCount = progress.filter((p) => p.status === 'error').length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      data-testid="campaign-summary-modal"
+    >
       <div className="mx-4 w-full max-w-2xl animate-slide-up rounded-2xl bg-bg-secondary p-6 shadow-2xl">
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">Résumé de campagne</h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              {completedAudits.length} audits terminés
-              {erroredAudits.length > 0 && `, ${String(erroredAudits.length)} en erreur`}
-            </p>
-          </div>
+        <SummaryHeader
+          completedCount={completedCount}
+          erroredCount={erroredCount}
+          onDismiss={onDismiss}
+        />
+        <ScoreAndReadiness score={score.total} readiness={readiness} />
+        <AuditBreakdownSection breakdown={score.breakdown} />
+        <RecommendationsList recommendations={readiness.recommendations} />
+        <div className="mt-6 flex justify-end gap-3">
           <button
-            className="rounded-lg p-2 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="btn btn-secondary"
+            data-testid="campaign-summary-close"
             onClick={onDismiss}
             type="button"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div className="mb-6 flex items-center gap-6">
-          <ScoreCircle score={score.total} />
-          <div className="flex-1">
-            <div
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${READINESS_COLORS[readiness.level]}`}
-            >
-              <span className={`h-2 w-2 rounded-full ${READINESS_BG[readiness.level]}`} />
-              <span className="font-medium">{readiness.label}</span>
-            </div>
-            <p className="mt-2 text-sm text-text-secondary">{readiness.description}</p>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border-subtle bg-bg-primary p-4">
-          <h3 className="mb-3 text-sm font-medium text-text-primary">Détail par audit</h3>
-          <div className="divide-y divide-border-subtle">
-            {score.breakdown.map((item) => (
-              <AuditBreakdownRow
-                key={item.auditType}
-                name={item.name}
-                status={item.status}
-                issuesCount={item.issuesCount}
-                weightedScore={item.weightedScore}
-                weight={item.weight}
-              />
-            ))}
-          </div>
-        </div>
-
-        <RecommendationsList recommendations={readiness.recommendations} />
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button className="btn btn-secondary" onClick={onDismiss} type="button">
             Fermer
           </button>
         </div>

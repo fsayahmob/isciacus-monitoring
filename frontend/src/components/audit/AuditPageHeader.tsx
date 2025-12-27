@@ -72,6 +72,7 @@ function RunAllButton({
   return (
     <button
       className="btn btn-primary flex items-center gap-2"
+      data-testid="run-all-audits-button"
       disabled={disabled}
       onClick={onClick}
       type="button"

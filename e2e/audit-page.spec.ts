@@ -126,7 +126,11 @@ async function cleanupPocketBase(request: APIRequestContext): Promise<void> {
       items: Array<{ id: string }>;
     };
     for (const session of sessionsData.items) {
-      await deletePocketBaseRecord(request, "orchestrator_sessions", session.id);
+      await deletePocketBaseRecord(
+        request,
+        "orchestrator_sessions",
+        session.id,
+      );
     }
   }
 }
@@ -140,7 +144,7 @@ async function navigateToAuditPage(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
   await page.locator('nav button:has-text("Audit")').first().click();
   // Wait for audit cards to load (any audit card with data-audit-type attribute)
-  await page.waitForSelector('[data-audit-type]', { timeout: 15000 });
+  await page.waitForSelector("[data-audit-type]", { timeout: 15000 });
   await page.waitForTimeout(500);
 }
 
@@ -156,8 +160,12 @@ async function waitForAuditToStartRunning(
   auditCard: ReturnType<Page["locator"]>,
   timeout: number = 15000,
 ): Promise<void> {
-  const pendingIndicator = auditCard.locator('[data-testid="audit-pending-indicator"]');
-  const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+  const pendingIndicator = auditCard.locator(
+    '[data-testid="audit-pending-indicator"]',
+  );
+  const runningIndicator = auditCard.locator(
+    '[data-testid="audit-running-indicator"]',
+  );
 
   // Wait for either pending or running state to appear
   await expect(pendingIndicator.or(runningIndicator)).toBeVisible({ timeout });
@@ -381,7 +389,9 @@ test.describe("Audit Page", () => {
     await expect(onboardingCard).toBeVisible({ timeout: 10000 });
 
     // Vérifie le titre "Diagnostic Initial"
-    await expect(onboardingCard.locator("text=Diagnostic Initial")).toBeVisible({ timeout: 10000 });
+    await expect(onboardingCard.locator("text=Diagnostic Initial")).toBeVisible(
+      { timeout: 10000 },
+    );
 
     // Vérifie la description
     await expect(
@@ -391,7 +401,9 @@ test.describe("Audit Page", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Vérifie le bouton "Lancer" ou "Relancer" via data-testid
-    const launchButton = onboardingCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = onboardingCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -399,7 +411,10 @@ test.describe("Audit Page", () => {
     // STEP 2.5: Vérifier s'il y avait un rapport précédent
     // ─────────────────────────────────────────────────────────────────────────
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(onboardingCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      onboardingCard,
+      pipelinePanel,
+    );
 
     // ─────────────────────────────────────────────────────────────────────────
     // STEP 3: Clic sur "Lancer" → l'audit démarre (ne déploie pas le détail)
@@ -432,7 +447,9 @@ test.describe("Audit Page", () => {
     // STEP 5: Vérification du badge de statut après complétion
     // Le badge affiche "OK" (success) ou "X pb" (warning/error)
     // ─────────────────────────────────────────────────────────────────────────
-    const statusBadge = onboardingCard.locator('[data-testid="audit-status-badge"]');
+    const statusBadge = onboardingCard.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     // Le badge doit contenir soit "OK" soit "X pb" (où X est un nombre)
@@ -453,7 +470,9 @@ test.describe("Audit Page", () => {
     await expect(pipelinePanel).toBeVisible({ timeout: 15000 });
 
     // Vérifie que le titre "Pipeline d'audit" est affiché
-    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({ timeout: 10000 });
+    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({
+      timeout: 10000,
+    });
 
     // Vérifie qu'au moins une étape est affichée
     const steps = pipelinePanel.locator('[data-testid="audit-step"]');
@@ -475,10 +494,14 @@ test.describe("Audit Page", () => {
 
     if (hasIssues) {
       // Vérifie le titre "Problèmes détectés (X)"
-      await expect(issuesPanel.locator("text=Problèmes détectés")).toBeVisible({ timeout: 10000 });
+      await expect(issuesPanel.locator("text=Problèmes détectés")).toBeVisible({
+        timeout: 10000,
+      });
     } else {
       // Vérifie le message de succès
-      await expect(successPanel.locator("text=Aucun problème détecté")).toBeVisible({ timeout: 10000 });
+      await expect(
+        successPanel.locator("text=Aucun problème détecté"),
+      ).toBeVisible({ timeout: 10000 });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -492,7 +515,9 @@ test.describe("Audit Page", () => {
     await page.waitForTimeout(2000); // Wait for PocketBase data to load
 
     // La carte doit toujours afficher le badge de statut (données persistées)
-    const onboardingCardAfterRefresh = page.locator('[data-audit-type="onboarding"]');
+    const onboardingCardAfterRefresh = page.locator(
+      '[data-audit-type="onboarding"]',
+    );
     await expect(onboardingCardAfterRefresh).toBeVisible({ timeout: 10000 });
 
     const statusBadgeAfterRefresh = onboardingCardAfterRefresh.locator(
@@ -504,14 +529,17 @@ test.describe("Audit Page", () => {
     const badgeTextAfterRefresh = await statusBadgeAfterRefresh.textContent();
     const isValidBadgeAfterRefresh =
       badgeTextAfterRefresh === "OK" ||
-      (badgeTextAfterRefresh !== null && /^\d+ pb$/.test(badgeTextAfterRefresh));
+      (badgeTextAfterRefresh !== null &&
+        /^\d+ pb$/.test(badgeTextAfterRefresh));
     expect(isValidBadgeAfterRefresh).toBe(true);
 
     // Clic sur la carte pour vérifier que le pipeline est toujours accessible
     await onboardingCardAfterRefresh.click();
     await page.waitForTimeout(500);
 
-    const pipelinePanelAfterRefresh = page.locator('[data-testid="audit-pipeline-panel"]');
+    const pipelinePanelAfterRefresh = page.locator(
+      '[data-testid="audit-pipeline-panel"]',
+    );
     await expect(pipelinePanelAfterRefresh).toBeVisible({ timeout: 15000 });
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -577,22 +605,31 @@ test.describe("Audit Page", () => {
     // STEP 2: Vérification de la carte
     const auditCard = page.locator('[data-audit-type="theme_code"]');
     await expect(auditCard).toBeVisible({ timeout: 10000 });
-    await expect(auditCard.locator("text=Code Tracking Thème")).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Code Tracking Thème")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     // STEP 3: Clic sur "Lancer"
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -603,14 +640,17 @@ test.describe("Audit Page", () => {
     await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     // Note: AuditCard always shows "Lancer", OnboardingCard shows "Relancer" after a run
-    await expect(launchButton).toHaveText(/Lancer|Relancer/, { timeout: 10000 });
+    await expect(launchButton).toHaveText(/Lancer|Relancer/, {
+      timeout: 10000,
+    });
 
     // STEP 5: Vérification du badge
     const statusBadge = auditCard.locator('[data-testid="audit-status-badge"]');
     await expect(statusBadge).toBeVisible({ timeout: 10000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     // STEP 6: Clic sur la carte pour déployer
@@ -618,7 +658,9 @@ test.describe("Audit Page", () => {
     await page.waitForTimeout(500);
 
     await expect(pipelinePanel).toBeVisible({ timeout: 10000 });
-    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({ timeout: 10000 });
+    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({
+      timeout: 10000,
+    });
 
     const steps = pipelinePanel.locator('[data-testid="audit-step"]');
     await expect(steps.first()).toBeVisible({ timeout: 10000 });
@@ -635,10 +677,14 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="theme_code"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="theme_code"]',
+    );
     await expect(auditCardAfterRefresh).toBeVisible({ timeout: 10000 });
 
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 10000 });
 
     // STEP 8: Vérification finale des erreurs
@@ -651,7 +697,9 @@ test.describe("Audit Page", () => {
     }
 
     if (hasConsoleErrors) {
-      const criticalErrors = consoleErrors.filter((e) => e.type === "error" || e.type === "pageerror");
+      const criticalErrors = consoleErrors.filter(
+        (e) => e.type === "error" || e.type === "pageerror",
+      );
       throw new Error(
         `❌ TEST FAILED: ${String(criticalErrors.length)} console error(s) detected:\n` +
           criticalErrors.map((e) => `  - ${e.text}`).join("\n"),
@@ -696,21 +744,30 @@ test.describe("Audit Page", () => {
 
     const auditCard = page.locator('[data-audit-type="ga4_tracking"]');
     await expect(auditCard).toBeVisible({ timeout: 10000 });
-    await expect(auditCard.locator("text=GA4 Tracking")).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=GA4 Tracking")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -725,7 +782,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -746,14 +804,22 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="ga4_tracking"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="ga4_tracking"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
     if (hasCriticalConsoleErrors(consoleErrors)) {
-      const criticalErrors = consoleErrors.filter((e) => e.type === "error" || e.type === "pageerror");
-      throw new Error(`❌ TEST FAILED: ${String(criticalErrors.length)} console error(s)`);
+      const criticalErrors = consoleErrors.filter(
+        (e) => e.type === "error" || e.type === "pageerror",
+      );
+      throw new Error(
+        `❌ TEST FAILED: ${String(criticalErrors.length)} console error(s)`,
+      );
     }
     if (backendErrors.length > 0) {
       throw new Error(`❌ TEST FAILED: Backend error(s) detected`);
@@ -789,21 +855,30 @@ test.describe("Audit Page", () => {
     const auditCard = page.locator('[data-audit-type="meta_pixel"]');
     await expect(auditCard).toBeVisible({ timeout: 15000 });
     // Use first() to avoid strict mode violation (title and description both contain "Meta Pixel")
-    await expect(auditCard.locator("text=Meta Pixel").first()).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Meta Pixel").first()).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -818,7 +893,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -839,8 +915,12 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="meta_pixel"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="meta_pixel"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -881,21 +961,30 @@ test.describe("Audit Page", () => {
     const auditCard = page.locator('[data-audit-type="capi"]');
     await expect(auditCard).toBeVisible({ timeout: 15000 });
     // Use first() to avoid strict mode violation (title and description both contain "Meta")
-    await expect(auditCard.locator("text=Meta CAPI").first()).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Meta CAPI").first()).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -910,7 +999,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -932,7 +1022,9 @@ test.describe("Audit Page", () => {
     await page.waitForTimeout(2000);
 
     const auditCardAfterRefresh = page.locator('[data-audit-type="capi"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -973,21 +1065,30 @@ test.describe("Audit Page", () => {
     const auditCard = page.locator('[data-audit-type="customer_data"]');
     await expect(auditCard).toBeVisible({ timeout: 15000 });
     // Use first() to avoid strict mode violation (title and description both contain "clients")
-    await expect(auditCard.locator("text=Données Clients").first()).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Données Clients").first()).toBeVisible(
+      { timeout: 10000 },
+    );
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -1002,7 +1103,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -1023,8 +1125,12 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="customer_data"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="customer_data"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -1064,21 +1170,30 @@ test.describe("Audit Page", () => {
 
     const auditCard = page.locator('[data-audit-type="cart_recovery"]');
     await expect(auditCard).toBeVisible({ timeout: 10000 });
-    await expect(auditCard.locator("text=Récupération Panier")).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Récupération Panier")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -1093,7 +1208,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -1114,8 +1230,12 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="cart_recovery"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="cart_recovery"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -1157,21 +1277,30 @@ test.describe("Audit Page", () => {
 
     const auditCard = page.locator('[data-audit-type="ads_readiness"]');
     await expect(auditCard).toBeVisible({ timeout: 10000 });
-    await expect(auditCard.locator("text=Prêt pour Ads")).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Prêt pour Ads")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -1186,7 +1315,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -1207,8 +1337,12 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="ads_readiness"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="ads_readiness"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -1250,21 +1384,30 @@ test.describe("Audit Page", () => {
 
     const auditCard = page.locator('[data-audit-type="merchant_center"]');
     await expect(auditCard).toBeVisible({ timeout: 10000 });
-    await expect(auditCard.locator("text=Google Merchant Center")).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Google Merchant Center")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -1279,7 +1422,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -1300,8 +1444,12 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="merchant_center"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="merchant_center"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -1312,7 +1460,9 @@ test.describe("Audit Page", () => {
       throw new Error(`❌ TEST FAILED: Backend error(s) detected`);
     }
 
-    console.log("✅ TEST 9 PASSED: Google Merchant Center completed successfully");
+    console.log(
+      "✅ TEST 9 PASSED: Google Merchant Center completed successfully",
+    );
   });
 
   /**
@@ -1343,21 +1493,30 @@ test.describe("Audit Page", () => {
 
     const auditCard = page.locator('[data-audit-type="search_console"]');
     await expect(auditCard).toBeVisible({ timeout: 10000 });
-    await expect(auditCard.locator("text=SEO & Search Console")).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=SEO & Search Console")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -1372,7 +1531,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -1393,8 +1553,12 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="search_console"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="search_console"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -1405,7 +1569,9 @@ test.describe("Audit Page", () => {
       throw new Error(`❌ TEST FAILED: Backend error(s) detected`);
     }
 
-    console.log("✅ TEST 10 PASSED: SEO & Search Console completed successfully");
+    console.log(
+      "✅ TEST 10 PASSED: SEO & Search Console completed successfully",
+    );
   });
 
   /**
@@ -1434,21 +1600,30 @@ test.describe("Audit Page", () => {
 
     const auditCard = page.locator('[data-audit-type="bot_access"]');
     await expect(auditCard).toBeVisible({ timeout: 10000 });
-    await expect(auditCard.locator("text=Accès Crawlers Ads")).toBeVisible({ timeout: 10000 });
+    await expect(auditCard.locator("text=Accès Crawlers Ads")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = auditCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérifier s'il y avait un rapport précédent
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
-    const { hadPreviousReport } = await verifyReportClearingOnRun(auditCard, pipelinePanel);
+    const { hadPreviousReport } = await verifyReportClearingOnRun(
+      auditCard,
+      pipelinePanel,
+    );
 
     await launchButton.click();
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = auditCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -1463,7 +1638,8 @@ test.describe("Audit Page", () => {
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     await auditCard.click();
@@ -1484,8 +1660,12 @@ test.describe("Audit Page", () => {
     await page.locator('nav button:has-text("Audit")').first().click();
     await page.waitForTimeout(2000);
 
-    const auditCardAfterRefresh = page.locator('[data-audit-type="bot_access"]');
-    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator('[data-testid="audit-status-badge"]');
+    const auditCardAfterRefresh = page.locator(
+      '[data-audit-type="bot_access"]',
+    );
+    const statusBadgeAfterRefresh = auditCardAfterRefresh.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadgeAfterRefresh).toBeVisible({ timeout: 15000 });
 
     const backendErrors = await getBackendErrors(request);
@@ -1542,9 +1722,13 @@ test.describe("Audit Page", () => {
 
     const onboardingCard = page.locator('[data-audit-type="onboarding"]');
     await expect(onboardingCard).toBeVisible({ timeout: 10000 });
-    await expect(onboardingCard.locator("text=Diagnostic Initial")).toBeVisible({ timeout: 10000 });
+    await expect(onboardingCard.locator("text=Diagnostic Initial")).toBeVisible(
+      { timeout: 10000 },
+    );
 
-    const launchButton = onboardingCard.locator('[data-testid="audit-launch-button"]');
+    const launchButton = onboardingCard.locator(
+      '[data-testid="audit-launch-button"]',
+    );
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1553,7 +1737,9 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(onboardingCard);
-    const runningIndicator = onboardingCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator = onboardingCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Le pipeline NE doit PAS être visible
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
@@ -1565,11 +1751,14 @@ test.describe("Audit Page", () => {
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérification du badge
-    const statusBadge = onboardingCard.locator('[data-testid="audit-status-badge"]');
+    const statusBadge = onboardingCard.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadge).toBeVisible({ timeout: 15000 });
 
     const badgeText = await statusBadge.textContent();
-    const isValidBadge = badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
+    const isValidBadge =
+      badgeText === "OK" || (badgeText !== null && /^\d+ pb$/.test(badgeText));
     expect(isValidBadge).toBe(true);
 
     // Clic sur la carte pour déployer
@@ -1577,7 +1766,9 @@ test.describe("Audit Page", () => {
     await page.waitForTimeout(500);
 
     await expect(pipelinePanel).toBeVisible({ timeout: 15000 });
-    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({ timeout: 10000 });
+    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({
+      timeout: 10000,
+    });
 
     const issuesPanel = page.locator('[data-testid="audit-issues-panel"]');
     const successPanel = page.locator('[data-testid="audit-success-panel"]');
@@ -1627,7 +1818,9 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(onboardingCard);
-    const runningIndicator2 = onboardingCard.locator('[data-testid="audit-running-indicator"]');
+    const runningIndicator2 = onboardingCard.locator(
+      '[data-testid="audit-running-indicator"]',
+    );
 
     // Le pipeline NE doit PAS être visible pendant l'exécution
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
@@ -1638,11 +1831,15 @@ test.describe("Audit Page", () => {
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
     // Vérification du nouveau badge
-    const statusBadge2 = onboardingCard.locator('[data-testid="audit-status-badge"]');
+    const statusBadge2 = onboardingCard.locator(
+      '[data-testid="audit-status-badge"]',
+    );
     await expect(statusBadge2).toBeVisible({ timeout: 15000 });
 
     const badgeText2 = await statusBadge2.textContent();
-    const isValidBadge2 = badgeText2 === "OK" || (badgeText2 !== null && /^\d+ pb$/.test(badgeText2));
+    const isValidBadge2 =
+      badgeText2 === "OK" ||
+      (badgeText2 !== null && /^\d+ pb$/.test(badgeText2));
     expect(isValidBadge2).toBe(true);
 
     // Clic sur la carte pour déployer
@@ -1650,7 +1847,9 @@ test.describe("Audit Page", () => {
     await page.waitForTimeout(500);
 
     await expect(pipelinePanel).toBeVisible({ timeout: 15000 });
-    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({ timeout: 10000 });
+    await expect(pipelinePanel.locator("text=Pipeline d'audit")).toBeVisible({
+      timeout: 10000,
+    });
 
     const steps = pipelinePanel.locator('[data-testid="audit-step"]');
     await expect(steps.first()).toBeVisible({ timeout: 10000 });
@@ -1659,7 +1858,9 @@ test.describe("Audit Page", () => {
     const hasSuccessPhase3 = await successPanel.isVisible().catch(() => false);
     expect(hasIssuesPhase3 || hasSuccessPhase3).toBe(true);
 
-    console.log("✅ PHASE 3 terminée: Deuxième run réussi après vidage du cache");
+    console.log(
+      "✅ PHASE 3 terminée: Deuxième run réussi après vidage du cache",
+    );
 
     // =========================================================================
     // Vérification finale des erreurs
@@ -1673,7 +1874,9 @@ test.describe("Audit Page", () => {
     }
 
     if (hasConsoleErrors) {
-      const criticalErrors = consoleErrors.filter((e) => e.type === "error" || e.type === "pageerror");
+      const criticalErrors = consoleErrors.filter(
+        (e) => e.type === "error" || e.type === "pageerror",
+      );
       throw new Error(
         `❌ TEST FAILED: ${String(criticalErrors.length)} console error(s) detected:\n` +
           criticalErrors.map((e) => `  - ${e.text}`).join("\n"),
@@ -1687,9 +1890,214 @@ test.describe("Audit Page", () => {
       );
     }
 
-    console.log("✅ TEST 12 PASSED: Clear Cache and Re-run completed successfully");
+    console.log(
+      "✅ TEST 12 PASSED: Clear Cache and Re-run completed successfully",
+    );
     console.log("   📍 Phase 1: Premier run OK");
     console.log("   📍 Phase 2: Cache vidé, données nettoyées OK");
     console.log("   📍 Phase 3: Deuxième run après cache vidé OK");
+  });
+
+  /**
+   * TEST 13: Lancer tous les audits
+   * ================================
+   * Scénarios :
+   * 1. Navigation vers la page Audit
+   * 2. Clic sur "Lancer tous les audits"
+   * 3. Vérification de l'indicateur de progression avec les chips individuels
+   * 4. Attente de la fin de tous les audits
+   * 5. Vérification de la modal de résumé (score, readiness, bouton fermer)
+   * 6. Fermeture de la modal
+   * 7. Vérification que tous les badges de statut sont visibles sur les cartes
+   * 8. Vérification finale des erreurs console/backend
+   *
+   * NOTE: Timeout étendu à 300s (exécution séquentielle de tous les audits)
+   */
+  test("TEST 13: Lancer tous les audits - run all and verify summary", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(300000); // 5 minutes - tous les audits en séquence
+
+    const pbAvailable = await isPocketBaseAvailable(request);
+    test.skip(!pbAvailable, "PocketBase not available");
+
+    const consoleErrors = setupConsoleTracking(page);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 1: Navigation vers la page Audit
+    // ─────────────────────────────────────────────────────────────────────────
+    await navigateToAuditPage(page);
+    console.log("📍 STEP 1: Navigation vers la page Audit OK");
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 2: Clic sur "Lancer tous les audits"
+    // ─────────────────────────────────────────────────────────────────────────
+    const runAllButton = page.locator('[data-testid="run-all-audits-button"]');
+    await expect(runAllButton).toBeVisible({ timeout: 10000 });
+    await expect(runAllButton).toContainText("Lancer tous les audits");
+    await runAllButton.click();
+    console.log("📍 STEP 2: Clic sur 'Lancer tous les audits' OK");
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 3: Vérification de l'indicateur de progression
+    // ─────────────────────────────────────────────────────────────────────────
+    const progressIndicator = page.locator(
+      '[data-testid="audit-progress-indicator"]',
+    );
+    await expect(progressIndicator).toBeVisible({ timeout: 15000 });
+    console.log("📍 STEP 3: Indicateur de progression visible");
+
+    // Vérifier que l'indicateur affiche "Exécution des audits..."
+    await expect(
+      progressIndicator.locator("text=Exécution des audits"),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Vérifier qu'il y a des chips de progression pour les audits
+    const progressChips = progressIndicator.locator(
+      '[data-testid^="progress-chip-"]',
+    );
+    const chipCount = await progressChips.count();
+    expect(chipCount).toBeGreaterThan(0);
+    console.log(`   ✓ ${String(chipCount)} chips de progression affichés`);
+
+    // Le bouton doit maintenant afficher "X/Y en cours..."
+    await expect(runAllButton).toContainText(/en cours/, { timeout: 5000 });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 4: Attendre la fin de tous les audits (modal de résumé apparaît)
+    // ─────────────────────────────────────────────────────────────────────────
+    console.log("📍 STEP 4: Attente de la fin des audits (max 4 min)...");
+
+    const summaryModal = page.locator('[data-testid="campaign-summary-modal"]');
+    await expect(summaryModal).toBeVisible({ timeout: 240000 }); // 4 minutes max
+    console.log("   ✓ Modal de résumé de campagne apparue");
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 5: Vérification du contenu de la modal de résumé
+    // ─────────────────────────────────────────────────────────────────────────
+    // Vérifier le titre "Résumé de campagne"
+    await expect(summaryModal.locator("text=Résumé de campagne")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Vérifier le cercle de score
+    const scoreCircle = summaryModal.locator(
+      '[data-testid="campaign-score-circle"]',
+    );
+    await expect(scoreCircle).toBeVisible({ timeout: 5000 });
+
+    // Vérifier le badge de readiness (Prêt pour la campagne / Partiellement prêt / Non prêt)
+    const readinessBadge = summaryModal.locator(
+      '[data-testid="campaign-readiness-badge"]',
+    );
+    await expect(readinessBadge).toBeVisible({ timeout: 5000 });
+
+    const readinessText = await readinessBadge.textContent();
+    const isValidReadiness =
+      readinessText !== null &&
+      (readinessText.includes("Prêt") ||
+        readinessText.includes("Partiellement") ||
+        readinessText.includes("Non prêt"));
+    expect(isValidReadiness).toBe(true);
+    console.log(`   ✓ Readiness: "${readinessText ?? "unknown"}"`);
+
+    // Vérifier le bouton Fermer
+    const closeButton = summaryModal.locator(
+      '[data-testid="campaign-summary-close"]',
+    );
+    await expect(closeButton).toBeVisible({ timeout: 5000 });
+    await expect(closeButton).toHaveText("Fermer");
+    console.log("📍 STEP 5: Contenu de la modal vérifié");
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 6: Fermeture de la modal
+    // ─────────────────────────────────────────────────────────────────────────
+    await closeButton.click();
+    await expect(summaryModal).not.toBeVisible({ timeout: 5000 });
+    console.log("📍 STEP 6: Modal fermée");
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 7: Vérification que tous les badges de statut sont visibles
+    // ─────────────────────────────────────────────────────────────────────────
+    // Liste des types d'audit à vérifier
+    const auditTypes = [
+      "onboarding",
+      "theme_code",
+      "ga4_tracking",
+      "meta_pixel",
+      "capi",
+      "customer_data",
+      "cart_recovery",
+      "ads_readiness",
+      "merchant_center",
+      "search_console",
+      "bot_access",
+    ];
+
+    console.log(
+      "📍 STEP 7: Vérification des badges de statut sur chaque carte",
+    );
+    let badgesVerified = 0;
+
+    for (const auditType of auditTypes) {
+      const auditCard = page.locator(`[data-audit-type="${auditType}"]`);
+      const isCardVisible = await auditCard.isVisible().catch(() => false);
+
+      if (isCardVisible) {
+        const statusBadge = auditCard.locator(
+          '[data-testid="audit-status-badge"]',
+        );
+        await expect(statusBadge).toBeVisible({ timeout: 10000 });
+
+        const badgeText = await statusBadge.textContent();
+        const isValidBadge =
+          badgeText === "OK" ||
+          (badgeText !== null && /^\d+ pb$/.test(badgeText));
+        expect(isValidBadge).toBe(true);
+
+        badgesVerified++;
+        console.log(`   ✓ ${auditType}: ${badgeText ?? "unknown"}`);
+      }
+    }
+
+    expect(badgesVerified).toBeGreaterThan(0);
+    console.log(`   ✓ ${String(badgesVerified)} badges vérifiés au total`);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP 8: Vérification finale des erreurs (console + backend)
+    // ─────────────────────────────────────────────────────────────────────────
+    const backendErrors = await getBackendErrors(request);
+    const hasConsoleErrors = hasCriticalConsoleErrors(consoleErrors);
+    const hasBackendErrors = backendErrors.length > 0;
+
+    if (consoleErrors.length > 0 || backendErrors.length > 0) {
+      console.log(formatErrors(consoleErrors, backendErrors));
+    }
+
+    if (hasConsoleErrors) {
+      const criticalErrors = consoleErrors.filter(
+        (e) => e.type === "error" || e.type === "pageerror",
+      );
+      throw new Error(
+        `❌ TEST FAILED: ${String(criticalErrors.length)} console error(s) detected:\n` +
+          criticalErrors.map((e) => `  - ${e.text}`).join("\n"),
+      );
+    }
+
+    if (hasBackendErrors) {
+      throw new Error(
+        `❌ TEST FAILED: Backend error(s) detected:\n` +
+          backendErrors.map((e) => `  - [${e.level}] ${e.message}`).join("\n"),
+      );
+    }
+
+    console.log(
+      "✅ TEST 13 PASSED: Lancer tous les audits completed successfully",
+    );
+    console.log(`   📊 Score modal vérifié`);
+    console.log(`   📋 ${String(badgesVerified)} audit badges visibles`);
+    console.log(`   📺 Console warnings: ${String(consoleErrors.length)}`);
+    console.log(`   🖥️ Backend status: OK`);
   });
 });
