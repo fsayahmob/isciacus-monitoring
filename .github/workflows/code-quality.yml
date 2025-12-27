@@ -595,22 +595,23 @@ jobs:
           echo "=== PocketBase Initialization ==="
           echo "Using Python script to initialize collections..."
 
-          # The Docker image should have created the superuser via SUPERUSER_EMAIL/SUPERUSER_PASSWORD env vars
           # Run the Python init script which handles auth and collection creation
           python3 scripts/init_pocketbase.py
 
-          # Verify collections exist and are accessible
+          # Verify collections are accessible via the records API (which has public listRule)
           echo ""
           echo "=== Verifying collections ==="
 
-          if curl -sf http://localhost:8090/api/collections/audit_runs > /dev/null; then
+          # Check audit_runs records endpoint (listRule is empty = public)
+          if curl -sf "http://localhost:8090/api/collections/audit_runs/records" > /dev/null; then
             echo "✅ audit_runs: OK"
           else
             echo "❌ audit_runs: FAILED"
             exit 1
           fi
 
-          if curl -sf http://localhost:8090/api/collections/orchestrator_sessions > /dev/null; then
+          # Check orchestrator_sessions records endpoint (listRule is empty = public)
+          if curl -sf "http://localhost:8090/api/collections/orchestrator_sessions/records" > /dev/null; then
             echo "✅ orchestrator_sessions: OK"
           else
             echo "❌ orchestrator_sessions: FAILED"
