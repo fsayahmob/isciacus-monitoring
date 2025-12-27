@@ -101,7 +101,10 @@ function RowRunButton({
 
   if (isPending) {
     return (
-      <div className="flex items-center gap-2 text-text-muted" data-testid="audit-pending-indicator">
+      <div
+        className="flex items-center gap-2 text-text-muted"
+        data-testid="audit-pending-indicator"
+      >
         <LoadingSpinner size="sm" />
         <span className="text-xs">Démarrage...</span>
       </div>
@@ -183,9 +186,7 @@ export function OnboardingCard({
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-tertiary">{audit.description}</span>
             {!isRunning && audit.last_run !== null && (
-              <span className="text-xs text-text-muted">
-                • {formatLastRunDate(audit.last_run)}
-              </span>
+              <span className="text-xs text-text-muted">• {formatLastRunDate(audit.last_run)}</span>
             )}
           </div>
         </div>

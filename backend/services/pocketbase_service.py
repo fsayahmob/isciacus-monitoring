@@ -275,9 +275,7 @@ class PocketBaseService:
             Number of records deleted.
         """
         # Get all audit runs (paginate to handle large datasets)
-        url = self._get_url(
-            f"/api/collections/{COLLECTION_NAME}/records?perPage=500"
-        )
+        url = self._get_url(f"/api/collections/{COLLECTION_NAME}/records?perPage=500")
         try:
             response = requests.get(url, timeout=REQUEST_TIMEOUT)
             data = self._handle_response(response)

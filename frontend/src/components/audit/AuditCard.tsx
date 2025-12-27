@@ -147,9 +147,7 @@ function AuditRowItem({
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-tertiary">{audit.description}</span>
             {!isRunning && audit.last_run !== null && (
-              <span className="text-xs text-text-muted">
-                • {formatLastRunDate(audit.last_run)}
-              </span>
+              <span className="text-xs text-text-muted">• {formatLastRunDate(audit.last_run)}</span>
             )}
           </div>
         </div>
