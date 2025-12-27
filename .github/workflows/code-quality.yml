@@ -535,8 +535,8 @@ jobs:
         ports:
           - 8090:8090
         env:
-          SUPERUSER_EMAIL: admin@local.dev
-          SUPERUSER_PASSWORD: localdevpass123
+          PB_ADMIN_EMAIL: admin@local.dev
+          PB_ADMIN_PASSWORD: localdevpass123
         options: --health-cmd "wget --spider -q http://localhost:8090/api/health || exit 1" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - name: Checkout code
