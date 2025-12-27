@@ -534,6 +534,7 @@ jobs:
         image: ghcr.io/muchobien/pocketbase:latest
         ports:
           - 8090:8090
+        options: --health-cmd "wget --spider -q http://localhost:8090/api/health || exit 1" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -588,56 +589,83 @@ jobs:
           cd backend
           pip install requests
 
-          # For PocketBase 0.23+, we need to create superuser via the setup endpoint
-          # or use the command line. The service container doesn't have CLI access,
-          # so we'll create collections directly (they're public by default in dev mode)
+          echo "=== PocketBase Initialization ==="
 
-          echo "Creating PocketBase collections via API..."
-
-          # Create audit_runs collection with PocketBase 0.23+ schema format
-          RESULT=$(curl -s -X POST http://localhost:8090/api/collections \
+          # Step 1: Create superuser (PocketBase 0.23+ requires this first)
+          echo "Creating superuser..."
+          SUPERUSER_RESULT=$(curl -s -X POST http://localhost:8090/api/collections/_superusers/records \
             -H "Content-Type: application/json" \
-            -d '{
-              "name": "audit_runs",
-              "type": "base",
-              "fields": [
-                {"name": "session_id", "type": "text", "required": true},
-                {"name": "audit_type", "type": "text", "required": true},
-                {"name": "status", "type": "select", "required": true, "values": ["pending", "running", "completed", "failed"]},
-                {"name": "started_at", "type": "date", "required": true},
-                {"name": "completed_at", "type": "date", "required": false},
-                {"name": "result", "type": "json", "required": false},
-                {"name": "error", "type": "text", "required": false},
-                {"name": "run_id", "type": "text", "required": false}
-              ],
-              "listRule": "",
-              "viewRule": "",
-              "createRule": "",
-              "updateRule": "",
-              "deleteRule": ""
-            }')
-          echo "audit_runs creation: $RESULT"
+            -d '{"email":"admin@local.dev","password":"localdevpass123","passwordConfirm":"localdevpass123"}')
+          echo "Superuser creation: $SUPERUSER_RESULT"
 
-          # Create orchestrator_sessions collection
-          RESULT=$(curl -s -X POST http://localhost:8090/api/collections \
+          # Step 2: Authenticate to get token
+          echo "Authenticating..."
+          AUTH_RESULT=$(curl -s -X POST http://localhost:8090/api/collections/_superusers/auth-with-password \
             -H "Content-Type: application/json" \
-            -d '{
-              "name": "orchestrator_sessions",
-              "type": "base",
-              "fields": [
-                {"name": "session_id", "type": "text", "required": true},
-                {"name": "planned_audits", "type": "json", "required": true},
-                {"name": "status", "type": "select", "required": true, "values": ["running", "completed"]},
-                {"name": "started_at", "type": "date", "required": true},
-                {"name": "completed_at", "type": "date", "required": false}
-              ],
-              "listRule": "",
-              "viewRule": "",
-              "createRule": "",
-              "updateRule": "",
-              "deleteRule": ""
-            }')
-          echo "orchestrator_sessions creation: $RESULT"
+            -d '{"identity":"admin@local.dev","password":"localdevpass123"}')
+          TOKEN=$(echo "$AUTH_RESULT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('token', ''))" 2>/dev/null || echo "")
+
+          if [ -z "$TOKEN" ]; then
+            echo "❌ Failed to authenticate. Response: $AUTH_RESULT"
+            echo "Trying alternative: using Python script..."
+
+            # Fallback: Use Python script with proper error handling
+            python3 scripts/init_pocketbase.py || {
+              echo "❌ Python script also failed"
+              echo "PocketBase may need manual setup"
+              exit 1
+            }
+          else
+            echo "✅ Authenticated successfully"
+
+            # Step 3: Create collections with auth token
+            echo "Creating audit_runs collection..."
+            RESULT=$(curl -s -X POST http://localhost:8090/api/collections \
+              -H "Content-Type: application/json" \
+              -H "Authorization: $TOKEN" \
+              -d '{
+                "name": "audit_runs",
+                "type": "base",
+                "fields": [
+                  {"name": "session_id", "type": "text", "required": true},
+                  {"name": "audit_type", "type": "text", "required": true},
+                  {"name": "status", "type": "select", "required": true, "values": ["pending", "running", "completed", "failed"]},
+                  {"name": "started_at", "type": "date", "required": true},
+                  {"name": "completed_at", "type": "date", "required": false},
+                  {"name": "result", "type": "json", "required": false},
+                  {"name": "error", "type": "text", "required": false},
+                  {"name": "run_id", "type": "text", "required": false}
+                ],
+                "listRule": "",
+                "viewRule": "",
+                "createRule": "",
+                "updateRule": "",
+                "deleteRule": ""
+              }')
+            echo "audit_runs: $RESULT"
+
+            echo "Creating orchestrator_sessions collection..."
+            RESULT=$(curl -s -X POST http://localhost:8090/api/collections \
+              -H "Content-Type: application/json" \
+              -H "Authorization: $TOKEN" \
+              -d '{
+                "name": "orchestrator_sessions",
+                "type": "base",
+                "fields": [
+                  {"name": "session_id", "type": "text", "required": true},
+                  {"name": "planned_audits", "type": "json", "required": true},
+                  {"name": "status", "type": "select", "required": true, "values": ["running", "completed"]},
+                  {"name": "started_at", "type": "date", "required": true},
+                  {"name": "completed_at", "type": "date", "required": false}
+                ],
+                "listRule": "",
+                "viewRule": "",
+                "createRule": "",
+                "updateRule": "",
+                "deleteRule": ""
+              }')
+            echo "orchestrator_sessions: $RESULT"
+          fi
 
           # Verify collections exist and are accessible
           echo ""
@@ -658,7 +686,7 @@ jobs:
           fi
 
           echo ""
-          echo "PocketBase collections initialized successfully!"
+          echo "✅ PocketBase collections initialized successfully!"
 
       - name: Initialize database with ISCIACUS credentials
         run: cd backend && python init_test_db.py
