@@ -146,7 +146,7 @@ function ShopifyBusinessSection({
           available
           label="Chiffre d'affaires"
           source="Shopify"
-          value={`${String(shopifyData.revenue?.toLocaleString('fr-FR') ?? 0)} €`}
+          value={`${String(shopifyData.revenue ?? 0)} €`}
         />
         <MetricCard
           available
