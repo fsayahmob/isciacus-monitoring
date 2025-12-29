@@ -526,10 +526,6 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     timeout-minutes: 15
     services:
-      inngest:
-        image: inngest/inngest:latest
-        ports:
-          - 8288:8288
       pocketbase:
         image: ghcr.io/muchobien/pocketbase:latest
         ports:
@@ -581,6 +577,20 @@ jobs:
           for i in {1..30}; do
             if curl -s http://localhost:8090/api/health > /dev/null 2>&1; then
               echo "PocketBase is ready!"
+              break
+            fi
+            echo "Attempt $i/30..."
+            sleep 1
+          done
+
+      - name: Start Inngest dev server
+        run: |
+          # Install and start Inngest in the background
+          npx inngest-cli@latest dev --no-discovery --no-poll &
+          echo "Waiting for Inngest to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8288 > /dev/null 2>&1; then
+              echo "✅ Inngest is ready!"
               break
             fi
             echo "Attempt $i/30..."
@@ -646,6 +656,7 @@ jobs:
         env:
           TEST_MODE: true
           INNGEST_DEV: true
+          INNGEST_API_BASE_URL: http://localhost:8288
           POCKETBASE_URL: http://localhost:8090
 
       - name: Start frontend dev server
