@@ -629,25 +629,70 @@ jobs:
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
           GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
 
+      - name: Start backend server
+        run: |
+          cd backend
+          python -m uvicorn monitoring_app:app --host 0.0.0.0 --port 8000 &
+          echo "Waiting for backend to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "✅ Backend is ready!"
+              break
+            fi
+            echo "Attempt $i/30..."
+            sleep 1
+          done
+        env:
+          TEST_MODE: true
+          INNGEST_DEV: true
+          POCKETBASE_URL: http://localhost:8090
+
+      - name: Start frontend dev server
+        run: |
+          cd frontend
+          npm run dev &
+          echo "Waiting for frontend to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:5173 > /dev/null 2>&1; then
+              echo "✅ Frontend is ready!"
+              break
+            fi
+            echo "Attempt $i/30..."
+            sleep 1
+          done
+
       - name: Run E2E tests
         run: |
+          # Run tests and capture exit code
+          set +e
           npm run test:e2e 2>&1 | tee e2e-output.log
+          TEST_EXIT_CODE=$?
+          set -e
 
-          # Check if all tests were skipped (this means PocketBase wasn't accessible)
-          SKIPPED=$(grep -c "skipped" e2e-output.log || echo "0")
-          PASSED=$(grep -c "passed" e2e-output.log || echo "0")
+          # Parse test results
+          PASSED=$(grep -oP '\d+(?= passed)' e2e-output.log | tail -1 || echo "0")
+          FAILED=$(grep -oP '\d+(?= failed)' e2e-output.log | tail -1 || echo "0")
+          SKIPPED=$(grep -oP '\d+(?= skipped)' e2e-output.log | tail -1 || echo "0")
 
           echo ""
           echo "=== E2E Test Summary ==="
           echo "Passed: $PASSED"
+          echo "Failed: $FAILED"
           echo "Skipped: $SKIPPED"
+          echo "Exit code: $TEST_EXIT_CODE"
 
-          # Fail if no tests passed and there were skipped tests
+          # Fail if tests failed
+          if [ "$TEST_EXIT_CODE" != "0" ]; then
+            echo ""
+            echo "❌ ERROR: E2E tests failed!"
+            exit 1
+          fi
+
+          # Fail if all tests were skipped
           if [ "$PASSED" = "0" ] && [ "$SKIPPED" != "0" ]; then
             echo ""
             echo "❌ ERROR: All E2E tests were skipped!"
             echo "This usually means PocketBase collections weren't accessible."
-            echo "Check the 'Initialize PocketBase collections' step for errors."
             exit 1
           fi
 
