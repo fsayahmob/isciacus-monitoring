@@ -37,8 +37,8 @@ export default defineConfig({
       timeout: 120 * 1000,
     },
     {
-      command: 'cd backend && TEST_MODE=true uvicorn monitoring_app:app --reload --port 8000',
-      url: 'http://localhost:8000/api/products',
+      command: 'cd backend && TEST_MODE=true uvicorn monitoring_app:app --reload --port 8080',
+      url: 'http://localhost:8080/api/products',
       reuseExistingServer: true,
       timeout: 120 * 1000,
       env: {

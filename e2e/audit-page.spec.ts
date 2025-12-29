@@ -12,7 +12,7 @@ import {
  */
 
 const POCKETBASE_URL = "http://localhost:8090";
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "http://localhost:8080";
 
 // ============================================================================
 // HELPER TYPES & INTERFACES

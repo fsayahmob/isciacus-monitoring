@@ -632,10 +632,11 @@ jobs:
       - name: Start backend server
         run: |
           cd backend
-          python -m uvicorn monitoring_app:app --host 0.0.0.0 --port 8000 &
+          # Start on port 8080 to match frontend's API_BASE_URL
+          python -m uvicorn monitoring_app:app --host 0.0.0.0 --port 8080 &
           echo "Waiting for backend to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+            if curl -s http://localhost:8080/health > /dev/null 2>&1; then
               echo "✅ Backend is ready!"
               break
             fi
