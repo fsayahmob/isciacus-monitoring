@@ -63,6 +63,16 @@ jobs:
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Create Artifact Registry (if not exists)
+        run: |
+          gcloud services enable artifactregistry.googleapis.com --quiet
+          gcloud artifacts repositories describe isciacus-monitoring \
+            --location=${{ env.REGION }} 2>/dev/null || \
+          gcloud artifacts repositories create isciacus-monitoring \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --description="ISCIACUS Monitoring Docker images"
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
