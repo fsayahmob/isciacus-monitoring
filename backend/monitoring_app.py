@@ -364,9 +364,25 @@ except Exception as e:
     inngest_enabled = False
 
 # CORS middleware for frontend access
+# Allow localhost for dev and Cloud Run URLs for staging/production
+CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:3000",
+]
+
+# Add Cloud Run frontend URLs if ENVIRONMENT is set (staging/production)
+if os.getenv("ENVIRONMENT") in ("staging", "production"):
+    # Allow any Cloud Run frontend URL from the same project
+    CORS_ORIGINS.append("https://isciacus-frontend-staging-56915253482.europe-west1.run.app")
+    CORS_ORIGINS.append("https://isciacus-frontend-56915253482.europe-west1.run.app")
+    # Also allow the legacy URL format
+    CORS_ORIGINS.append("https://isciacus-frontend-staging-6s6e734yqa-ew.a.run.app")
+    CORS_ORIGINS.append("https://isciacus-frontend-6s6e734yqa-ew.a.run.app")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
