@@ -1,12 +1,17 @@
 # =============================================================================
 # GitHub Actions - Deploy to Google Cloud Run
 # =============================================================================
-# Deploys ISCIACUS Monitoring to Cloud Run using Terraform
+# Deploys ISCIACUS Monitoring to Cloud Run with GCS persistent storage
 # Triggered on push to main branch after successful tests
 #
-# SECRETS REQUIS (uniquement GCP):
+# SECRETS REQUIS (uniquement GCP - 2 secrets):
 #   - GCP_PROJECT_ID : ID du projet Google Cloud
 #   - GCP_SA_KEY     : JSON de la clé du service account
+#
+# PERSISTANCE:
+#   - GCS Bucket: ${PROJECT_ID}-isciacus-data
+#   - Backend: /app/data (SQLite secrets) → gs://bucket/backend/
+#   - PocketBase: /pb_data (sessions) → gs://bucket/pocketbase/
 #
 # Les secrets métier (Shopify, GA4, etc.) sont stockés dans la base SQLite
 # du backend et configurables via la page Settings du dashboard.
@@ -100,8 +105,21 @@ jobs:
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Enable Cloud Run API
-        run: gcloud services enable run.googleapis.com artifactregistry.googleapis.com
+      - name: Enable required APIs
+        run: gcloud services enable run.googleapis.com artifactregistry.googleapis.com storage.googleapis.com
+
+      - name: Create GCS bucket for persistent data (if not exists)
+        run: |
+          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data"
+          if ! gcloud storage buckets describe "gs://${BUCKET_NAME}" 2>/dev/null; then
+            echo "Creating bucket ${BUCKET_NAME}..."
+            gcloud storage buckets create "gs://${BUCKET_NAME}" \
+              --location=${{ env.REGION }} \
+              --uniform-bucket-level-access
+            echo "✅ Bucket created"
+          else
+            echo "✅ Bucket already exists"
+          fi
 
       - name: Create Artifact Registry (if not exists)
         run: |
@@ -115,6 +133,9 @@ jobs:
       - name: Deploy PocketBase
         id: deploy-pocketbase
         run: |
+          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data"
+
+          # Deploy with GCS volume for persistent data
           gcloud run deploy isciacus-pocketbase \
             --image=ghcr.io/muchobien/pocketbase:latest \
             --region=${{ env.REGION }} \
@@ -126,6 +147,9 @@ jobs:
             --min-instances=1 \
             --max-instances=2 \
             --set-env-vars="PB_ADMIN_EMAIL=admin@isciacus.com,PB_ADMIN_PASSWORD=prodpass123" \
+            --add-volume=name=pocketbase-data,type=cloud-storage,bucket=${BUCKET_NAME},mount-options="only-dir=pocketbase" \
+            --add-volume-mount=volume=pocketbase-data,mount-path=/pb_data \
+            --execution-environment=gen2 \
             --quiet
 
           URL=$(gcloud run services describe isciacus-pocketbase --region=${{ env.REGION }} --format='value(status.url)')
@@ -135,7 +159,9 @@ jobs:
         id: deploy-backend
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/backend"
+          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data"
 
+          # Deploy with GCS volume for SQLite persistent data
           gcloud run deploy isciacus-backend \
             --image=${IMAGE}:${{ needs.build-images.outputs.image_tag }} \
             --region=${{ env.REGION }} \
@@ -147,7 +173,10 @@ jobs:
             --min-instances=0 \
             --max-instances=10 \
             --timeout=300 \
-            --set-env-vars="POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }}" \
+            --set-env-vars="POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }},DATA_DIR=/app/data" \
+            --add-volume=name=backend-data,type=cloud-storage,bucket=${BUCKET_NAME},mount-options="only-dir=backend" \
+            --add-volume-mount=volume=backend-data,mount-path=/app/data \
+            --execution-environment=gen2 \
             --quiet
 
           URL=$(gcloud run services describe isciacus-backend --region=${{ env.REGION }} --format='value(status.url)')
@@ -176,6 +205,7 @@ jobs:
 
       - name: Deployment Summary
         run: |
+          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data"
           echo "## 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### URLs" >> $GITHUB_STEP_SUMMARY
@@ -185,6 +215,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Image Tag" >> $GITHUB_STEP_SUMMARY
           echo "\`${{ needs.build-images.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Persistance" >> $GITHUB_STEP_SUMMARY
+          echo "- **GCS Bucket**: \`${BUCKET_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- SQLite (secrets) et PocketBase (sessions) sont persistés via Cloud Storage volumes." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Configuration" >> $GITHUB_STEP_SUMMARY
           echo "Les secrets métier (Shopify, GA4, etc.) sont configurables via la page **Settings** du dashboard." >> $GITHUB_STEP_SUMMARY

@@ -134,10 +134,12 @@ class AuditOrchestrator:
         config_service: ConfigService | None = None,
     ) -> None:
         """Initialize the orchestrator with audit services."""
+        from services.paths import get_data_dir
+
         self.ga4_audit = ga4_audit_service
         self.theme_analyzer = theme_analyzer
         self._config_service = config_service
-        self._storage_dir = Path(__file__).parent.parent / "data" / "audits"
+        self._storage_dir = get_data_dir() / "audits"
         self._storage_dir.mkdir(parents=True, exist_ok=True)
         self._current_session: AuditSession | None = None
 

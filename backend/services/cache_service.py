@@ -16,13 +16,15 @@ from typing import Any
 class CacheService:
     """Service de cache persistant pour produits et filtres Shopify."""
 
-    CACHE_DIR = Path(__file__).parent.parent / "data" / "cache"
-    PRODUCTS_FILE = CACHE_DIR / "products.json"
-    FILTERS_FILE = CACHE_DIR / "filters.json"
     TTL_SECONDS = 3600  # 1 heure
 
     def __init__(self) -> None:
         """Initialise le service et crée le dossier cache."""
+        from services.paths import get_data_dir
+
+        self.CACHE_DIR = get_data_dir() / "cache"
+        self.PRODUCTS_FILE = self.CACHE_DIR / "products.json"
+        self.FILTERS_FILE = self.CACHE_DIR / "filters.json"
         self.CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================

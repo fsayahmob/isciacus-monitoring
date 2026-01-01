@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 
@@ -25,9 +24,11 @@ class AuditService:
         shopify_service: ShopifyAnalyticsService,
         ga4_service: GA4AnalyticsService,
     ) -> None:
+        from services.paths import get_data_dir
+
         self.shopify = shopify_service
         self.ga4 = ga4_service
-        self._cache_file = Path(__file__).parent.parent / "data" / "audit_cache.json"
+        self._cache_file = get_data_dir() / "audit_cache.json"
         self._last_audit: dict[str, Any] | None = None
 
     def clear_cache(self) -> None:

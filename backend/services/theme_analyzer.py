@@ -13,7 +13,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
 import requests
@@ -186,7 +185,9 @@ class ThemeAnalyzerService:
 
     def __init__(self) -> None:
         """Initialize the theme analyzer."""
-        self._cache_file = Path(__file__).parent.parent / "data" / "theme_analysis_cache.json"
+        from services.paths import get_data_dir
+
+        self._cache_file = get_data_dir() / "theme_analysis_cache.json"
         self._themes_cache: dict[str, Any] = {}
         self._graphql_url = f"{_get_store_url()}/admin/api/2024-01/graphql.json"
 

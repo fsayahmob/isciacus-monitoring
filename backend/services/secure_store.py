@@ -19,9 +19,11 @@ class SecureConfigStore:
     """Encrypted configuration storage using SQLite and Fernet."""
 
     def __init__(self, db_path: Path | None = None, key_path: Path | None = None) -> None:
-        base_dir = Path(__file__).parent.parent
-        self.db_path = db_path or base_dir / "data" / "config.db"
-        self.key_path = key_path or base_dir / "data" / ".config_key"
+        from services.paths import get_data_dir
+
+        data_dir = get_data_dir()
+        self.db_path = db_path or data_dir / "config.db"
+        self.key_path = key_path or data_dir / ".config_key"
 
         # Ensure data directory exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
