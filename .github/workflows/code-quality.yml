@@ -925,7 +925,7 @@ jobs:
             --min-instances=0 \
             --max-instances=5 \
             --timeout=300 \
-            --set-env-vars="POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }},DATA_DIR=/app/data,ENVIRONMENT=staging" \
+            --set-env-vars="POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }},DATA_DIR=/app/data,ENVIRONMENT=staging,TEST_MODE=true" \
             --add-volume=name=backend-data,type=cloud-storage,bucket=${BUCKET_NAME},mount-options="only-dir=backend" \
             --add-volume-mount=volume=backend-data,mount-path=/app/data \
             --execution-environment=gen2 \
