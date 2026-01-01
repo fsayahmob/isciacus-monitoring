@@ -29,7 +29,7 @@ import requests
 # Skip all tests in this module if running inside Docker
 pytestmark = pytest.mark.skipif(
     Path("/.dockerenv").exists(),
-    reason="E2E tests must be run from host machine, not inside Docker container"
+    reason="E2E tests must be run from host machine, not inside Docker container",
 )
 
 # Configuration

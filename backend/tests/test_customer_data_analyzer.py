@@ -114,12 +114,8 @@ def test_get_data_history_success(mock_post, analyzer):
     mock_response = MagicMock()
     mock_response.json.return_value = {
         "data": {
-            "oldest": {
-                "edges": [{"node": {"createdAt": "2023-01-01T00:00:00Z"}}]
-            },
-            "newest": {
-                "edges": [{"node": {"createdAt": "2023-12-31T00:00:00Z"}}]
-            },
+            "oldest": {"edges": [{"node": {"createdAt": "2023-01-01T00:00:00Z"}}]},
+            "newest": {"edges": [{"node": {"createdAt": "2023-12-31T00:00:00Z"}}]},
         }
     }
     mock_response.raise_for_status = MagicMock()
@@ -138,12 +134,8 @@ def test_get_data_history_insufficient(mock_post, analyzer):
     mock_response = MagicMock()
     mock_response.json.return_value = {
         "data": {
-            "oldest": {
-                "edges": [{"node": {"createdAt": "2023-11-01T00:00:00Z"}}]
-            },
-            "newest": {
-                "edges": [{"node": {"createdAt": "2023-12-01T00:00:00Z"}}]
-            },
+            "oldest": {"edges": [{"node": {"createdAt": "2023-11-01T00:00:00Z"}}]},
+            "newest": {"edges": [{"node": {"createdAt": "2023-12-01T00:00:00Z"}}]},
         }
     }
     mock_response.raise_for_status = MagicMock()
