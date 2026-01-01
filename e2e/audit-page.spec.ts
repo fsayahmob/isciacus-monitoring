@@ -215,6 +215,9 @@ async function waitForAuditToComplete(
   const runningIndicator = auditCard.locator(
     '[data-testid="audit-running-indicator"]',
   );
+  const pendingIndicator = auditCard.locator(
+    '[data-testid="audit-pending-indicator"]',
+  );
   const statusBadge = auditCard.locator('[data-testid="audit-status-badge"]');
   const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
 
@@ -224,14 +227,31 @@ async function waitForAuditToComplete(
     return;
   }
 
-  // Wait for either: running indicator disappears OR badge appears OR launch button returns
-  await expect(statusBadge.or(launchButton)).toBeVisible({ timeout });
-
-  // If running indicator is still visible, wait for it to disappear
-  const stillRunning = await runningIndicator.isVisible().catch(() => false);
-  if (stillRunning) {
-    await expect(runningIndicator).not.toBeVisible({ timeout });
+  // If launch button is already visible (no audit running), we're done
+  const buttonVisible = await launchButton.isVisible().catch(() => false);
+  if (buttonVisible) {
+    return;
   }
+
+  // Wait for running/pending indicators to disappear (audit finished)
+  // This is the most reliable way to detect completion
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    const isRunning = await runningIndicator.isVisible().catch(() => false);
+    const isPending = await pendingIndicator.isVisible().catch(() => false);
+
+    if (!isRunning && !isPending) {
+      // Audit finished - wait a bit for UI to update
+      await auditCard.page().waitForTimeout(500);
+      return;
+    }
+
+    // Wait before checking again
+    await auditCard.page().waitForTimeout(500);
+  }
+
+  // Timeout - throw error
+  throw new Error(`Timeout waiting for audit to complete after ${timeout}ms`);
 }
 
 // ============================================================================
