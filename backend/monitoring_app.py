@@ -61,18 +61,13 @@ STORE_URL = _shopify_config.get("store_url", "")
 ACCESS_TOKEN = _shopify_config.get("access_token", "")
 TVA_RATE = float(os.getenv("TVA_RATE", "1.20"))  # TVA stays in env (not a service config)
 
-# Allow running without Shopify config in test mode (for E2E tests)
-TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
+# Allow running without Shopify config - user can configure via Settings UI
+SHOPIFY_CONFIGURED = bool(STORE_URL and ACCESS_TOKEN)
 
-if not STORE_URL or not ACCESS_TOKEN:
-    if not TEST_MODE:
-        raise ValueError(
-            "Shopify non configuré. Allez dans Settings > Shopify pour configurer "
-            "SHOPIFY_STORE_URL et SHOPIFY_ACCESS_TOKEN"
-        )
-    # In test mode, use dummy values
-    STORE_URL = "https://test-store.myshopify.com"
-    ACCESS_TOKEN = "test_token"
+if not SHOPIFY_CONFIGURED:
+    # Use placeholder values - endpoints will return appropriate errors
+    STORE_URL = STORE_URL or "https://not-configured.myshopify.com"
+    ACCESS_TOKEN = ACCESS_TOKEN or "not_configured"
 
 GRAPHQL_URL = f"{STORE_URL}/admin/api/2024-01/graphql.json"
 HEADERS = {"X-Shopify-Access-Token": ACCESS_TOKEN, "Content-Type": "application/json"}
