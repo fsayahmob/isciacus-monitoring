@@ -11,7 +11,7 @@
 import PocketBase from 'pocketbase'
 
 const DEFAULT_POCKETBASE_URL = 'http://localhost:8090'
-const envUrl = import.meta.env.VITE_POCKETBASE_URL as string | undefined
+const envUrl = import.meta.env.VITE_POCKETBASE_URL
 const POCKETBASE_URL: string =
   envUrl !== undefined && envUrl !== '' ? envUrl : DEFAULT_POCKETBASE_URL
 
