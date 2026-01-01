@@ -4,8 +4,9 @@
  * Centralized constants to avoid magic numbers
  */
 
-// API Configuration
-export const API_BASE_URL = 'http://localhost:8080'
+// API Configuration - uses VITE_API_BASE_URL in production, defaults to localhost for dev
+export const API_BASE_URL: string =
+  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 export const DEFAULT_PAGE_SIZE = 50
 export const MAX_PAGE_SIZE = 200
 
