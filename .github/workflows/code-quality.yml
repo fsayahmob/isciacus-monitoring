@@ -875,12 +875,24 @@ jobs:
             --location=${{ env.REGION }} \
             --uniform-bucket-level-access
 
+      - name: Pull and push PocketBase image to Artifact Registry
+        run: |
+          # Cloud Run requires images from GCR or Artifact Registry
+          # Pull from ghcr.io and push to our Artifact Registry
+          docker pull ghcr.io/muchobien/pocketbase:latest
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/pocketbase"
+          docker tag ghcr.io/muchobien/pocketbase:latest ${IMAGE}:latest
+          docker tag ghcr.io/muchobien/pocketbase:latest ${IMAGE}:staging
+          docker push ${IMAGE}:latest
+          docker push ${IMAGE}:staging
+
       - name: Deploy PocketBase (Staging)
         id: deploy-pocketbase
         run: |
           BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data-staging"
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/pocketbase"
           gcloud run deploy isciacus-pocketbase${{ env.ENV_SUFFIX }} \
-            --image=ghcr.io/muchobien/pocketbase:latest \
+            --image=${IMAGE}:staging \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
@@ -1047,12 +1059,22 @@ jobs:
             --location=${{ env.REGION }} \
             --uniform-bucket-level-access
 
+      - name: Pull and push PocketBase image to Artifact Registry
+        run: |
+          # Cloud Run requires images from GCR or Artifact Registry
+          # Pull from ghcr.io and push to our Artifact Registry
+          docker pull ghcr.io/muchobien/pocketbase:latest
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/pocketbase"
+          docker tag ghcr.io/muchobien/pocketbase:latest ${IMAGE}:latest
+          docker push ${IMAGE}:latest
+
       - name: Deploy PocketBase
         id: deploy-pocketbase
         run: |
           BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data"
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/pocketbase"
           gcloud run deploy isciacus-pocketbase \
-            --image=ghcr.io/muchobien/pocketbase:latest \
+            --image=${IMAGE}:latest \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
