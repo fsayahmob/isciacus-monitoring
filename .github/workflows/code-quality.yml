@@ -1147,7 +1147,7 @@ jobs:
     name: 📦 Inngest Functions Sync
     runs-on: ubuntu-latest
     needs: [backend-quality]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
