@@ -801,14 +801,184 @@ jobs:
           echo "✅ Docker images built successfully"
 
   # =====================================================
-  # JOB 9: Deploy to Cloud Run (main branch only)
+  # JOB 9: Deploy to Staging (develop branch)
+  # Runs after Docker build passes on develop
+  # =====================================================
+  deploy-staging:
+    name: 🧪 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION: europe-west1
+      ENV_SUFFIX: -staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check GCP secrets
+        run: |
+          if [ -z "${{ secrets.GCP_PROJECT_ID }}" ] || [ -z "${{ secrets.GCP_SA_KEY }}" ]; then
+            echo "⚠️ GCP secrets not configured. Skipping deployment."
+            echo "To enable deployment, add these secrets:"
+            echo "  - GCP_PROJECT_ID"
+            echo "  - GCP_SA_KEY"
+            exit 0
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Create Artifact Registry (if not exists)
+        run: |
+          gcloud artifacts repositories describe isciacus-monitoring \
+            --location=${{ env.REGION }} 2>/dev/null || \
+          gcloud artifacts repositories create isciacus-monitoring \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --description="ISCIACUS Monitoring Docker images"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Set image tag
+        id: meta
+        run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Backend image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/backend"
+          docker build -t ${IMAGE}:${{ steps.meta.outputs.sha }}-staging -t ${IMAGE}:staging ./backend
+          docker push ${IMAGE}:${{ steps.meta.outputs.sha }}-staging
+          docker push ${IMAGE}:staging
+
+      - name: Build and push Frontend image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/frontend"
+          docker build -t ${IMAGE}:${{ steps.meta.outputs.sha }}-staging -t ${IMAGE}:staging --target production ./frontend
+          docker push ${IMAGE}:${{ steps.meta.outputs.sha }}-staging
+          docker push ${IMAGE}:staging
+
+      - name: Create GCS bucket for staging data
+        run: |
+          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data-staging"
+          gcloud storage buckets describe "gs://${BUCKET_NAME}" 2>/dev/null || \
+          gcloud storage buckets create "gs://${BUCKET_NAME}" \
+            --location=${{ env.REGION }} \
+            --uniform-bucket-level-access
+
+      - name: Deploy PocketBase (Staging)
+        id: deploy-pocketbase
+        run: |
+          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data-staging"
+          gcloud run deploy isciacus-pocketbase${{ env.ENV_SUFFIX }} \
+            --image=ghcr.io/muchobien/pocketbase:latest \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8090 \
+            --memory=512Mi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=2 \
+            --set-env-vars="PB_ADMIN_EMAIL=admin@isciacus.com,PB_ADMIN_PASSWORD=stagingpass123" \
+            --add-volume=name=pocketbase-data,type=cloud-storage,bucket=${BUCKET_NAME},mount-options="only-dir=pocketbase" \
+            --add-volume-mount=volume=pocketbase-data,mount-path=/pb_data \
+            --execution-environment=gen2 \
+            --quiet
+          URL=$(gcloud run services describe isciacus-pocketbase${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+
+      - name: Deploy Backend (Staging)
+        id: deploy-backend
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/backend"
+          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data-staging"
+          gcloud run deploy isciacus-backend${{ env.ENV_SUFFIX }} \
+            --image=${IMAGE}:${{ steps.meta.outputs.sha }}-staging \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --memory=1Gi \
+            --cpu=2 \
+            --min-instances=0 \
+            --max-instances=5 \
+            --timeout=300 \
+            --set-env-vars="POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }},DATA_DIR=/app/data,ENVIRONMENT=staging" \
+            --add-volume=name=backend-data,type=cloud-storage,bucket=${BUCKET_NAME},mount-options="only-dir=backend" \
+            --add-volume-mount=volume=backend-data,mount-path=/app/data \
+            --execution-environment=gen2 \
+            --quiet
+          URL=$(gcloud run services describe isciacus-backend${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+
+      - name: Deploy Frontend (Staging)
+        id: deploy-frontend
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/frontend"
+          gcloud run deploy isciacus-frontend${{ env.ENV_SUFFIX }} \
+            --image=${IMAGE}:${{ steps.meta.outputs.sha }}-staging \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=80 \
+            --memory=256Mi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=5 \
+            --set-env-vars="VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }},VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }}" \
+            --quiet
+          URL=$(gcloud run services describe isciacus-frontend${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+
+      - name: Initialize PocketBase collections (Staging)
+        run: |
+          echo "Waiting for PocketBase..."
+          for i in {1..30}; do
+            if curl -sf "${{ steps.deploy-pocketbase.outputs.url }}/api/health" > /dev/null 2>&1; then
+              echo "✅ PocketBase is ready!"
+              break
+            fi
+            echo "Attempt $i/30..."
+            sleep 5
+          done
+          cd backend && pip install requests && python scripts/init_pocketbase.py
+        env:
+          POCKETBASE_URL: ${{ steps.deploy-pocketbase.outputs.url }}
+          PB_ADMIN_EMAIL: admin@isciacus.com
+          PB_ADMIN_PASSWORD: stagingpass123
+
+      - name: Staging Deployment Summary
+        run: |
+          echo "## 🧪 Staging Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs (Staging)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend**: ${{ steps.deploy-frontend.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend**: ${{ steps.deploy-backend.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PocketBase**: ${{ steps.deploy-pocketbase.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Image Tag: \`${{ steps.meta.outputs.sha }}-staging\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **This is a staging environment.** Create a PR to main for production deployment." >> $GITHUB_STEP_SUMMARY
+
+  # =====================================================
+  # JOB 10: Deploy to Cloud Run (main branch only)
   # Runs after Docker build passes
   # SECRETS REQUIS:
   #   - GCP_PROJECT_ID : ID du projet Google Cloud
   #   - GCP_SA_KEY     : JSON de la clé du service account
   # =====================================================
   deploy:
-    name: 🚀 Deploy to Cloud Run
+    name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
     needs: [docker-build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
