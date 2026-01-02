@@ -5,6 +5,7 @@
  * Shows loading spinner or redirects to login.
  */
 
+import { isAuthBypassed } from '../../contexts/authUtils'
 import { useAuth } from '../../hooks/useAuth'
 import { LoginPage } from '../../pages/LoginPage'
 
@@ -29,6 +30,11 @@ export function ProtectedRoute({
   requireAdmin = false,
 }: ProtectedRouteProps): React.ReactElement {
   const { isLoading, isAuthenticated, isAdmin } = useAuth()
+
+  // Bypass auth if Firebase is not configured (dev/test mode)
+  if (isAuthBypassed()) {
+    return <>{children}</>
+  }
 
   // Show loading while checking auth state
   if (isLoading) {

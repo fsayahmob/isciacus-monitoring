@@ -23,6 +23,11 @@ interface FirebaseConfig {
   projectId: string
 }
 
+// Check if auth should be bypassed (no Firebase config = dev/test mode)
+export function isAuthBypassed(): boolean {
+  return getFirebaseConfig() === null
+}
+
 export function getFirebaseConfig(): FirebaseConfig | null {
   const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined
   const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined
