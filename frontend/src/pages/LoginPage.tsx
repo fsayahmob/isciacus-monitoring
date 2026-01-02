@@ -43,7 +43,13 @@ function LoadingSpinner(): React.ReactElement {
   )
 }
 
-function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () => void }): React.ReactElement {
+function ErrorMessage({
+  message,
+  onDismiss,
+}: {
+  message: string
+  onDismiss: () => void
+}): React.ReactElement {
   return (
     <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 p-4">
       <div className="flex items-start gap-3">
@@ -72,7 +78,12 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
           type="button"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
@@ -93,7 +104,12 @@ export function LoginPage(): React.ReactElement {
         {/* Logo/Brand */}
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-primary">
-            <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg
+              className="h-8 w-8 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

@@ -58,19 +58,16 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, [setError])
 
   // Get current ID token for API calls
-  const getIdToken = useCallback(
-    async (): Promise<string | null> => {
-      if (firebaseUser === null) {
-        return null
-      }
-      try {
-        return await firebaseUser.getIdToken()
-      } catch {
-        return null
-      }
-    },
-    [firebaseUser]
-  )
+  const getIdToken = useCallback(async (): Promise<string | null> => {
+    if (firebaseUser === null) {
+      return null
+    }
+    try {
+      return await firebaseUser.getIdToken()
+    } catch {
+      return null
+    }
+  }, [firebaseUser])
 
   // Clear error
   const clearError = useCallback((): void => {
