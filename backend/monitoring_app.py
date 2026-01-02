@@ -396,6 +396,16 @@ try:
 except ImportError:
     pass  # Credentials routes optional
 
+# Include authentication routes
+try:
+    from routes.admin import router as admin_router
+    from routes.auth import router as auth_router
+
+    app.include_router(auth_router)
+    app.include_router(admin_router)
+except ImportError as e:
+    print(f"Warning: Auth routes not loaded: {e}")
+
 
 @app.get("/api/products")
 async def get_products(

@@ -49,7 +49,7 @@ class SecureConfigStore:
         return Fernet(key)
 
     def _init_db(self) -> None:
-        """Initialize SQLite database with config table."""
+        """Initialize SQLite database with all tables."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
@@ -69,6 +69,40 @@ class SecureConfigStore:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """
+            )
+            # Users table for authenticated users
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    picture TEXT,
+                    role TEXT DEFAULT 'user' CHECK(role IN ('user', 'admin')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP
+                )
+            """
+            )
+            # Invitations table for pending invites
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS invitations (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    invited_by TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    accepted_at TIMESTAMP,
+                    FOREIGN KEY (invited_by) REFERENCES users(id)
+                )
+            """
+            )
+            # Index for fast email lookups
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"
             )
             conn.commit()
 
@@ -243,6 +277,150 @@ class SecureConfigStore:
                 config["GOOGLE_SERVICE_ACCOUNT_KEY_PATH"] = str(temp_path)
 
         return config
+
+    # =========================================================================
+    # User Management Methods
+    # =========================================================================
+
+    def get_user_by_id(self, user_id: str) -> dict[str, Any] | None:
+        """Get a user by their ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_email(self, email: str) -> dict[str, Any] | None:
+        """Get a user by their email."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE email = ? COLLATE NOCASE", (email,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def create_user(
+        self,
+        user_id: str,
+        email: str,
+        name: str,
+        picture: str | None = None,
+        role: str = "user",
+    ) -> dict[str, Any]:
+        """Create a new user."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO users (id, email, name, picture, role, last_login)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (user_id, email, name, picture, role),
+            )
+            conn.commit()
+        return self.get_user_by_id(user_id) or {}
+
+    def update_user_last_login(self, user_id: str) -> None:
+        """Update user's last login timestamp."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
+                (user_id,),
+            )
+            conn.commit()
+
+    def list_users(self) -> list[dict[str, Any]]:
+        """List all users."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM users ORDER BY created_at DESC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_user(self, user_id: str) -> bool:
+        """Delete a user."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # =========================================================================
+    # Invitation Management Methods
+    # =========================================================================
+
+    def get_invitation_by_email(self, email: str) -> dict[str, Any] | None:
+        """Get an invitation by email."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                "SELECT * FROM invitations WHERE email = ? COLLATE NOCASE", (email,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_invitation_by_id(self, invitation_id: str) -> dict[str, Any] | None:
+        """Get an invitation by ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                "SELECT * FROM invitations WHERE id = ?", (invitation_id,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def create_invitation(
+        self, invitation_id: str, email: str, invited_by: str
+    ) -> dict[str, Any]:
+        """Create a new invitation."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO invitations (id, email, invited_by)
+                VALUES (?, ?, ?)
+                """,
+                (invitation_id, email, invited_by),
+            )
+            conn.commit()
+        return self.get_invitation_by_id(invitation_id) or {}
+
+    def mark_invitation_accepted(self, email: str) -> None:
+        """Mark an invitation as accepted."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                UPDATE invitations SET accepted_at = CURRENT_TIMESTAMP
+                WHERE email = ? COLLATE NOCASE
+                """,
+                (email,),
+            )
+            conn.commit()
+
+    def list_invitations(self) -> list[dict[str, Any]]:
+        """List all invitations with inviter info."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT i.*, u.name as invited_by_name
+                FROM invitations i
+                LEFT JOIN users u ON i.invited_by = u.id
+                ORDER BY i.created_at DESC
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_invitation(self, invitation_id: str) -> bool:
+        """Delete an invitation."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "DELETE FROM invitations WHERE id = ?", (invitation_id,)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def is_email_invited(self, email: str) -> bool:
+        """Check if an email has a pending invitation."""
+        invitation = self.get_invitation_by_email(email)
+        return invitation is not None
 
 
 # Singleton instance
