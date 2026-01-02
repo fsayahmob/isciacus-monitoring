@@ -24,6 +24,15 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # Stage 3: Build
 # =====================================================
 FROM base AS build
+
+# Accept VITE environment variables as build args
+ARG VITE_API_BASE_URL
+ARG VITE_POCKETBASE_URL
+
+# Set them as env vars for the build process
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
+
 RUN npm ci
 COPY . .
 RUN npm run build

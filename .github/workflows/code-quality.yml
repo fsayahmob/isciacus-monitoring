@@ -860,12 +860,8 @@ jobs:
           docker push ${IMAGE}:${{ steps.meta.outputs.sha }}-staging
           docker push ${IMAGE}:staging
 
-      - name: Build and push Frontend image
-        run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/frontend"
-          docker build -t ${IMAGE}:${{ steps.meta.outputs.sha }}-staging -t ${IMAGE}:staging --target production ./frontend
-          docker push ${IMAGE}:${{ steps.meta.outputs.sha }}-staging
-          docker push ${IMAGE}:staging
+      # Note: Frontend is built AFTER deploying backend/pocketbase to get their URLs
+      # See "Build and push Frontend image with API URLs" step below
 
       - name: Create GCS bucket for staging data
         run: |
@@ -933,6 +929,20 @@ jobs:
           URL=$(gcloud run services describe isciacus-backend${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
           echo "url=${URL}" >> $GITHUB_OUTPUT
 
+      - name: Build and push Frontend image with API URLs
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/frontend"
+          # Build frontend with VITE env vars baked in at build time
+          docker build \
+            --build-arg VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }} \
+            --build-arg VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }} \
+            -t ${IMAGE}:${{ steps.meta.outputs.sha }}-staging \
+            -t ${IMAGE}:staging \
+            --target production \
+            ./frontend
+          docker push ${IMAGE}:${{ steps.meta.outputs.sha }}-staging
+          docker push ${IMAGE}:staging
+
       - name: Deploy Frontend (Staging)
         id: deploy-frontend
         run: |
@@ -947,7 +957,6 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=5 \
-            --set-env-vars="VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }},VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }}" \
             --quiet
           URL=$(gcloud run services describe isciacus-frontend${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
           echo "url=${URL}" >> $GITHUB_OUTPUT
@@ -1044,12 +1053,8 @@ jobs:
           docker push ${IMAGE}:${{ steps.meta.outputs.sha }}
           docker push ${IMAGE}:latest
 
-      - name: Build and push Frontend image
-        run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/frontend"
-          docker build -t ${IMAGE}:${{ steps.meta.outputs.sha }} -t ${IMAGE}:latest --target production ./frontend
-          docker push ${IMAGE}:${{ steps.meta.outputs.sha }}
-          docker push ${IMAGE}:latest
+      # Note: Frontend is built AFTER deploying backend/pocketbase to get their URLs
+      # See "Build and push Frontend image with API URLs" step below
 
       - name: Create GCS bucket for persistent data
         run: |
@@ -1115,6 +1120,20 @@ jobs:
           URL=$(gcloud run services describe isciacus-backend --region=${{ env.REGION }} --format='value(status.url)')
           echo "url=${URL}" >> $GITHUB_OUTPUT
 
+      - name: Build and push Frontend image with API URLs
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/frontend"
+          # Build frontend with VITE env vars baked in at build time
+          docker build \
+            --build-arg VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }} \
+            --build-arg VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }} \
+            -t ${IMAGE}:${{ steps.meta.outputs.sha }} \
+            -t ${IMAGE}:latest \
+            --target production \
+            ./frontend
+          docker push ${IMAGE}:${{ steps.meta.outputs.sha }}
+          docker push ${IMAGE}:latest
+
       - name: Deploy Frontend
         id: deploy-frontend
         run: |
@@ -1129,7 +1148,6 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=10 \
-            --set-env-vars="VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }},VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }}" \
             --quiet
           URL=$(gcloud run services describe isciacus-frontend --region=${{ env.REGION }} --format='value(status.url)')
           echo "url=${URL}" >> $GITHUB_OUTPUT
