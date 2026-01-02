@@ -136,10 +136,6 @@ unfixable = []
 # CLI scripts and init scripts can use print statements and sys.stdout.write
 "**/scripts/**/*.py" = ["T201", "EXE001"]
 "init_test_db.py" = ["T201"]
-# FastAPI middleware and routes use Depends() in function defaults (B008 is standard FastAPI pattern)
-# TC001 needed for User type at runtime in dependency injection
-"**/middleware/**/*.py" = ["B008", "TC001"]
-"**/routes/**/*.py" = ["B008", "TC001"]
 # Services use magic numbers for thresholds, lazy imports, and have long template strings
 "**/services/**/*.py" = ["PLR2004", "PLC0415", "SLF001", "PLR0911", "PLR0912", "PLR0915", "PLW0603", "E501", "F841", "FBT001", "FBT002", "RUF012", "SIM102", "SIM118", "S110", "PTH101", "PTH123", "PLW2901", "RUF059"]
 

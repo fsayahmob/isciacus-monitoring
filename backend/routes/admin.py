@@ -12,6 +12,7 @@ Provides endpoints for:
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -27,10 +28,12 @@ from services.secure_store import get_secure_store
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+# Define admin dependency type locally to avoid TC001
+AdminDep = Annotated[User, Depends(require_admin)]
+
 
 @router.get("/users", response_model=list[UserResponse])
-async def list_users(
-    _admin: User = Depends(require_admin)) -> list[UserResponse]:
+async def list_users(_admin: AdminDep) -> list[UserResponse]:
     """List all registered users. Admin only."""
     store = get_secure_store()
     users_data = store.list_users()
@@ -49,9 +52,7 @@ async def list_users(
 
 
 @router.delete("/users/{user_id}")
-async def delete_user(
-    user_id: str,
-    admin: User = Depends(require_admin)) -> dict[str, str]:
+async def delete_user(user_id: str, admin: AdminDep) -> dict[str, str]:
     """Delete a user. Admin only. Cannot delete yourself."""
     if user_id == admin.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself.")
@@ -66,8 +67,7 @@ async def delete_user(
 
 
 @router.get("/invitations", response_model=list[InvitationResponse])
-async def list_invitations(
-    _admin: User = Depends(require_admin)) -> list[InvitationResponse]:
+async def list_invitations(_admin: AdminDep) -> list[InvitationResponse]:
     """List all invitations. Admin only."""
     store = get_secure_store()
     invitations_data = store.list_invitations()
@@ -87,7 +87,8 @@ async def list_invitations(
 @router.post("/invitations", response_model=InvitationResponse, status_code=201)
 async def create_invitation(
     invitation: InvitationCreate,
-    admin: User = Depends(require_admin)) -> InvitationResponse:
+    admin: AdminDep,
+) -> InvitationResponse:
     """Create a new invitation. Admin only."""
     store = get_secure_store()
 
@@ -128,7 +129,8 @@ async def create_invitation(
 @router.delete("/invitations/{invitation_id}")
 async def revoke_invitation(
     invitation_id: str,
-    _admin: User = Depends(require_admin)) -> dict[str, str]:
+    _admin: AdminDep,
+) -> dict[str, str]:
     """Revoke an invitation. Admin only."""
     store = get_secure_store()
 

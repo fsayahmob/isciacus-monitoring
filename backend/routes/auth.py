@@ -8,6 +8,8 @@ Provides endpoints for:
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 
 from middleware.auth_middleware import get_current_user
@@ -16,9 +18,12 @@ from models.user import User, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+# Define dependency type locally to avoid TC001
+UserDep = Annotated[User, Depends(get_current_user)]
+
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(user: User = Depends(get_current_user)) -> UserResponse:
+async def get_me(user: UserDep) -> UserResponse:
     """Get the current authenticated user."""
     return UserResponse(
         id=user.id,
@@ -32,9 +37,7 @@ async def get_me(user: User = Depends(get_current_user)) -> UserResponse:
 
 
 @router.post("/logout")
-async def logout(
-    user: User = Depends(get_current_user),
-) -> dict[str, str]:
+async def logout(user: UserDep) -> dict[str, str]:
     """
     Logout endpoint.
 

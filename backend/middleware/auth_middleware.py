@@ -9,6 +9,8 @@ Provides dependency injection for authentication:
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -23,6 +25,9 @@ HTTP_FORBIDDEN = 403
 # Bearer token security scheme
 bearer_scheme = HTTPBearer(auto_error=False)
 
+# Type alias for credentials dependency
+CredentialsDep = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)]
+
 
 def _extract_token(request: Request) -> str | None:
     """Extract Bearer token from Authorization header."""
@@ -32,10 +37,7 @@ def _extract_token(request: Request) -> str | None:
     return None
 
 
-async def get_current_user(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-) -> User:
+async def get_current_user(request: Request, credentials: CredentialsDep) -> User:
     """
     FastAPI dependency to get the current authenticated user.
 
@@ -67,10 +69,7 @@ async def get_current_user(
         ) from e
 
 
-async def get_optional_user(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-) -> User | None:
+async def get_optional_user(request: Request, credentials: CredentialsDep) -> User | None:
     """
     FastAPI dependency for optional authentication.
 
@@ -90,9 +89,11 @@ async def get_optional_user(
         return None
 
 
-async def require_admin(
-    user: User = Depends(get_current_user),
-) -> User:
+# Type alias for user dependency
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+
+
+async def require_admin(user: CurrentUserDep) -> User:
     """
     FastAPI dependency requiring admin role.
 
@@ -105,3 +106,7 @@ async def require_admin(
             detail="Admin access required.",
         )
     return user
+
+
+# Type alias for admin dependency
+AdminUserDep = Annotated[User, Depends(require_admin)]
