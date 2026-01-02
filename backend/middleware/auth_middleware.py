@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from models.user import User  # noqa: TC001 - needed at runtime for FastAPI
+from models.user import User
 from services.auth_service import AuthError, get_auth_service
 
 
@@ -34,7 +34,7 @@ def _extract_token(request: Request) -> str | None:
 
 async def get_current_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> User:
     """
     FastAPI dependency to get the current authenticated user.
@@ -69,7 +69,7 @@ async def get_current_user(
 
 async def get_optional_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> User | None:
     """
     FastAPI dependency for optional authentication.
@@ -91,7 +91,7 @@ async def get_optional_user(
 
 
 async def require_admin(
-    user: User = Depends(get_current_user),  # noqa: B008
+    user: User = Depends(get_current_user),
 ) -> User:
     """
     FastAPI dependency requiring admin role.

@@ -30,8 +30,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 @router.get("/users", response_model=list[UserResponse])
 async def list_users(
-    _admin: User = Depends(require_admin),  # noqa: B008
-) -> list[UserResponse]:
+    _admin: User = Depends(require_admin)) -> list[UserResponse]:
     """List all registered users. Admin only."""
     store = get_secure_store()
     users_data = store.list_users()
@@ -52,8 +51,7 @@ async def list_users(
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: str,
-    admin: User = Depends(require_admin),  # noqa: B008
-) -> dict[str, str]:
+    admin: User = Depends(require_admin)) -> dict[str, str]:
     """Delete a user. Admin only. Cannot delete yourself."""
     if user_id == admin.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself.")
@@ -69,8 +67,7 @@ async def delete_user(
 
 @router.get("/invitations", response_model=list[InvitationResponse])
 async def list_invitations(
-    _admin: User = Depends(require_admin),  # noqa: B008
-) -> list[InvitationResponse]:
+    _admin: User = Depends(require_admin)) -> list[InvitationResponse]:
     """List all invitations. Admin only."""
     store = get_secure_store()
     invitations_data = store.list_invitations()
@@ -90,8 +87,7 @@ async def list_invitations(
 @router.post("/invitations", response_model=InvitationResponse, status_code=201)
 async def create_invitation(
     invitation: InvitationCreate,
-    admin: User = Depends(require_admin),  # noqa: B008
-) -> InvitationResponse:
+    admin: User = Depends(require_admin)) -> InvitationResponse:
     """Create a new invitation. Admin only."""
     store = get_secure_store()
 
@@ -132,8 +128,7 @@ async def create_invitation(
 @router.delete("/invitations/{invitation_id}")
 async def revoke_invitation(
     invitation_id: str,
-    _admin: User = Depends(require_admin),  # noqa: B008
-) -> dict[str, str]:
+    _admin: User = Depends(require_admin)) -> dict[str, str]:
     """Revoke an invitation. Admin only."""
     store = get_secure_store()
 

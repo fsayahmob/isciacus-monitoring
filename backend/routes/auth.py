@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(user: User = Depends(get_current_user)) -> UserResponse:  # noqa: B008
+async def get_me(user: User = Depends(get_current_user)) -> UserResponse:
     """Get the current authenticated user."""
     return UserResponse(
         id=user.id,
@@ -33,7 +33,7 @@ async def get_me(user: User = Depends(get_current_user)) -> UserResponse:  # noq
 
 @router.post("/logout")
 async def logout(
-    user: User = Depends(get_current_user),  # noqa: B008
+    user: User = Depends(get_current_user),
 ) -> dict[str, str]:
     """
     Logout endpoint.
