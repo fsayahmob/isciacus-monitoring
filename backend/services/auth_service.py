@@ -91,9 +91,7 @@ class AuthService:
         is_invited = self._store.is_email_invited(email)
 
         if not is_admin and not is_invited:
-            raise AuthError(
-                "You are not authorized. Please request an invitation.", 403
-            )
+            raise AuthError("You are not authorized. Please request an invitation.", 403)
 
         # Create new user
         user_data = UserCreate(

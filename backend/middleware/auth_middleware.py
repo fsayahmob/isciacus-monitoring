@@ -59,9 +59,7 @@ async def get_current_user(request: Request, credentials: CredentialsDep) -> Use
         claims = auth_service.verify_token(token)
         return auth_service.get_or_create_user(claims)
     except AuthError as e:
-        headers = (
-            {"WWW-Authenticate": "Bearer"} if e.status_code == HTTP_UNAUTHORIZED else None
-        )
+        headers = {"WWW-Authenticate": "Bearer"} if e.status_code == HTTP_UNAUTHORIZED else None
         raise HTTPException(
             status_code=e.status_code,
             detail=e.message,

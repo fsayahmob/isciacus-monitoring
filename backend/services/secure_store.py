@@ -98,12 +98,8 @@ class SecureConfigStore:
             """
             )
             # Index for fast email lookups
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             conn.commit()
 
     def _encrypt(self, value: str) -> bytes:
@@ -294,9 +290,7 @@ class SecureConfigStore:
         """Get a user by their email."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT * FROM users WHERE email = ? COLLATE NOCASE", (email,)
-            )
+            cursor = conn.execute("SELECT * FROM users WHERE email = ? COLLATE NOCASE", (email,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -361,15 +355,11 @@ class SecureConfigStore:
         """Get an invitation by ID."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT * FROM invitations WHERE id = ?", (invitation_id,)
-            )
+            cursor = conn.execute("SELECT * FROM invitations WHERE id = ?", (invitation_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def create_invitation(
-        self, invitation_id: str, email: str, invited_by: str
-    ) -> dict[str, Any]:
+    def create_invitation(self, invitation_id: str, email: str, invited_by: str) -> dict[str, Any]:
         """Create a new invitation."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -411,9 +401,7 @@ class SecureConfigStore:
     def delete_invitation(self, invitation_id: str) -> bool:
         """Delete an invitation."""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                "DELETE FROM invitations WHERE id = ?", (invitation_id,)
-            )
+            cursor = conn.execute("DELETE FROM invitations WHERE id = ?", (invitation_id,))
             conn.commit()
             return cursor.rowcount > 0
 
