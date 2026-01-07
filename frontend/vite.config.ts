@@ -6,11 +6,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    headers: {
-      // Disable COOP in dev to allow Firebase Auth popup to work
-      // Production uses nginx.conf with same-origin-allow-popups
-      'Cross-Origin-Opener-Policy': 'unsafe-none',
-    },
+    // No custom headers in dev - let browser defaults handle it
+    // Production uses nginx.conf with COOP headers
   },
   test: {
     globals: true,
