@@ -39,8 +39,11 @@ export function getFirebaseConfig(): FirebaseConfig | null {
     return null
   }
 
-  // Auth domain is derived from project ID
-  const authDomain = `${projectId}.firebaseapp.com`
+  // Use current domain as authDomain for Cloud Run deployments
+  // This avoids the "unauthorized domain" error with signInWithRedirect
+  const currentHost = typeof window !== 'undefined' ? window.location.host : ''
+  const isCloudRun = currentHost.includes('.run.app')
+  const authDomain = isCloudRun ? currentHost : `${projectId}.firebaseapp.com`
 
   return { apiKey, authDomain, projectId }
 }
