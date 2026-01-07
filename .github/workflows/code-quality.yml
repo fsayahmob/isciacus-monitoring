@@ -938,6 +938,8 @@ jobs:
             --build-arg VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }} \
             --build-arg VITE_GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
             --build-arg VITE_GCP_API_KEY=${{ secrets.VITE_GCP_API_KEY }} \
+            --build-arg VITE_ENVIRONMENT=staging \
+            --build-arg VITE_APP_VERSION=${{ steps.meta.outputs.sha }} \
             -t ${IMAGE}:${{ steps.meta.outputs.sha }}-staging \
             -t ${IMAGE}:staging \
             --target production \
@@ -1131,6 +1133,8 @@ jobs:
             --build-arg VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }} \
             --build-arg VITE_GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
             --build-arg VITE_GCP_API_KEY=${{ secrets.VITE_GCP_API_KEY }} \
+            --build-arg VITE_ENVIRONMENT=production \
+            --build-arg VITE_APP_VERSION=${{ steps.meta.outputs.sha }} \
             -t ${IMAGE}:${{ steps.meta.outputs.sha }} \
             -t ${IMAGE}:latest \
             --target production \
