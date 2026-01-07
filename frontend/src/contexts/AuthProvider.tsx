@@ -4,11 +4,7 @@
  * Provides authentication state and methods to the app.
  */
 
-import {
-  GoogleAuthProvider,
-  signInWithRedirect,
-  signOut as firebaseSignOut,
-} from 'firebase/auth'
+import { GoogleAuthProvider, signInWithRedirect, signOut as firebaseSignOut } from 'firebase/auth'
 import { useCallback, useMemo } from 'react'
 
 import { AuthContext, type AuthContextType } from './AuthContext'
