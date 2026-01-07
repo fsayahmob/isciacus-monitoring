@@ -29,16 +29,18 @@ export function isAuthBypassed(): boolean {
 }
 
 export function getFirebaseConfig(): FirebaseConfig | null {
-  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined
-  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined
+  const apiKey = import.meta.env.VITE_GCP_API_KEY as string | undefined
+  const projectId = import.meta.env.VITE_GCP_PROJECT_ID as string | undefined
 
-  if (apiKey === undefined || authDomain === undefined || projectId === undefined) {
+  if (apiKey === undefined || projectId === undefined) {
     return null
   }
-  if (apiKey === '' || authDomain === '' || projectId === '') {
+  if (apiKey === '' || projectId === '') {
     return null
   }
+
+  // Auth domain is derived from project ID
+  const authDomain = `${projectId}.firebaseapp.com`
 
   return { apiKey, authDomain, projectId }
 }
