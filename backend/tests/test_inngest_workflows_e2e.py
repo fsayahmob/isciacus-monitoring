@@ -5,6 +5,7 @@ Tests the complete workflow execution through the API and Inngest.
 
 Requirements:
 - Docker containers must be running (docker compose up)
+- Run from HOST machine (not inside Docker container)
 - Run with: pytest tests/test_inngest_workflows_e2e.py -v
 
 These tests verify:
@@ -12,6 +13,9 @@ These tests verify:
 2. Inngest processes the workflow
 3. Steps progress from pending -> running -> success/error
 4. Final result is saved to session file
+
+Note: These tests are skipped when running inside a Docker container
+because localhost:8080 points to the container itself, not the backend service.
 """
 
 import time
@@ -21,6 +25,12 @@ from typing import Any
 import pytest
 import requests
 
+
+# Skip all tests in this module if running inside Docker
+pytestmark = pytest.mark.skipif(
+    Path("/.dockerenv").exists(),
+    reason="E2E tests must be run from host machine, not inside Docker container",
+)
 
 # Configuration
 BASE_URL = "http://localhost:8080"

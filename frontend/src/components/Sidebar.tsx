@@ -92,15 +92,42 @@ const NAV_ITEMS: { page: PageKey; label: string; icon: React.ReactElement; kbd?:
   },
 ]
 
+// Environment badge colors
+const ENV_BADGE_STYLES: Record<string, string> = {
+  production: 'bg-success/20 text-success',
+  staging: 'bg-warning/20 text-warning',
+  dev: 'bg-accent-primary/20 text-accent-primary',
+  local: 'bg-text-tertiary/20 text-text-tertiary',
+}
+
+function getEnvironment(): string {
+  const env = import.meta.env.VITE_ENVIRONMENT as string | undefined
+  return env !== undefined && env !== '' ? env : 'local'
+}
+
+function getVersion(): string {
+  const version = import.meta.env.VITE_APP_VERSION as string | undefined
+  return version !== undefined && version !== '' ? version : 'dev'
+}
+
 function Logo(): React.ReactElement {
+  const env = getEnvironment()
+  const version = getVersion()
+  const badgeStyle = ENV_BADGE_STYLES[env] ?? ENV_BADGE_STYLES.local
+
   return (
     <div className="flex items-center gap-3">
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand">
-        <span className="text-sm font-bold text-white">IS</span>
+        <span className="text-sm font-bold text-white">MD</span>
       </div>
       <div>
-        <h1 className="text-sm font-semibold tracking-wide text-text-primary">ISCIACUS</h1>
-        <span className="text-[11px] text-text-tertiary">Monitoring</span>
+        <div className="flex items-center gap-2">
+          <h1 className="text-sm font-semibold tracking-wide text-text-primary">Merchant</h1>
+          <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium uppercase ${badgeStyle}`}>
+            {env}
+          </span>
+        </div>
+        <span className="text-[11px] text-text-tertiary">v{version}</span>
       </div>
     </div>
   )

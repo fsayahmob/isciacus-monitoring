@@ -155,6 +155,7 @@ async function navigateToAuditPage(page: Page): Promise<void> {
 /**
  * Wait for audit to start running after clicking "Lancer".
  * Handles the intermediate "Démarrage..." (pending) state before "En cours..." (running).
+ * Also handles fast audits that complete before we can observe "running" state.
  */
 async function waitForAuditToStartRunning(
   auditCard: ReturnType<Page["locator"]>,
@@ -166,19 +167,91 @@ async function waitForAuditToStartRunning(
   const runningIndicator = auditCard.locator(
     '[data-testid="audit-running-indicator"]',
   );
+  const statusBadge = auditCard.locator('[data-testid="audit-status-badge"]');
 
-  // Wait for either pending or running state to appear
-  await expect(pendingIndicator.or(runningIndicator)).toBeVisible({ timeout });
+  // Wait for any state change: pending, running, or already completed (badge visible)
+  await expect(
+    pendingIndicator.or(runningIndicator).or(statusBadge),
+  ).toBeVisible({ timeout });
 
-  // If we got the pending state, wait for it to transition to running
+  // If already completed (badge visible), we're done - audit finished very fast
+  const isCompleted = await statusBadge.isVisible().catch(() => false);
+  if (isCompleted) {
+    return;
+  }
+
+  // If we got the pending state, wait for it to transition to running or completed
   const isPending = await pendingIndicator.isVisible().catch(() => false);
   if (isPending) {
-    // Wait for running indicator to appear (pending will disappear)
-    await expect(runningIndicator).toBeVisible({ timeout: 10000 });
+    // Wait for running indicator OR status badge (if audit completes very fast)
+    await expect(runningIndicator.or(statusBadge)).toBeVisible({
+      timeout: 30000,
+    });
+  }
+
+  // Check again if completed
+  const completedAfterPending = await statusBadge
+    .isVisible()
+    .catch(() => false);
+  if (completedAfterPending) {
+    return;
   }
 
   // Verify we're now in running state
-  await expect(runningIndicator).toContainText("En cours");
+  const isRunning = await runningIndicator.isVisible().catch(() => false);
+  if (isRunning) {
+    await expect(runningIndicator).toContainText("En cours");
+  }
+}
+
+/**
+ * Wait for audit to complete after it has started.
+ * Handles cases where audit completes very fast (badge already visible).
+ */
+async function waitForAuditToComplete(
+  auditCard: ReturnType<Page["locator"]>,
+  timeout: number = 30000,
+): Promise<void> {
+  const runningIndicator = auditCard.locator(
+    '[data-testid="audit-running-indicator"]',
+  );
+  const pendingIndicator = auditCard.locator(
+    '[data-testid="audit-pending-indicator"]',
+  );
+  const statusBadge = auditCard.locator('[data-testid="audit-status-badge"]');
+  const launchButton = auditCard.locator('[data-testid="audit-launch-button"]');
+
+  // If badge is already visible, audit is complete
+  const alreadyComplete = await statusBadge.isVisible().catch(() => false);
+  if (alreadyComplete) {
+    return;
+  }
+
+  // If launch button is already visible (no audit running), we're done
+  const buttonVisible = await launchButton.isVisible().catch(() => false);
+  if (buttonVisible) {
+    return;
+  }
+
+  // Wait for running/pending indicators to disappear (audit finished)
+  // This is the most reliable way to detect completion
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    const isRunning = await runningIndicator.isVisible().catch(() => false);
+    const isPending = await pendingIndicator.isVisible().catch(() => false);
+
+    if (!isRunning && !isPending) {
+      // Audit finished - wait a bit for UI to update
+      await auditCard.page().waitForTimeout(500);
+      return;
+    }
+
+    // Wait before checking again
+    await auditCard.page().waitForTimeout(500);
+  }
+
+  // Timeout - throw error
+  throw new Error(`Timeout waiting for audit to complete after ${timeout}ms`);
 }
 
 // ============================================================================
@@ -423,9 +496,6 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(onboardingCard);
-    const runningIndicator = onboardingCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(onboardingCard, hadPreviousReport);
@@ -437,7 +507,7 @@ test.describe("Audit Page", () => {
     // STEP 4: Attente de la fin de l'audit (max 30 secondes)
     // On sait que c'est terminé quand le bouton "Lancer" ou "Relancer" revient
     // ─────────────────────────────────────────────────────────────────────────
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(onboardingCard, 30000);
 
     // Le bouton doit revenir avec le texte "Relancer"
     await expect(launchButton).toBeVisible({ timeout: 15000 });
@@ -627,9 +697,6 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
@@ -637,7 +704,7 @@ test.describe("Audit Page", () => {
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
     // STEP 4: Attente fin de l'audit
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(auditCard, 30000);
     await expect(launchButton).toBeVisible({ timeout: 10000 });
     // Note: AuditCard always shows "Lancer", OnboardingCard shows "Relancer" after a run
     await expect(launchButton).toHaveText(/Lancer|Relancer/, {
@@ -765,16 +832,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 60000 }); // Extended wait
+    await waitForAuditToComplete(auditCard, 60000); // Extended wait
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -876,16 +940,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(auditCard, 30000);
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -982,16 +1043,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(auditCard, 30000);
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1086,16 +1144,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(auditCard, 30000);
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1191,16 +1246,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(auditCard, 30000);
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1298,16 +1350,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 60000 }); // Extended wait
+    await waitForAuditToComplete(auditCard, 60000); // Extended wait
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1405,16 +1454,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 90000 }); // Extended wait
+    await waitForAuditToComplete(auditCard, 90000); // Extended wait
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1514,16 +1560,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 60000 }); // Extended wait
+    await waitForAuditToComplete(auditCard, 60000); // Extended wait
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1621,16 +1664,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(auditCard);
-    const runningIndicator = auditCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Vérifier que le rapport précédent a été effacé au démarrage
     await verifyReportClearedAfterStart(auditCard, hadPreviousReport);
 
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(auditCard, 30000);
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 
@@ -1737,16 +1777,13 @@ test.describe("Audit Page", () => {
 
     // Attendre que l'audit démarre (gère l'état "Démarrage..." puis "En cours...")
     await waitForAuditToStartRunning(onboardingCard);
-    const runningIndicator = onboardingCard.locator(
-      '[data-testid="audit-running-indicator"]',
-    );
 
     // Le pipeline NE doit PAS être visible
     const pipelinePanel = page.locator('[data-testid="audit-pipeline-panel"]');
     await expect(pipelinePanel).not.toBeVisible({ timeout: 10000 });
 
     // Attente fin de l'audit
-    await expect(runningIndicator).not.toBeVisible({ timeout: 30000 });
+    await waitForAuditToComplete(onboardingCard, 30000);
     await expect(launchButton).toBeVisible({ timeout: 15000 });
     await expect(launchButton).toHaveText(/Lancer|Relancer/);
 

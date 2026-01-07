@@ -8,6 +8,7 @@ Validates that credentials are read from ConfigService (SQLite), not os.getenv.
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from services.customer_data_analyzer import CustomerDataAnalyzer
 
@@ -98,7 +99,7 @@ def test_get_customer_count_insufficient(mock_get, analyzer):
 @patch("services.customer_data_analyzer.requests.get")
 def test_get_customer_count_api_error(mock_get, analyzer):
     """Test API error handling."""
-    mock_get.side_effect = Exception("API Error")
+    mock_get.side_effect = requests.exceptions.RequestException("API Error")
 
     result = analyzer.get_customer_count()
 
@@ -107,20 +108,18 @@ def test_get_customer_count_api_error(mock_get, analyzer):
     assert "error" in result
 
 
-@patch("services.customer_data_analyzer.requests.get")
-def test_get_data_history_success(mock_get, analyzer):
-    """Test successful data history analysis."""
-    # Mock oldest order
-    mock_oldest = MagicMock()
-    mock_oldest.json.return_value = {"orders": [{"created_at": "2023-01-01T00:00:00Z"}]}
-    mock_oldest.raise_for_status = MagicMock()
-
-    # Mock newest order
-    mock_newest = MagicMock()
-    mock_newest.json.return_value = {"orders": [{"created_at": "2023-12-31T00:00:00Z"}]}
-    mock_newest.raise_for_status = MagicMock()
-
-    mock_get.side_effect = [mock_oldest, mock_newest]
+@patch("services.customer_data_analyzer.requests.post")
+def test_get_data_history_success(mock_post, analyzer):
+    """Test successful data history analysis using GraphQL."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "data": {
+            "oldest": {"edges": [{"node": {"createdAt": "2023-01-01T00:00:00Z"}}]},
+            "newest": {"edges": [{"node": {"createdAt": "2023-12-31T00:00:00Z"}}]},
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    mock_post.return_value = mock_response
 
     result = analyzer.get_data_history()
 
@@ -129,18 +128,18 @@ def test_get_data_history_success(mock_get, analyzer):
     assert result["min_required"] == 90
 
 
-@patch("services.customer_data_analyzer.requests.get")
-def test_get_data_history_insufficient(mock_get, analyzer):
-    """Test insufficient data history."""
-    mock_oldest = MagicMock()
-    mock_oldest.json.return_value = {"orders": [{"created_at": "2023-11-01T00:00:00Z"}]}
-    mock_oldest.raise_for_status = MagicMock()
-
-    mock_newest = MagicMock()
-    mock_newest.json.return_value = {"orders": [{"created_at": "2023-12-01T00:00:00Z"}]}
-    mock_newest.raise_for_status = MagicMock()
-
-    mock_get.side_effect = [mock_oldest, mock_newest]
+@patch("services.customer_data_analyzer.requests.post")
+def test_get_data_history_insufficient(mock_post, analyzer):
+    """Test insufficient data history using GraphQL."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "data": {
+            "oldest": {"edges": [{"node": {"createdAt": "2023-11-01T00:00:00Z"}}]},
+            "newest": {"edges": [{"node": {"createdAt": "2023-12-01T00:00:00Z"}}]},
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    mock_post.return_value = mock_response
 
     result = analyzer.get_data_history()
 

@@ -61,18 +61,13 @@ STORE_URL = _shopify_config.get("store_url", "")
 ACCESS_TOKEN = _shopify_config.get("access_token", "")
 TVA_RATE = float(os.getenv("TVA_RATE", "1.20"))  # TVA stays in env (not a service config)
 
-# Allow running without Shopify config in test mode (for E2E tests)
-TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
+# Allow running without Shopify config - user can configure via Settings UI
+SHOPIFY_CONFIGURED = bool(STORE_URL and ACCESS_TOKEN)
 
-if not STORE_URL or not ACCESS_TOKEN:
-    if not TEST_MODE:
-        raise ValueError(
-            "Shopify non configuré. Allez dans Settings > Shopify pour configurer "
-            "SHOPIFY_STORE_URL et SHOPIFY_ACCESS_TOKEN"
-        )
-    # In test mode, use dummy values
-    STORE_URL = "https://test-store.myshopify.com"
-    ACCESS_TOKEN = "test_token"
+if not SHOPIFY_CONFIGURED:
+    # Use placeholder values - endpoints will return appropriate errors
+    STORE_URL = STORE_URL or "https://not-configured.myshopify.com"
+    ACCESS_TOKEN = ACCESS_TOKEN or "not_configured"
 
 GRAPHQL_URL = f"{STORE_URL}/admin/api/2024-01/graphql.json"
 HEADERS = {"X-Shopify-Access-Token": ACCESS_TOKEN, "Content-Type": "application/json"}
@@ -369,9 +364,25 @@ except Exception as e:
     inngest_enabled = False
 
 # CORS middleware for frontend access
+# Allow localhost for dev and Cloud Run URLs for staging/production
+CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:3000",
+]
+
+# Add Cloud Run frontend URLs if ENVIRONMENT is set (staging/production)
+if os.getenv("ENVIRONMENT") in ("staging", "production"):
+    # Allow any Cloud Run frontend URL from the same project
+    CORS_ORIGINS.append("https://isciacus-frontend-staging-56915253482.europe-west1.run.app")
+    CORS_ORIGINS.append("https://isciacus-frontend-56915253482.europe-west1.run.app")
+    # Also allow the legacy URL format
+    CORS_ORIGINS.append("https://isciacus-frontend-staging-6s6e734yqa-ew.a.run.app")
+    CORS_ORIGINS.append("https://isciacus-frontend-6s6e734yqa-ew.a.run.app")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -384,6 +395,16 @@ try:
     app.include_router(credentials_router)
 except ImportError:
     pass  # Credentials routes optional
+
+# Include authentication routes
+try:
+    from routes.admin import router as admin_router
+    from routes.auth import router as auth_router
+
+    app.include_router(auth_router)
+    app.include_router(admin_router)
+except ImportError as e:
+    print(f"Warning: Auth routes not loaded: {e}")
 
 
 @app.get("/api/products")

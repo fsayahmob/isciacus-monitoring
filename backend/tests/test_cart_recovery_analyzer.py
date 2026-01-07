@@ -265,7 +265,7 @@ def test_calculate_recovery_potential_no_data(mock_get, analyzer):
 
 
 def test_generate_recommendations_all_good(analyzer):
-    """Test recommendations when all checks pass."""
+    """Test recommendations when all checks pass with high potential."""
     tracking_result = {"enabled": True}
     volume_result = {"sufficient": True, "monthly_rate": 75}
     email_result = {"sufficient": True, "capture_rate": 80}
@@ -275,9 +275,25 @@ def test_generate_recommendations_all_good(analyzer):
         tracking_result, volume_result, email_result, potential_result
     )
 
-    assert len(recommendations) == 2
+    # When all checks pass and potential is high, only the potential recommendation is shown
+    assert len(recommendations) == 1
+    assert "$1,500/month" in recommendations[0]
+
+
+def test_generate_recommendations_all_good_low_potential(analyzer):
+    """Test recommendations when all checks pass but potential is low."""
+    tracking_result = {"enabled": True}
+    volume_result = {"sufficient": True, "monthly_rate": 75}
+    email_result = {"sufficient": True, "capture_rate": 80}
+    potential_result = {"monthly_potential": 500}  # Below 1000 threshold
+
+    recommendations = analyzer.generate_recommendations(
+        tracking_result, volume_result, email_result, potential_result
+    )
+
+    # When all checks pass and potential is low, show "ready for retargeting" message
+    assert len(recommendations) == 1
     assert "ready for retargeting campaigns" in recommendations[0]
-    assert "$1,500/month" in recommendations[1]
 
 
 def test_generate_recommendations_tracking_disabled(analyzer):
