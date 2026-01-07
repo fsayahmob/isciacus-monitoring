@@ -936,6 +936,8 @@ jobs:
           docker build \
             --build-arg VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }} \
             --build-arg VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }} \
+            --build-arg VITE_GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+            --build-arg VITE_GCP_API_KEY=${{ secrets.VITE_GCP_API_KEY }} \
             -t ${IMAGE}:${{ steps.meta.outputs.sha }}-staging \
             -t ${IMAGE}:staging \
             --target production \
@@ -1127,6 +1129,8 @@ jobs:
           docker build \
             --build-arg VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }} \
             --build-arg VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }} \
+            --build-arg VITE_GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+            --build-arg VITE_GCP_API_KEY=${{ secrets.VITE_GCP_API_KEY }} \
             -t ${IMAGE}:${{ steps.meta.outputs.sha }} \
             -t ${IMAGE}:latest \
             --target production \
