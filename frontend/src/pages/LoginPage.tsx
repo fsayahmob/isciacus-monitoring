@@ -118,8 +118,8 @@ export function LoginPage(): React.ReactElement {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold text-text-primary">ISCIACUS Monitoring</h1>
-          <p className="mt-2 text-text-secondary">Product Analytics Dashboard</p>
+          <h1 className="text-2xl font-semibold text-text-primary">Merchant Dashboard</h1>
+          <p className="mt-2 text-text-secondary">E-commerce Analytics & Monitoring</p>
         </div>
 
         {/* Login Card */}
