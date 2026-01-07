@@ -4,7 +4,7 @@
  * Provides authentication state and methods to the app.
  */
 
-import { GoogleAuthProvider, signInWithRedirect, signOut as firebaseSignOut } from 'firebase/auth'
+import { GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth'
 import { useCallback, useMemo } from 'react'
 
 import { AuthContext, type AuthContextType } from './AuthContext'
@@ -32,8 +32,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     try {
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
-      await signInWithRedirect(auth, provider)
-      // Redirect will handle the rest - user comes back after auth
+      await signInWithPopup(auth, provider)
+      // Popup handles auth flow and returns here when complete
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign in failed'
       setError(message)

@@ -39,11 +39,8 @@ export function getFirebaseConfig(): FirebaseConfig | null {
     return null
   }
 
-  // Use current domain as authDomain for Cloud Run deployments
-  // This avoids the "unauthorized domain" error with signInWithRedirect
-  const currentHost = typeof window !== 'undefined' ? window.location.host : ''
-  const isCloudRun = currentHost.includes('.run.app')
-  const authDomain = isCloudRun ? currentHost : `${projectId}.firebaseapp.com`
+  // authDomain must be firebaseapp.com (hosts the /__/auth/handler)
+  const authDomain = `${projectId}.firebaseapp.com`
 
   return { apiKey, authDomain, projectId }
 }
