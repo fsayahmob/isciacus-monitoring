@@ -5,7 +5,7 @@
  */
 
 import type { User as FirebaseUser } from 'firebase/auth'
-import { getRedirectResult, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
+import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { AppUser } from './AuthContext'
@@ -71,14 +71,6 @@ export function useAuthState(): AuthState & AuthStateActions {
     if (auth === null) {
       return undefined
     }
-
-    // Handle redirect result (for signInWithRedirect)
-    void getRedirectResult(auth).catch((err: unknown) => {
-      if (isMounted.current) {
-        const message = err instanceof Error ? err.message : 'Redirect auth failed'
-        setError(message)
-      }
-    })
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!isMounted.current) {

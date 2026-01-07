@@ -7,8 +7,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     headers: {
-      // Required for Firebase Auth popup to work
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      // Disable COOP in dev to allow Firebase Auth popup to work
+      // Production uses nginx.conf with same-origin-allow-popups
+      'Cross-Origin-Opener-Policy': 'unsafe-none',
     },
   },
   test: {
