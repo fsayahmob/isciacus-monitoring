@@ -7,7 +7,7 @@
 import type { FirebaseApp } from 'firebase/app'
 import { initializeApp } from 'firebase/app'
 import type { Auth } from 'firebase/auth'
-import { getAuth } from 'firebase/auth'
+import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
 
 import type { AppUser } from './AuthContext'
 
@@ -59,6 +59,8 @@ export function initializeFirebase(): Auth | null {
   try {
     firebaseApp = initializeApp(config)
     authInstance = getAuth(firebaseApp)
+    // Set persistence to local storage to survive page reloads
+    void setPersistence(authInstance, browserLocalPersistence)
     return authInstance
   } catch (err) {
     console.error('Failed to initialize Firebase:', err)
