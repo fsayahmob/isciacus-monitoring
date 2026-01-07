@@ -119,89 +119,27 @@ jobs:
         id: meta
         run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
-      - name: Build and push Backend image
+      # Dev environment: Use existing staging services for backend/pocketbase
+      # Only deploy frontend with dev config for fast iteration
+      # This makes dev deployment much faster (~2 min vs ~5 min)
+      - name: Get staging service URLs
         if: steps.check-secrets.outputs.configured == 'true'
+        id: staging-urls
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/backend"
-          docker build -t ${IMAGE}:${{ steps.meta.outputs.sha }}-dev -t ${IMAGE}:dev ./backend
-          docker push ${IMAGE}:${{ steps.meta.outputs.sha }}-dev
-          docker push ${IMAGE}:dev
-
-      - name: Create GCS bucket for dev data
-        if: steps.check-secrets.outputs.configured == 'true'
-        run: |
-          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data-dev"
-          gcloud storage buckets describe "gs://${BUCKET_NAME}" 2>/dev/null || \
-          gcloud storage buckets create "gs://${BUCKET_NAME}" \
-            --location=${{ env.REGION }} \
-            --uniform-bucket-level-access
-
-      - name: Pull and push PocketBase image to Artifact Registry
-        if: steps.check-secrets.outputs.configured == 'true'
-        run: |
-          docker pull ghcr.io/muchobien/pocketbase:latest
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/pocketbase"
-          docker tag ghcr.io/muchobien/pocketbase:latest ${IMAGE}:latest
-          docker tag ghcr.io/muchobien/pocketbase:latest ${IMAGE}:dev
-          docker push ${IMAGE}:latest
-          docker push ${IMAGE}:dev
-
-      - name: Deploy PocketBase (Dev)
-        if: steps.check-secrets.outputs.configured == 'true'
-        id: deploy-pocketbase
-        run: |
-          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data-dev"
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/pocketbase"
-          gcloud run deploy isciacus-pocketbase${{ env.ENV_SUFFIX }} \
-            --image=${IMAGE}:dev \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --port=8090 \
-            --memory=512Mi \
-            --cpu=1 \
-            --min-instances=0 \
-            --max-instances=2 \
-            --set-env-vars="PB_ADMIN_EMAIL=admin@isciacus.com,PB_ADMIN_PASSWORD=devpass123" \
-            --add-volume=name=pocketbase-data,type=cloud-storage,bucket=${BUCKET_NAME},mount-options="only-dir=pocketbase" \
-            --add-volume-mount=volume=pocketbase-data,mount-path=/pb_data \
-            --execution-environment=gen2 \
-            --quiet
-          URL=$(gcloud run services describe isciacus-pocketbase${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
-          echo "url=${URL}" >> $GITHUB_OUTPUT
-
-      - name: Deploy Backend (Dev)
-        if: steps.check-secrets.outputs.configured == 'true'
-        id: deploy-backend
-        run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/backend"
-          BUCKET_NAME="${{ env.PROJECT_ID }}-isciacus-data-dev"
-          gcloud run deploy isciacus-backend${{ env.ENV_SUFFIX }} \
-            --image=${IMAGE}:${{ steps.meta.outputs.sha }}-dev \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --port=8080 \
-            --memory=1Gi \
-            --cpu=2 \
-            --min-instances=0 \
-            --max-instances=5 \
-            --timeout=300 \
-            --set-env-vars="POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }},DATA_DIR=/app/data,ENVIRONMENT=dev" \
-            --add-volume=name=backend-data,type=cloud-storage,bucket=${BUCKET_NAME},mount-options="only-dir=backend" \
-            --add-volume-mount=volume=backend-data,mount-path=/app/data \
-            --execution-environment=gen2 \
-            --quiet
-          URL=$(gcloud run services describe isciacus-backend${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
-          echo "url=${URL}" >> $GITHUB_OUTPUT
+          BACKEND_URL=$(gcloud run services describe isciacus-backend-staging --region=${{ env.REGION }} --format='value(status.url)' 2>/dev/null || echo "")
+          POCKETBASE_URL=$(gcloud run services describe isciacus-pocketbase-staging --region=${{ env.REGION }} --format='value(status.url)' 2>/dev/null || echo "")
+          echo "backend_url=${BACKEND_URL}" >> $GITHUB_OUTPUT
+          echo "pocketbase_url=${POCKETBASE_URL}" >> $GITHUB_OUTPUT
+          echo "Backend URL: ${BACKEND_URL}"
+          echo "PocketBase URL: ${POCKETBASE_URL}"
 
       - name: Build and push Frontend image with API URLs
         if: steps.check-secrets.outputs.configured == 'true'
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/isciacus-monitoring/frontend"
           docker build \
-            --build-arg VITE_API_BASE_URL=${{ steps.deploy-backend.outputs.url }} \
-            --build-arg VITE_POCKETBASE_URL=${{ steps.deploy-pocketbase.outputs.url }} \
+            --build-arg VITE_API_BASE_URL=${{ steps.staging-urls.outputs.backend_url }} \
+            --build-arg VITE_POCKETBASE_URL=${{ steps.staging-urls.outputs.pocketbase_url }} \
             --build-arg VITE_ENVIRONMENT=dev \
             --build-arg VITE_APP_VERSION=${{ steps.meta.outputs.sha }} \
             --build-arg VITE_GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
@@ -232,34 +170,18 @@ jobs:
           URL=$(gcloud run services describe isciacus-frontend${{ env.ENV_SUFFIX }} --region=${{ env.REGION }} --format='value(status.url)')
           echo "url=${URL}" >> $GITHUB_OUTPUT
 
-      - name: Initialize PocketBase collections (Dev)
-        if: steps.check-secrets.outputs.configured == 'true'
-        run: |
-          echo "Waiting for PocketBase..."
-          for i in {1..30}; do
-            if curl -sf "${{ steps.deploy-pocketbase.outputs.url }}/api/health" > /dev/null 2>&1; then
-              echo "PocketBase is ready!"
-              break
-            fi
-            echo "Attempt $i/30..."
-            sleep 5
-          done
-          cd backend && pip install requests && python scripts/init_pocketbase.py
-        env:
-          POCKETBASE_URL: ${{ steps.deploy-pocketbase.outputs.url }}
-          PB_ADMIN_EMAIL: admin@isciacus.com
-          PB_ADMIN_PASSWORD: devpass123
+      # Skip PocketBase init for dev - uses staging PocketBase which is already initialized
 
       - name: Dev Deployment Summary
         if: steps.check-secrets.outputs.configured == 'true'
         run: |
           echo "## Dev Deployment Complete!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### URLs (Dev)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend**: ${{ steps.deploy-frontend.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend**: ${{ steps.deploy-backend.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **PocketBase**: ${{ steps.deploy-pocketbase.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs (Dev Frontend + Staging Backend)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend (Dev)**: ${{ steps.deploy-frontend.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend (Staging)**: ${{ steps.staging-urls.outputs.backend_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PocketBase (Staging)**: ${{ steps.staging-urls.outputs.pocketbase_url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Image Tag: \`${{ steps.meta.outputs.sha }}-dev\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note**: This is a dev environment deployed without E2E tests." >> $GITHUB_STEP_SUMMARY
+          echo "**Note**: Dev frontend deployed without E2E tests, using staging backend/pocketbase." >> $GITHUB_STEP_SUMMARY
